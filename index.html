@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>eatmi.pl — Zamówienia (PWA)</title>
+  <meta name="description" content="Zamówienia przez aplikację PWA — prosto i szybko." />
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#FF7A18" />
+  <link rel="icon" type="image/png" href="favicon.png">
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              a: '#FF6A00',
+              b: '#FF9100',
+              ink: '#1F2937',
+              cream: '#FFF7ED',
+              card: 'rgba(255,255,255,0.72)',
+              card2: 'rgba(255,255,255,0.58)',
+              line: 'rgba(255,255,255,0.50)'
+            }
+          },
+          boxShadow: {
+            soft: '0 10px 30px rgba(0,0,0,.10)',
+            glass: '0 14px 50px rgba(17,24,39,.16)',
+            glow: '0 12px 30px rgba(255,122,24,.25)',
+          },
+          borderRadius: {
+            xl2: '1.25rem',
+            xl3: '1.75rem'
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Icons + React UMD -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    html{scroll-behavior:smooth}
+    body{
+      background: radial-gradient(1200px 700px at 10% 0%, rgba(255,145,0,.28), transparent 60%),
+                  radial-gradient(900px 600px at 90% 10%, rgba(255,106,0,.26), transparent 55%),
+                  linear-gradient(180deg, #FFF7ED 0%, #FFF2E5 45%, #FFF7ED 100%);
+      min-height: 100vh;
+    }
+    .glass{ background: rgba(255,255,255,0.70); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    .glass2{ background: rgba(255,255,255,0.55); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    .safe-bottom{ padding-bottom: calc(env(safe-area-inset-bottom) + 92px); }
+    .safe-nav{ padding-bottom: env(safe-area-inset-bottom); }
+    @keyframes popin { from { opacity: 0; transform: translateY(10px) scale(.98);} to {opacity:1; transform: translateY(0) scale(1);} }
+    .popin{ animation: popin .25s ease-out both; }
+    @keyframes toast-progress { from { width: 100%; } to { width: 0%; } }
+    .toast-bar { animation: toast-progress 2.5s linear forwards; }
+  </style>
+</head>
+
+<body class="text-brand-ink">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const {useEffect, useMemo, useRef, useState} = React;
+
+    /* =======================
+        MENU (Twoje dane)
+    ======================= */
+    const PRODUCT_CATEGORIES = [
+      { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open', description: 'Małe, średnie i duże zestawy. Także VEGE.' },
+      { id: 'lunche', name: 'Lunche', icon: 'utensils-crossed', description: 'Lunch tygodnia, miesiąca i vege (12:00–16:00).' },
+      { id: 'kanapki', name: 'Kanapki', icon: 'sandwich', description: 'Kanapki i buritto na maślanym pieczywie.' },
+      { id: 'zdrowe', name: 'Zdrowe', icon: 'leaf', description: 'Granola i sałatki w wersjach fit.' },
+      { id: 'slodkie', name: 'Słodkie', icon: 'ice-cream', description: 'Desery, pancakes, tost francuski i smoothie.' },
+      { id: 'napoje', name: 'Napoje', icon: 'cup-soda', description: 'Kawy, herbaty, lemoniada i sok.' },
+    ];
+
+    const BREAKFAST_BOXES = [
+      { id:'bs-small-1', name:'Box śniadaniowy mały nr 1', price: 38, subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Sok pomarańczowy 250 ml' },
+      { id:'bs-small-2', name:'Box śniadaniowy mały nr 2', price: 40, subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Sok pomarańczowy 250 ml' },
+      { id:'bs-small-3', name:'Box śniadaniowy mały nr 3', price: 42, subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Sok pomarańczowy 250 ml' },
+      { id:'bs-small-vege', name:'Box śniadaniowy mały VEGE', price: 38, subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Sok pomarańczowy 250 ml' },
+
+      { id:'bs-med-1', name:'Box śniadaniowy średni nr 1', price: 52, subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml' },
+      { id:'bs-med-2', name:'Box śniadaniowy średni nr 2', price: 54, subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml' },
+      { id:'bs-med-3', name:'Box śniadaniowy średni nr 3', price: 56, subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml' },
+      { id:'bs-med-vege', name:'Box śniadaniowy średni VEGE', price: 52, subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
+
+      { id:'bs-big-1', name:'Box śniadaniowy duży nr 1', price: 80, subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Club sandwich z kurczakiem i bekonem, majonez, sałata, pomidor • Domowa granola z jogurtem greckim, owocami i miodem • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml' },
+      { id:'bs-big-2', name:'Box śniadaniowy duży nr 2', price: 82, subtitle:'Buritto z jajecznicą i chorizo • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Domowa granola z jogurtem greckim, owocami i miodem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml' },
+      { id:'bs-big-3', name:'Box śniadaniowy duży nr 3', price: 84, subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Domowa granola z jogurtem greckim, owocami i miodem • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml' },
+      { id:'bs-big-vege', name:'Box śniadaniowy duży VEGE', price: 80, subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Vege club sandwich z camembert i awokado, majonez, sałata, pomidor • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Domowa granola z jogurtem greckim, owocami i miodem • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
+    ];
+
+    const LUNCHES = [
+      { id:'lunch-week', name:'Lunch tygodnia', price: 49, subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Corn Flake Chicken: panierowana w płatkach kukurydzianych pierś z kurczaka z ziemniaczanym puree i coleslawem • Domowa lemoniada 250 ml' },
+      { id:'lunch-month', name:'Lunch miesiąca', price: 59, subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Kurczak Supreme: pieczona pierś z kurczaka z ziemniaczanym puree, warzywami i sosem demi glace • Domowa lemoniada 250 ml' },
+      { id:'lunch-vege', name:'Lunch VEGE', price: 49, subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Tagliatelle z warzywami, oliwą z oliwek i pastą truflową • Domowa lemoniada 250 ml' },
+    ];
+
+    const SANDWICHES = [
+      { id:'k-jajecznica-bekon', name:'Maślane pieczywo z jajecznicą, bekonem i majonezem sriracha', price: 17 },
+      { id:'k-club-kurczak', name:'Club sandwich z grillowanym kurczakiem, chrupiący bekon, majonez, sałata i pomidor', price: 17 },
+      { id:'k-club-vege', name:'Vege club sandwich z camembert, palonym awokado, majonezem, sałatą i pomidorem', price: 17 },
+      { id:'k-jajecznica-avo', name:'Maślane pieczywo z jajecznicą, awokado i majonezem sriracha', price: 17 },
+      { id:'k-buritto-chorizo', name:'Buritto z jajecznicą z mozzarellą, chorizo i majonezem sriracha', price: 19 },
+      { id:'k-rostbef', name:'Maślane pieczywo z rostbefem, jajkiem poche, rukolą, sosem musztardowo-chrzanowym i oliwą truflową', price: 21 },
+    ];
+
+    const HEALTHY = [
+      { id:'z-granola', name:'Domowa granola z jogurtem greckim, owoce i miód', price: 19 },
+      { id:'z-cezar', name:'Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską, parmezanem i grzankami', price: 19 },
+      { id:'z-koreanska', name:'Sałatka koreańska z kurczakiem w panko, warzywa i sezam, słodki sos sojowy', price: 19 },
+      { id:'z-burak', name:'Sałatka z carpaccio z buraka i serem kozim, karmelizowane orzechy pekan, mix sałat i pomarańczowy dressing', price: 19 },
+    ];
+
+    const SWEETS = [
+      { id:'s-smoothie', name:'Smoothie Mango Lassi (mango, jogurt grecki, miód)', price: 19 },
+      { id:'s-tost-fr', name:'Tost francuski z owocami i miodem', price: 19 },
+      { id:'s-pancakes', name:'Pancakes (2 szt.) z Nutellą i owocami', price: 19 },
+      { id:'s-deser-czeko', name:'Deser czekoladowy z owocami i kruszonką', price: 19 },
+    ];
+
+    const DRINKS = [
+      { id:'n-lemoniada', name:'Domowa lemoniada 250 ml', price: 12 },
+      { id:'n-sok-pom', name:'Sok pomarańczowy 250 ml', price: 12 },
+      { id:'n-kawa-filt-cz', name:'Kawa filtrowana czarna 300 ml', price: 10 },
+      { id:'n-kawa-filt-b', name:'Kawa filtrowana biała 300 ml', price: 10 },
+      { id:'n-espresso-double', name:'Kawa czarna (podwójne espresso) 300 ml', price: 11 },
+      { id:'n-flat-white', name:'Kawa Flat White (podwójne espresso) 300 ml', price: 11 },
+      { id:'n-latte', name:'Latte (podwójne espresso) 300 ml', price: 12 },
+      { id:'n-cappu', name:'Cappuccino (podwójne espresso) 300 ml', price: 11 },
+      { id:'n-matcha', name:'Matcha 300 ml', price: 18 },
+      { id:'n-herbata-cz', name:'Herbata czarna z cytryną 300 ml', price: 9 },
+      { id:'n-zimowa', name:'Zimowa herbata z miodem, cytrusami, goździkami i sokiem malinowym 300 ml', price: 15 },
+    ];
+
+    const PRODUCTS = {
+      'boxy-sniadaniowe': BREAKFAST_BOXES,
+      'lunche': LUNCHES,
+      'kanapki': SANDWICHES,
+      'zdrowe': HEALTHY,
+      'slodkie': SWEETS,
+      'napoje': DRINKS,
+    };
+
+    const EXTRA_ITEMS = [
+      { id:'extra-granola', name:'Domowa granola', price: 19 },
+      { id:'extra-lemoniada',name:'Domowa lemoniada', price: 12 },
+      { id:'extra-deser', name:'Deser czekoladowy', price: 19 },
+    ];
+
+    /* =======================
+        Utils / Storage
+    ======================= */
+    const currency = (n) => new Intl.NumberFormat('pl-PL', { style:'currency', currency:'PLN' }).format(n);
+
+    const useLocalStorage = (key, initial) => {
+      const [state, setState] = useState(() => {
+        try { return JSON.parse(localStorage.getItem(key)) ?? initial } catch { return initial }
+      });
+      useEffect(() => { localStorage.setItem(key, JSON.stringify(state)) }, [key, state]);
+      return [state, setState];
+    };
+
+    const isStandalone = () =>
+      window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone;
+
+    /* =======================
+        Toast
+    ======================= */
+    const ToastContext = React.createContext();
+    const useToast = () => React.useContext(ToastContext);
+
+    const ToastProvider = ({children}) => {
+      const [toast, setToast] = useState(null);
+      const t = useRef(null);
+
+      const show = (title, message) => {
+        setToast({title, message});
+        if (t.current) clearTimeout(t.current);
+        t.current = setTimeout(() => setToast(null), 2500);
+      };
+
+      const close = () => {
+        if (t.current) clearTimeout(t.current);
+        setToast(null);
+      };
+
+      return (
+        <ToastContext.Provider value={{ show }}>
+          {children}
+          {toast && (
+            <div className="fixed bottom-[110px] left-1/2 -translate-x-1/2 z-[100] popin">
+              <div className="relative glass border border-white/60 shadow-glass rounded-3xl px-4 py-3 min-w-[260px] max-w-[90vw] flex items-start gap-3">
+                <div className="w-9 h-9 rounded-2xl bg-white/90 flex items-center justify-center shadow-soft">
+                  <i data-lucide="check" className="w-5 h-5"></i>
+                </div>
+                <div className="flex-1">
+                  <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-gray-700">
+                    {toast.title || 'Info'}
+                  </div>
+                  <div className="text-sm text-gray-900 mt-0.5">
+                    {toast.message}
+                  </div>
+                </div>
+                <button onClick={close} className="text-gray-500 hover:text-gray-800 text-xl leading-none" aria-label="Zamknij">
+                  ×
+                </button>
+                <div className="absolute left-4 right-4 -bottom-1.5 h-1 rounded-full overflow-hidden bg-white/50">
+                  <div className="toast-bar h-full bg-gradient-to-r from-brand-a to-brand-b"></div>
+                </div>
+              </div>
+            </div>
+          )}
+        </ToastContext.Provider>
+      );
+    };
+
+    /* =======================
+        Cart + Orders
+    ======================= */
+    const CartContext = React.createContext();
+    const useCart = () => React.useContext(CartContext);
+
+    const CartProvider = ({children}) => {
+      const [cart, setCart] = useLocalStorage('eatmi-cart', []);
+      const [orders, setOrders] = useLocalStorage('eatmi-orders', []);
+      const { show } = useToast();
+
+      const add = (entry) => {
+        const id = (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+        const item = { id, qty: 1, ...entry };
+        setCart(prev => [...prev, item]);
+        show('Dodano do koszyka', entry.name);
+      };
+
+      const remove = (id) => setCart(prev => prev.filter(i => i.id !== id));
+      const setQty  = (id, qty) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: Math.max(1, qty|0)} : i));
+      const incQty  = (id) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: (i.qty||1)+1} : i));
+      const decQty  = (id) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: Math.max(1, (i.qty||1)-1)} : i));
+      const clear   = () => setCart([]);
+
+      const lineTotal = (i) => (i.price || 0) * (i.qty || 1);
+      const total = useMemo(() => cart.reduce((s,i)=> s + lineTotal(i), 0), [cart]);
+
+      const pushLocalOrder = (payload) => {
+        const order = {
+          id: (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
+          createdAt: Date.now(),
+          status: 'Złożone',
+          ...payload
+        };
+        setOrders(prev => [order, ...prev]);
+        return order;
+      };
+
+      return (
+        <CartContext.Provider value={{
+          cart, add, remove, setQty, incQty, decQty, clear, lineTotal, total,
+          orders, pushLocalOrder
+        }}>
+          {children}
+        </CartContext.Provider>
+      );
+    };
+
+    /* =======================
+        Tiny UI building blocks
+    ======================= */
+    const AppShell = ({title, right, children}) => (
+      <div className="min-h-screen safe-bottom">
+        <div className="sticky top-0 z-40 px-4 pt-4">
+          <div className="glass border border-brand-line rounded-3xl shadow-glass px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-white/80 shadow-soft grid place-items-center overflow-hidden">
+                <img src="https://i.imgur.com/f9TN0Gh.png" className="w-8 h-8 object-contain" alt="eatmi" />
+              </div>
+              <div>
+                <div className="text-xs text-gray-600 font-semibold">eatmi.pl</div>
+                <div className="text-lg font-extrabold leading-tight">{title}</div>
+              </div>
+            </div>
+            {right}
+          </div>
+        </div>
+
+        <main className="px-4 pb-6 pt-4 max-w-3xl mx-auto">
+          {children}
+        </main>
+      </div>
+    );
+
+    const Pill = ({children}) => (
+      <div className="inline-flex items-center gap-2 px-3 py-2 rounded-2xl bg-white/75 border border-white/60 shadow-soft text-sm font-extrabold">
+        {children}
+      </div>
+    );
+
+    const Card = ({children, className=''}) => (
+      <div className={`glass border border-white/60 rounded-3xl shadow-glass ${className}`}>
+        {children}
+      </div>
+    );
+
+    const QuickTile = ({icon, title, subtitle, onClick}) => (
+      <button onClick={onClick}
+        className="w-full text-left bg-white/70 border border-white/60 rounded-3xl shadow-soft hover:shadow-glass transition p-4 active:scale-[0.99]">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-a to-brand-b shadow-glow grid place-items-center text-white">
+            <i data-lucide={icon} className="w-6 h-6"></i>
+          </div>
+          <div className="min-w-0">
+            <div className="font-extrabold text-gray-900">{title}</div>
+            <div className="text-sm text-gray-600">{subtitle}</div>
+          </div>
+        </div>
+      </button>
+    );
+
+    const splitSubtitle = (text='') =>
+      text.split('•').map(s => s.trim()).filter(Boolean);
+
+    const getBadges = (categoryId, name) => {
+      const badges = [];
+      const upper = (name||'').toUpperCase();
+      if (categoryId === 'boxy-sniadaniowe') badges.push({ label: 'BOX', cls: 'bg-white/70 border-white/70' });
+      if (categoryId === 'lunche') badges.push({ label: 'LUNCH 12–16', cls: 'bg-white/70 border-white/70' });
+      if (upper.includes('VEGE')) badges.push({ label: 'VEGE', cls: 'bg-white/70 border-white/70' });
+      return badges;
+    };
+
+    const ProductCard = ({ item, categoryId, onAdd }) => {
+      const bullets = splitSubtitle(item.subtitle || '');
+      const badges = getBadges(categoryId, item.name);
+
+      return (
+        <div className="relative bg-white/70 border border-white/60 rounded-3xl p-5 shadow-soft hover:shadow-glass transition overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-a via-orange-300 to-brand-b opacity-80"></div>
+
+          {badges.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3 mt-1">
+              {badges.map((b, i) => (
+                <span key={i} className={`text-[10px] font-extrabold tracking-widest uppercase border px-2.5 py-1 rounded-full ${b.cls}`}>
+                  {b.label}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <h3 className="text-lg font-extrabold text-gray-900 leading-snug">
+            {item.name}
+          </h3>
+
+          {bullets.length > 0 && (
+            <ul className="mt-3 space-y-1.5 text-sm text-gray-700">
+              {bullets.slice(0, 5).map((b, idx) => (
+                <li key={idx} className="flex gap-2">
+                  <span className="mt-[7px] w-1.5 h-1.5 rounded-full bg-gray-900/50 shrink-0"></span>
+                  <span>{b}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="mt-5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className="px-3 py-1.5 rounded-2xl bg-gray-900 text-white font-extrabold text-base shadow">
+                {currency(item.price)}
+              </div>
+              <div className="text-xs text-gray-600 font-bold uppercase tracking-wider">
+                / szt.
+              </div>
+            </div>
+
+            <button onClick={() => onAdd(item)}
+              className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-brand-a to-brand-b text-white font-extrabold px-4 py-2.5 rounded-2xl shadow-glow active:scale-[0.98] transition">
+              <i data-lucide="plus" className="w-4 h-4"></i> Dodaj
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    /* =======================
+        PWA Install prompt (nice)
+    ======================= */
+    const InstallCard = () => {
+      const [deferred, setDeferred] = useState(null);
+      const [hidden, setHidden] = useLocalStorage('eatmi-install-hidden', false);
+
+      useEffect(() => {
+        const onBIP = (e) => {
+          e.preventDefault();
+          setDeferred(e);
+        };
+        window.addEventListener('beforeinstallprompt', onBIP);
+        return () => window.removeEventListener('beforeinstallprompt', onBIP);
+      }, []);
+
+      if (hidden) return null;
+      if (isStandalone()) return null;
+      if (!deferred) return null;
+
+      const install = async () => {
+        try {
+          deferred.prompt();
+          await deferred.userChoice;
+          setDeferred(null);
+        } catch {}
+      };
+
+      return (
+        <Card className="p-4 mb-4">
+          <div className="flex items-start gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-a to-brand-b shadow-glow grid place-items-center text-white">
+              <i data-lucide="smartphone" className="w-6 h-6"></i>
+            </div>
+            <div className="flex-1">
+              <div className="font-extrabold text-gray-900">Zainstaluj jako aplikację</div>
+              <div className="text-sm text-gray-700 mt-0.5">
+                Najlepsze doświadczenie jest w PWA (szybciej i wygodniej).
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button onClick={install}
+                  className="px-4 py-2.5 rounded-2xl bg-gray-900 text-white font-extrabold shadow-soft">
+                  Instaluj
+                </button>
+                <button onClick={() => setHidden(true)}
+                  className="px-4 py-2.5 rounded-2xl bg-white/70 border border-white/70 font-extrabold">
+                  Pomiń
+                </button>
+              </div>
+            </div>
+          </div>
+        </Card>
+      );
+    };
+
+    /* =======================
+        Pages (PWA-first)
+    ======================= */
+    const Home = () => {
+      const { cart, total, orders } = useCart();
+
+      const openNow = true; // tutaj możesz podpiąć realny status
+      const openText = openNow ? 'Jesteśmy otwarci' : 'Obecnie zamknięte';
+      const openDotCls = openNow ? 'bg-emerald-500' : 'bg-red-500';
+
+      return (
+        <AppShell
+          title="Zamówienia"
+          right={
+            <Pill>
+              <i data-lucide="shopping-cart" className="w-4 h-4"></i>
+              <span>{currency(total)}</span>
+            </Pill>
+          }
+        >
+          <InstallCard />
+
+          <Card className="p-4">
+            <button
+              onClick={() => alert('Tutaj podepnij godziny otwarcia / modal')}
+              className="w-full text-left"
+            >
+              <div className="flex items-center justify-center gap-2">
+                <span className={`w-2.5 h-2.5 rounded-full ${openDotCls}`}></span>
+                <div className="text-xl font-extrabold text-center">{openText}</div>
+              </div>
+              <div className="text-center text-sm text-gray-700 font-semibold mt-1">
+                Kliknij, aby zobaczyć godziny otwarcia
+              </div>
+            </button>
+          </Card>
+
+          <div className="mt-4">
+            <div className="bg-gradient-to-r from-brand-a to-brand-b rounded-3xl p-5 shadow-glow text-white">
+              <div className="text-sm font-semibold opacity-90">Szybki start</div>
+              <div className="text-2xl font-extrabold mt-1">Zamawiaj w 10 sekund</div>
+              <div className="text-sm opacity-95 mt-1">
+                Wybierz kategorię → dodaj produkty → zapłać online.
+              </div>
+
+              <div className="mt-4 grid grid-cols-3 gap-3">
+                <button
+                  onClick={() => window.location.hash = '#/menu'}
+                  className="bg-white/20 border border-white/30 rounded-2xl p-3 text-left hover:bg-white/25 transition"
+                >
+                  <i data-lucide="shopping-bag" className="w-5 h-5"></i>
+                  <div className="font-extrabold mt-1">Menu</div>
+                  <div className="text-[11px] opacity-90">Kategorie</div>
+                </button>
+
+                <button
+                  onClick={() => window.location.hash = '#/koszyk'}
+                  className="bg-white/20 border border-white/30 rounded-2xl p-3 text-left hover:bg-white/25 transition"
+                >
+                  <i data-lucide="shopping-cart" className="w-5 h-5"></i>
+                  <div className="font-extrabold mt-1">Koszyk</div>
+                  <div className="text-[11px] opacity-90">{cart.length ? 'Masz produkty' : 'Pusty'}</div>
+                </button>
+
+                <button
+                  onClick={() => window.location.hash = '#/zamowienia'}
+                  className="bg-white/20 border border-white/30 rounded-2xl p-3 text-left hover:bg-white/25 transition"
+                >
+                  <i data-lucide="clipboard-list" className="w-5 h-5"></i>
+                  <div className="font-extrabold mt-1">Zamówienia</div>
+                  <div className="text-[11px] opacity-90">{orders?.length ? 'Historia' : 'Brak'}</div>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5">
+            <div className="text-lg font-extrabold mb-2">Szybkie akcje</div>
+            <div className="grid gap-3">
+              <QuickTile
+                icon="package-open"
+                title="Boxy śniadaniowe"
+                subtitle="Najczęściej wybierane"
+                onClick={() => window.location.hash = '#/kategoria/boxy-sniadaniowe'}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <QuickTile
+                  icon="utensils-crossed"
+                  title="Lunche"
+                  subtitle="12:00–16:00"
+                  onClick={() => window.location.hash = '#/kategoria/lunche'}
+                />
+                <QuickTile
+                  icon="cup-soda"
+                  title="Napoje"
+                  subtitle="Kawa, herbata, lemoniada"
+                  onClick={() => window.location.hash = '#/kategoria/napoje'}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <div className="text-lg font-extrabold mb-2">Kategorie</div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {PRODUCT_CATEGORIES.map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => window.location.hash = `#/kategoria/${cat.id}`}
+                  className="bg-white/70 border border-white/60 rounded-3xl shadow-soft p-4 text-left hover:shadow-glass transition"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-bold text-gray-600">Kategoria</div>
+                      <div className="text-base font-extrabold">{cat.name}</div>
+                      <div className="text-sm text-gray-700 mt-1">{cat.description}</div>
+                    </div>
+                    <div className="w-11 h-11 rounded-2xl bg-white/80 shadow-soft grid place-items-center">
+                      <i data-lucide={cat.icon} className="w-5 h-5"></i>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </AppShell>
+      );
+    };
+
+    const Menu = () => (
+      <AppShell
+        title="Menu"
+        right={
+          <button
+            onClick={() => window.location.hash = '#/koszyk'}
+            className="px-3 py-2 rounded-2xl bg-white/75 border border-white/60 shadow-soft font-extrabold inline-flex items-center gap-2"
+          >
+            <i data-lucide="shopping-cart" className="w-4 h-4"></i>
+            Koszyk
+          </button>
+        }
+      >
+        <div className="grid gap-3">
+          {PRODUCT_CATEGORIES.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => window.location.hash = `#/kategoria/${cat.id}`}
+              className="bg-white/70 border border-white/60 rounded-3xl shadow-soft p-4 text-left hover:shadow-glass transition"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs font-bold text-gray-600">Kategoria</div>
+                  <div className="text-lg font-extrabold">{cat.name}</div>
+                  <div className="text-sm text-gray-700 mt-1">{cat.description}</div>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-a to-brand-b shadow-glow grid place-items-center text-white">
+                  <i data-lucide={cat.icon} className="w-6 h-6"></i>
+                </div>
+              </div>
+              <div className="mt-3 text-sm font-extrabold inline-flex items-center gap-2">
+                Otwórz <i data-lucide="arrow-right" className="w-4 h-4"></i>
+              </div>
+            </button>
+          ))}
+        </div>
+      </AppShell>
+    );
+
+    const CategoryPage = ({ categoryId }) => {
+      const { add } = useCart();
+      const category = PRODUCT_CATEGORIES.find(c => c.id === categoryId);
+      const items = PRODUCTS[categoryId] || [];
+
+      if (!category) {
+        return (
+          <AppShell title="Błąd" right={null}>
+            <Card className="p-4">
+              <div className="font-extrabold text-lg">Kategoria nie istnieje</div>
+              <div className="text-sm text-gray-700 mt-1">Wróć do menu i wybierz kategorię.</div>
+              <button
+                onClick={() => window.location.hash = '#/menu'}
+                className="mt-4 px-4 py-3 rounded-2xl bg-gray-900 text-white font-extrabold"
+              >
+                Wróć do menu
+              </button>
+            </Card>
+          </AppShell>
+        );
+      }
+
+      const handleAdd = (item) => add({ type: 'product', name: item.name, price: item.price });
+
+      return (
+        <AppShell
+          title={category.name}
+          right={
+            <button
+              onClick={() => window.location.hash = '#/koszyk'}
+              className="px-3 py-2 rounded-2xl bg-white/75 border border-white/60 shadow-soft font-extrabold inline-flex items-center gap-2"
+            >
+              <i data-lucide="shopping-cart" className="w-4 h-4"></i>
+              Koszyk
+            </button>
+          }
+        >
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-a to-brand-b shadow-glow grid place-items-center text-white">
+                <i data-lucide={category.icon} className="w-6 h-6"></i>
+              </div>
+              <div>
+                <div className="text-xs font-bold text-gray-600">Opis</div>
+                <div className="text-sm text-gray-800 font-semibold">{category.description}</div>
+              </div>
+            </div>
+            <button
+              onClick={() => window.location.hash = '#/menu'}
+              className="mt-3 text-sm font-extrabold inline-flex items-center gap-2"
+            >
+              <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do menu
+            </button>
+          </Card>
+
+          <div className="mt-4 grid sm:grid-cols-2 gap-3">
+            {items.map(item => (
+              <ProductCard key={item.id} item={item} categoryId={categoryId} onAdd={handleAdd} />
+            ))}
+          </div>
+        </AppShell>
+      );
+    };
+
+    const Koszyk = () => {
+      const { cart, remove, clear, total, incQty, decQty, setQty, lineTotal, add } = useCart();
+
+      return (
+        <AppShell
+          title="Koszyk"
+          right={
+            <Pill>
+              <i data-lucide="wallet" className="w-4 h-4"></i>
+              <span>{currency(total)}</span>
+            </Pill>
+          }
+        >
+          {cart.length === 0 ? (
+            <Card className="p-5">
+              <div className="font-extrabold text-lg">Twój koszyk jest pusty</div>
+              <div className="text-sm text-gray-700 mt-1">Dodaj produkty z menu i wróć tutaj.</div>
+              <button
+                onClick={() => window.location.hash = '#/menu'}
+                className="mt-4 px-4 py-3 rounded-2xl bg-gradient-to-r from-brand-a to-brand-b text-white font-extrabold shadow-glow"
+              >
+                Przejdź do menu
+              </button>
+            </Card>
+          ) : (
+            <>
+              <div className="grid gap-3">
+                {cart.map(item => (
+                  <div key={item.id} className="bg-white/70 border border-white/60 rounded-3xl shadow-soft p-4">
+                    <div className="font-extrabold">{item.name}</div>
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => decQty(item.id)} className="w-10 h-10 rounded-2xl bg-white/80 border border-white/70 shadow-soft grid place-items-center">−</button>
+                        <input
+                          value={item.qty||1}
+                          onChange={(e)=> setQty(item.id, parseInt(e.target.value||'1',10))}
+                          className="w-16 text-center rounded-2xl bg-white/80 border border-white/70 shadow-soft py-2 font-extrabold"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                        />
+                        <button onClick={() => incQty(item.id)} className="w-10 h-10 rounded-2xl bg-white/80 border border-white/70 shadow-soft grid place-items-center">+</button>
+                      </div>
+
+                      <div className="text-right">
+                        <div className="font-extrabold">{currency(lineTotal(item))}</div>
+                        <div className="text-xs text-gray-700 font-semibold">{currency(item.price)} / szt.</div>
+                      </div>
+                    </div>
+
+                    <button onClick={() => remove(item.id)} className="mt-3 text-sm font-extrabold text-red-600">
+                      Usuń
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <Card className="p-5 mt-4">
+                <div className="flex items-center justify-between">
+                  <div className="font-extrabold">Suma</div>
+                  <div className="text-xl font-extrabold">{currency(total)}</div>
+                </div>
+
+                <div className="mt-3 grid gap-2">
+                  <button
+                    onClick={() => window.location.hash = '#/zamowienie'}
+                    className="w-full px-4 py-3 rounded-2xl bg-gray-900 text-white font-extrabold shadow-soft"
+                  >
+                    Przejdź do zamówienia
+                  </button>
+                  <button
+                    onClick={clear}
+                    className="w-full px-4 py-3 rounded-2xl bg-white/70 border border-white/70 font-extrabold"
+                  >
+                    Wyczyść koszyk
+                  </button>
+                </div>
+              </Card>
+
+              <div className="mt-5">
+                <div className="text-lg font-extrabold mb-2">Szybkie dodatki (1 klik)</div>
+                <div className="flex flex-wrap gap-2">
+                  {EXTRA_ITEMS.map(extra => (
+                    <button
+                      key={extra.id}
+                      onClick={() => add({ type:'extra', name: extra.name, price: extra.price })}
+                      className="px-4 py-2.5 rounded-full bg-white/70 border border-white/70 shadow-soft font-extrabold text-sm"
+                    >
+                      + {extra.name} • {currency(extra.price)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </AppShell>
+      );
+    };
+
+    const Zamowienie = () => {
+      const { cart, total, lineTotal, clear, pushLocalOrder } = useCart();
+      const { show } = useToast();
+
+      const [form, setForm] = useState({
+        imieNazwisko:'', telefon:'', email:'', miasto:'', kod:'', ulica:'', nrBud:'', pietro:'', lokal:'',
+        uwagi:'', faktura:false, nip:'', firma:''
+      });
+      const handle = (k,v)=> setForm(s=> ({...s,[k]:v}));
+
+      const submit = async () => {
+        if(!cart.length){
+          show('Błąd', 'Koszyk jest pusty.');
+          window.location.hash = '#/menu';
+          return;
+        }
+        if(!form.imieNazwisko || !form.telefon || !form.miasto || !form.ulica) {
+          alert('Uzupełnij wymagane pola: imię i nazwisko, telefon, miasto, ulica.');
+          return;
+        }
+
+        // Lokalnie dodaj do historii (PWA feel)
+        const localOrder = pushLocalOrder({ customer: form, cart, total });
+
+        try {
+          const payload = { customer: form, cart, total, localOrderId: localOrder.id };
+
+          const r = await fetch("/api/payu/order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          const data = await r.json();
+          if (!data.redirectUri) {
+            alert("Nie udało się rozpocząć płatności PayU.");
+            return;
+          }
+
+          // opcjonalnie: czyścić koszyk dopiero po redirect? zależy od flow
+          clear();
+          window.location.href = data.redirectUri;
+        } catch (e) {
+          alert("Błąd połączenia z PayU.");
+        }
+      };
+
+      return (
+        <AppShell title="Zamówienie" right={null}>
+          {!cart.length ? (
+            <Card className="p-5">
+              <div className="font-extrabold text-lg">Koszyk pusty</div>
+              <div className="text-sm text-gray-700 mt-1">Dodaj produkty i wróć do zamówienia.</div>
+              <button
+                onClick={() => window.location.hash = '#/menu'}
+                className="mt-4 px-4 py-3 rounded-2xl bg-gradient-to-r from-brand-a to-brand-b text-white font-extrabold shadow-glow"
+              >
+                Przejdź do menu
+              </button>
+            </Card>
+          ) : (
+            <>
+              <Card className="p-5">
+                <div className="font-extrabold text-lg">Dane dostawy</div>
+                <div className="grid gap-3 mt-3">
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <input value={form.imieNazwisko} onChange={e=>handle('imieNazwisko', e.target.value)}
+                      placeholder="Imię i nazwisko *"
+                      className="w-full rounded-2xl bg-white/80 border border-white/70 shadow-soft px-4 py-3 font-semibold outline-none" />
+                    <input value={form.telefon} onChange={e=>handle('telefon', e.target.value)}
+                      placeholder="Telefon *"
+                      className="w-full rounded-2xl bg-white/80 border border-white/70 shadow-soft px-4 py-3 font-semibold outline-none" />
+                  </div>
+
+                  <input value={form.email} onChange={e=>handle('email', e.target.value)}
+                    placeholder="Email (opcjonalnie)"
+                    className="w-full rounded-2xl bg-white/80 border border-white/70 shadow-soft px-4 py-3 font-semibold outline-none" />
+
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <input value={form.miasto} onChange={e=>handle('miasto', e.target.value)}
+                      placeholder="Miasto *"
+                      className="w-full rounded-2xl bg-white/80 border border-white/70 shadow-soft px-4 py-3 font-semibold outline-none" />
+                    <input value={form.kod} onChange={e=>handle('kod', e.target.value)}
+                      placeholder="Kod pocztowy"
+                      className="w-full rounded-2xl bg-white/80 border border-white/70 shadow-soft px-4 py-3 font-semibold outline-none" />
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <input value={form.ulica} onChange={e=>handle('ulica', e.target.value)}
+                      placeholder="Ulica *"
+                      className="w-full rounded-2xl bg-white/80 border border-white/70 shadow-soft px-4 py-3 font-semibold outline-none" />
+                    <input value={form.nrBud} onChange={e=>handle('nrBud', e.target.value)}
+                      placeholder="Nr budynku"
+                      className="w-full rounded-2xl bg-white/80 border border-white/70 shadow-soft px-4 py-3 font-semibold outline-none" />
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <input value={form.pietro} onChange={e=>handle('pietro', e.target.value)}
+                      placeholder="Piętro"
+                      className="w-full rounded-2xl bg-white/80 border border-white/70 shadow-soft px-4 py-3 font-semibold outline-none" />
+                    <input value={form.lokal} onChange={e=>handle('lokal', e.target.value)}
+                      placeholder="Nr lokalu"
+                      className="w-full rounded-2xl bg-white/80 border border-white/70 shadow-soft px-4 py-3 font-semibold outline-none" />
+                  </div>
+
+                  <textarea value={form.uwagi} onChange={e=>handle('uwagi', e.target.value)}
+                    placeholder="Uwagi do zamówienia"
+                    className="w-full min-h-[110px] rounded-2xl bg-white/80 border border-white/70 shadow-soft px-4 py-3 font-semibold outline-none"></textarea>
+
+                  <label className="flex items-center gap-2 text-sm font-extrabold">
+                    <input type="checkbox" checked={form.faktura} onChange={e=>handle('faktura', e.target.checked)} />
+                    Chcę dane do faktury
+                  </label>
+
+                  {form.faktura && (
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <input value={form.nip} onChange={e=>handle('nip', e.target.value)}
+                        placeholder="NIP"
+                        className="w-full rounded-2xl bg-white/80 border border-white/70 shadow-soft px-4 py-3 font-semibold outline-none" />
+                      <input value={form.firma} onChange={e=>handle('firma', e.target.value)}
+                        placeholder="Nazwa firmy"
+                        className="w-full rounded-2xl bg-white/80 border border-white/70 shadow-soft px-4 py-3 font-semibold outline-none" />
+                    </div>
+                  )}
+                </div>
+              </Card>
+
+              <Card className="p-5 mt-4">
+                <div className="font-extrabold text-lg">Podsumowanie</div>
+                <div className="mt-3 space-y-2 max-h-56 overflow-auto pr-1">
+                  {cart.map(i => (
+                    <div key={i.id} className="flex items-center justify-between text-sm font-semibold">
+                      <span className="pr-2">{i.name} × {i.qty||1}</span>
+                      <span className="font-extrabold">{currency(lineTotal(i))}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 flex items-center justify-between text-lg">
+                  <span className="font-extrabold">Do zapłaty</span>
+                  <span className="font-extrabold">{currency(total)}</span>
+                </div>
+
+                <button onClick={submit}
+                  className="w-full mt-4 px-4 py-3 rounded-2xl bg-gradient-to-r from-brand-a to-brand-b text-white font-extrabold shadow-glow">
+                  Płatność online (PayU)
+                </button>
+
+                <div className="text-xs text-gray-700 font-semibold mt-2">
+                  Tip: PWA działa najlepiej — po instalacji szybciej wracasz do koszyka.
+                </div>
+              </Card>
+            </>
+          )}
+        </AppShell>
+      );
+    };
+
+    const Zamowienia = () => {
+      const { orders } = useCart();
+
+      return (
+        <AppShell title="Zamówienia" right={null}>
+          {!orders?.length ? (
+            <Card className="p-5">
+              <div className="font-extrabold text-lg">Brak zamówień</div>
+              <div className="text-sm text-gray-700 mt-1">Gdy złożysz zamówienie, zobaczysz je tutaj.</div>
+              <button
+                onClick={() => window.location.hash = '#/menu'}
+                className="mt-4 px-4 py-3 rounded-2xl bg-gradient-to-r from-brand-a to-brand-b text-white font-extrabold shadow-glow"
+              >
+                Przejdź do menu
+              </button>
+            </Card>
+          ) : (
+            <div className="grid gap-3">
+              {orders.map(o => (
+                <Card key={o.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-bold text-gray-600">Status</div>
+                      <div className="font-extrabold text-lg">{o.status}</div>
+                      <div className="text-sm text-gray-700 font-semibold mt-1">
+                        {new Date(o.createdAt).toLocaleString('pl-PL')}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs font-bold text-gray-600">Kwota</div>
+                      <div className="font-extrabold text-lg">{currency(o.total || 0)}</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 text-sm text-gray-800 font-semibold">
+                    {o.cart?.length || 0} pozycji
+                  </div>
+
+                  <div className="mt-3 grid gap-1 text-sm text-gray-700">
+                    {(o.cart || []).slice(0, 3).map((i, idx) => (
+                      <div key={idx} className="flex items-center justify-between">
+                        <span className="pr-2">{i.name} × {i.qty||1}</span>
+                        <span className="font-extrabold">{currency((i.price||0)*(i.qty||1))}</span>
+                      </div>
+                    ))}
+                    {(o.cart || []).length > 3 && (
+                      <div className="text-xs text-gray-600 font-bold mt-1">
+                        + {(o.cart.length - 3)} więcej…
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </AppShell>
+      );
+    };
+
+    const Konto = () => {
+      const [user, setUser] = useLocalStorage('eatmi-user', { email:'', name:'' });
+
+      return (
+        <AppShell title="Konto" right={null}>
+          <Card className="p-5">
+            <div className="font-extrabold text-lg">Dane (prosta wersja)</div>
+            <div className="text-sm text-gray-700 font-semibold mt-1">
+              To jest PWA-first — konto możesz później podpiąć pod backend.
+            </div>
+
+            <div className="grid gap-3 mt-4">
+              <input
+                value={user.name}
+                onChange={e => setUser(u => ({...u, name: e.target.value}))}
+                placeholder="Imię"
+                className="w-full rounded-2xl bg-white/80 border border-white/70 shadow-soft px-4 py-3 font-semibold outline-none"
+              />
+              <input
+                value={user.email}
+                onChange={e => setUser(u => ({...u, email: e.target.value}))}
+                placeholder="Email"
+                className="w-full rounded-2xl bg-white/80 border border-white/70 shadow-soft px-4 py-3 font-semibold outline-none"
+              />
+
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  onClick={() => alert('Tu podepniesz logowanie / OTP / social login.')}
+                  className="px-4 py-3 rounded-2xl bg-gray-900 text-white font-extrabold shadow-soft"
+                >
+                  Zaloguj (makieta)
+                </button>
+                <button
+                  onClick={() => alert('Tu możesz dać ustawienia, język, regulamin itd.')}
+                  className="px-4 py-3 rounded-2xl bg-white/70 border border-white/70 font-extrabold"
+                >
+                  Ustawienia
+                </button>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-5 mt-4">
+            <div className="font-extrabold text-lg">Web vs PWA</div>
+            <div className="text-sm text-gray-700 font-semibold mt-1">
+              {isStandalone()
+                ? 'Działasz w trybie PWA ✅'
+                : 'Działasz w przeglądarce (WWW). Zainstaluj aplikację dla najlepszego UX.'}
+            </div>
+          </Card>
+        </AppShell>
+      );
+    };
+
+    /* =======================
+        Bottom Nav (PWA style)
+    ======================= */
+    const BottomNav = ({route, cartCount}) => {
+      const item = (href, icon, label) => {
+        const active = route === href || (href.startsWith('#/kategoria') && route.startsWith('#/kategoria'));
+        return (
+          <a href={href} className={`flex flex-col items-center gap-1 py-3 text-[11px] font-extrabold ${active ? 'text-gray-900' : 'text-gray-600'}`}>
+            <div className={`relative w-11 h-11 rounded-2xl grid place-items-center ${active ? 'bg-gradient-to-br from-brand-a to-brand-b text-white shadow-glow' : 'bg-white/70 border border-white/70 shadow-soft'}`}>
+              <i data-lucide={icon} className="w-5 h-5"></i>
+              {href === '#/koszyk' && cartCount > 0 && (
+                <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gray-900 text-white text-[11px] grid place-items-center">
+                  {cartCount}
+                </span>
+              )}
+            </div>
+            <span>{label}</span>
+          </a>
+        );
+      };
+
+      return (
+        <div className="fixed bottom-0 left-0 right-0 z-50 safe-nav px-4 pb-4">
+          <div className="max-w-3xl mx-auto glass2 border border-white/60 rounded-3xl shadow-glass">
+            <div className="grid grid-cols-5">
+              {item('#/', 'home', 'Start')}
+              {item('#/menu', 'shopping-bag', 'Menu')}
+              {item('#/koszyk', 'shopping-cart', 'Koszyk')}
+              {item('#/zamowienia', 'clipboard-list', 'Zamówienia')}
+              {item('#/konto', 'user', 'Konto')}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    /* =======================
+        Router
+    ======================= */
+    const Router = () => {
+      const [route, setRoute] = useState(window.location.hash || '#/');
+      const { cart } = useCart();
+
+      useEffect(() => {
+        const onHash = () => setRoute(window.location.hash || '#/');
+        window.addEventListener('hashchange', onHash);
+        return () => window.removeEventListener('hashchange', onHash);
+      }, []);
+
+      useEffect(() => { lucide.createIcons(); }, [route, cart.length]);
+
+      // routes
+      if (route.startsWith('#/kategoria/')) {
+        const id = route.split('/')[2];
+        return (
+          <>
+            <CategoryPage categoryId={id} />
+            <BottomNav route={route} cartCount={cart.reduce((s,i)=>s+(i.qty||1),0)} />
+          </>
+        );
+      }
+
+      let page = null;
+      if (route === '#/menu') page = <Menu />;
+      else if (route === '#/koszyk') page = <Koszyk />;
+      else if (route === '#/zamowienie') page = <Zamowienie />;
+      else if (route === '#/zamowienia') page = <Zamowienia />;
+      else if (route === '#/konto') page = <Konto />;
+      else page = <Home />;
+
+      return (
+        <>
+          {page}
+          <BottomNav route={route} cartCount={cart.reduce((s,i)=>s+(i.qty||1),0)} />
+        </>
+      );
+    };
+
+    const App = () => (
+      <ToastProvider>
+        <CartProvider>
+          <Router />
+          <div className="pb-10 text-center text-xs text-gray-600 font-semibold opacity-80">
+            © {new Date().getFullYear()} eatmi.pl • PWA-first
+          </div>
+        </CartProvider>
+      </ToastProvider>
+    );
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+
+  <!-- SW register (optional - jeśli masz sw.js) -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(()=>{});
+      });
+    }
+  </script>
+</body>
+</html>
