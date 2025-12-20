@@ -101,141 +101,11 @@
       font-size: 11px; background: rgba(17,24,39,0.9); color: white;
       padding: 6px 8px; border-radius: 999px;
     }
-
-    /* ===== PREMIUM UPGRADE + APP-LIKE MOBILE ===== */
-    :root{
-      --ring: rgba(255,193,7,.35);
-      --bgA: #fff7dd;
-      --bgB: #f5f7ff;
-      --text: #0b1220;
-    }
-
-    body{
-      background:
-        radial-gradient(900px 450px at 15% 0%, rgba(255,193,7,.25), transparent 55%),
-        radial-gradient(900px 450px at 85% 10%, rgba(59,130,246,.18), transparent 55%),
-        linear-gradient(180deg, var(--bgA), var(--bgB));
-    }
-
-    * { -webkit-tap-highlight-color: transparent; }
-    button, a { touch-action: manipulation; }
-
-    .focus-ring:focus{
-      outline: none;
-      box-shadow: 0 0 0 4px var(--ring);
-    }
-
-    .cardX{
-      background: rgba(255,255,255,.85);
-      border: 1px solid rgba(17,24,39,.08);
-      box-shadow: 0 16px 60px rgba(17,24,39,.10);
-      backdrop-filter: blur(14px);
-    }
-
-    .softBorder{
-      border: 1px solid rgba(17,24,39,.08);
-    }
-
-    .appShell{
-      min-height: 100svh;
-      padding-bottom: env(safe-area-inset-bottom);
-    }
-
-    .appTop{
-      padding-top: env(safe-area-inset-top);
-    }
-
-    @media (max-width: 768px){
-      .desktopOnly{ display:none !important; }
-      .mobileOnly{ display:block !important; }
-      .tapCard{ border-radius: 22px; }
-      .tapBtn{ height: 52px; border-radius: 18px; font-weight: 800; }
-      .bigTitle{ font-size: 30px; line-height: 1.1; }
-      .muted{ color: rgba(17,24,39,.65); }
-    }
-    @media (min-width: 1024px){
-      .mobileOnly{ display:none !important; }
-      .desktopOnly{ display:block !important; }
-    }
-
-    /* ============================
-       PREMIUM POLISH PACK (NEW)
-    ============================ */
-    :root{
-      --ring: rgba(255,193,7,.38);
-      --shadow1: 0 10px 30px rgba(17,24,39,.10);
-      --shadow2: 0 18px 70px rgba(17,24,39,.12);
-      --border: rgba(17,24,39,.10);
-      --glass: rgba(255,255,255,.78);
-      --glass2: rgba(255,255,255,.62);
-      --text: #0b1220;
-    }
-    html, body{
-      color: var(--text);
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
-    body{
-      background:
-        radial-gradient(900px 520px at 12% -5%, rgba(255,193,7,.28), transparent 55%),
-        radial-gradient(900px 520px at 88% 0%, rgba(59,130,246,.20), transparent 55%),
-        radial-gradient(700px 420px at 50% 60%, rgba(139,92,246,.12), transparent 60%),
-        linear-gradient(180deg, #fff7dd, #f5f7ff);
-    }
-    body:before{
-      content:"";
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 0;
-      opacity: .06;
-      mix-blend-mode: multiply;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.7'/%3E%3C/svg%3E");
-    }
-    #root, #topBar { position: relative; z-index: 1; }
-
-    .cardX{
-      background: linear-gradient(180deg, var(--glass), var(--glass2));
-      border: 1px solid rgba(255,255,255,.55);
-      box-shadow: var(--shadow2);
-      backdrop-filter: blur(18px);
-    }
-    .softBorder{
-      border: 1px solid rgba(17,24,39,.12);
-    }
-    .tapBtn, .focus-ring{
-      transition: transform .15s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease, opacity .2s ease;
-    }
-    .tapBtn:hover{
-      transform: translateY(-1px);
-      box-shadow: var(--shadow1);
-    }
-    .tapBtn:active{
-      transform: translateY(0px) scale(.99);
-    }
-    .focus-ring:focus{
-      outline: none;
-      box-shadow: 0 0 0 4px var(--ring), var(--shadow1);
-    }
-    .input, textarea{
-      background: rgba(255,255,255,.92);
-      border: 1px solid rgba(17,24,39,.14) !important;
-    }
-    .input:focus, textarea:focus{
-      outline: none;
-      border-color: rgba(255,193,7,.65) !important;
-      box-shadow: 0 0 0 4px rgba(255,193,7,.22);
-    }
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .fade-up { animation: fadeUp .35s ease both; }
   </style>
 </head>
 
 <body class="bg-brand-light text-gray-900">
-  <div id="topBar" class="w-full text-center text-sm py-2 font-semibold text-gray-900 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-300 border-b border-black/5">
+  <div id="topBar" class="w-full text-center text-sm bg-brand-yellow text-gray-900 py-1.5 font-medium">
     <span>🍳 Śniadania i lunche na świeżo — zamów online</span>
   </div>
 
@@ -243,6 +113,10 @@
 
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
+
+    /* =======================
+       TWOJE PRAWDZIWE MENU
+    ======================= */
 
     const PRODUCT_CATEGORIES = [
       { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open', description: 'Małe, średnie i duże zestawy. Także VEGE.' },
@@ -254,26 +128,101 @@
     ];
 
     const BREAKFAST_BOXES = [
-      { id:'bs-small-1', name:'Box śniadaniowy mały nr 1', price: 38, subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Sok pomarańczowy 250 ml' },
-      { id:'bs-small-2', name:'Box śniadaniowy mały nr 2', price: 40, subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Sok pomarańczowy 250 ml' },
-      { id:'bs-small-3', name:'Box śniadaniowy mały nr 3', price: 42, subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Sok pomarańczowy 250 ml' },
-      { id:'bs-small-vege', name:'Box śniadaniowy mały VEGE', price: 38, subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Sok pomarańczowy 250 ml' },
+      {
+        id:'bs-small-1',
+        name:'Box śniadaniowy mały nr 1',
+        price: 38,
+        subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Sok pomarańczowy 250 ml'
+      },
+      {
+        id:'bs-small-2',
+        name:'Box śniadaniowy mały nr 2',
+        price: 40,
+        subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Sok pomarańczowy 250 ml'
+      },
+      {
+        id:'bs-small-3',
+        name:'Box śniadaniowy mały nr 3',
+        price: 42,
+        subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Sok pomarańczowy 250 ml'
+      },
+      {
+        id:'bs-small-vege',
+        name:'Box śniadaniowy mały VEGE',
+        price: 38,
+        subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Sok pomarańczowy 250 ml'
+      },
 
-      { id:'bs-med-1', name:'Box śniadaniowy średni nr 1', price: 52, subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml' },
-      { id:'bs-med-2', name:'Box śniadaniowy średni nr 2', price: 54, subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml' },
-      { id:'bs-med-3', name:'Box śniadaniowy średni nr 3', price: 56, subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml' },
-      { id:'bs-med-vege', name:'Box śniadaniowy średni VEGE', price: 52, subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
+      {
+        id:'bs-med-1',
+        name:'Box śniadaniowy średni nr 1',
+        price: 52,
+        subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml'
+      },
+      {
+        id:'bs-med-2',
+        name:'Box śniadaniowy średni nr 2',
+        price: 54,
+        subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml'
+      },
+      {
+        id:'bs-med-3',
+        name:'Box śniadaniowy średni nr 3',
+        price: 56,
+        subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml'
+      },
+      {
+        id:'bs-med-vege',
+        name:'Box śniadaniowy średni VEGE',
+        price: 52,
+        subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml'
+      },
 
-      { id:'bs-big-1', name:'Box śniadaniowy duży nr 1', price: 80, subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Club sandwich z kurczakiem i bekonem, majonez, sałata, pomidor • Domowa granola z jogurtem greckim, owocami i miodem • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml' },
-      { id:'bs-big-2', name:'Box śniadaniowy duży nr 2', price: 82, subtitle:'Buritto z jajecznicą i chorizo • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka koreańska z kurczakiem w panko, warzywa i sezamem • Domowa granola z jogurtem greckim, owocami i miodem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml' },
-      { id:'bs-big-3', name:'Box śniadaniowy duży nr 3', price: 84, subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Domowa granola z jogurtem greckim, owocami i miodem • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml' },
-      { id:'bs-big-vege', name:'Box śniadaniowy duży VEGE', price: 80, subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Vege club sandwich z camembert i awokado, majonez, sałata, pomidor • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Domowa granola z jogurtem greckim, owocami i miodem • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
+      {
+        id:'bs-big-1',
+        name:'Box śniadaniowy duży nr 1',
+        price: 80,
+        subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Club sandwich z kurczakiem i bekonem, majonez, sałata, pomidor • Domowa granola z jogurtem greckim, owocami i miodem • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml'
+      },
+      {
+        id:'bs-big-2',
+        name:'Box śniadaniowy duży nr 2',
+        price: 82,
+        subtitle:'Buritto z jajecznicą i chorizo • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Domowa granola z jogurtem greckim, owocami i miodem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml'
+      },
+      {
+        id:'bs-big-3',
+        name:'Box śniadaniowy duży nr 3',
+        price: 84,
+        subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Domowa granola z jogurtem greckim, owocami i miodem • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml'
+      },
+      {
+        id:'bs-big-vege',
+        name:'Box śniadaniowy duży VEGE',
+        price: 80,
+        subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Vege club sandwich z camembert i awokado, majonez, sałata, pomidor • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Domowa granola z jogurtem greckim, owocami i miodem • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml'
+      },
     ];
 
     const LUNCHES = [
-      { id:'lunch-week', name:'Lunch tygodnia', price: 49, subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Corn Flake Chicken: panierowana w płatkach kukurydzianych pierś z kurczaka z ziemniaczanym puree i coleslawem • Domowa lemoniada 250 ml' },
-      { id:'lunch-month', name:'Lunch miesiąca', price: 59, subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Kurczak Supreme: pieczona pierś z kurczaka z ziemniaczanym puree, warzywami i sosem demi glace • Domowa lemoniada 250 ml' },
-      { id:'lunch-vege', name:'Lunch VEGE', price: 49, subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Tagliatelle z warzywami, oliwą z oliwek i pastą truflową • Domowa lemoniada 250 ml' },
+      {
+        id:'lunch-week',
+        name:'Lunch tygodnia',
+        price: 49,
+        subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Corn Flake Chicken: panierowana w płatkach kukurydzianych pierś z kurczaka z ziemniaczanym puree i coleslawem • Domowa lemoniada 250 ml'
+      },
+      {
+        id:'lunch-month',
+        name:'Lunch miesiąca',
+        price: 59,
+        subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Kurczak Supreme: pieczona pierś z kurczaka z ziemniaczanym puree, warzywami i sosem demi glace • Domowa lemoniada 250 ml'
+      },
+      {
+        id:'lunch-vege',
+        name:'Lunch VEGE',
+        price: 49,
+        subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Tagliatelle z warzywami, oliwą z oliwek i pastą truflową • Domowa lemoniada 250 ml'
+      },
     ];
 
     const SANDWICHES = [
@@ -322,6 +271,10 @@
       'napoje': DRINKS,
     };
 
+    /* =======================
+       APPKA
+    ======================= */
+
     const useLocalStorage = (key, initial) => {
       const [state, setState] = useState(() => {
         try { return JSON.parse(localStorage.getItem(key)) ?? initial } catch { return initial }
@@ -329,36 +282,7 @@
       useEffect(() => { localStorage.setItem(key, JSON.stringify(state)) }, [key, state]);
       return [state, setState];
     };
-
     const currency = (n) => new Intl.NumberFormat('pl-PL', { style:'currency', currency:'PLN' }).format(n);
-
-    const useDisplayMode = () => {
-      const get = () => {
-        const standalone =
-          window.matchMedia?.("(display-mode: standalone)")?.matches ||
-          window.navigator.standalone === true;
-        const isMobile = window.matchMedia?.("(max-width: 768px)")?.matches;
-        return { standalone, isMobile, appLike: standalone || isMobile };
-      };
-
-      const [mode, setMode] = React.useState(get);
-
-      React.useEffect(() => {
-        const mq1 = window.matchMedia("(display-mode: standalone)");
-        const mq2 = window.matchMedia("(max-width: 768px)");
-        const onChange = () => setMode(get());
-        mq1?.addEventListener?.("change", onChange);
-        mq2?.addEventListener?.("change", onChange);
-        window.addEventListener("resize", onChange);
-        return () => {
-          mq1?.removeEventListener?.("change", onChange);
-          mq2?.removeEventListener?.("change", onChange);
-          window.removeEventListener("resize", onChange);
-        };
-      }, []);
-
-      return mode;
-    };
 
     const ToastContext = React.createContext();
     const useToast = () => React.useContext(ToastContext);
@@ -457,10 +381,10 @@
     const CartButton = () => {
       const { cart, total } = useCart();
       return (
-        <a href="#/koszyk" className="relative inline-flex items-center gap-2 border border-gray-200 bg-white/90 px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition focus-ring">
+        <a href="#/koszyk" className="relative inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition">
           <i data-lucide="shopping-cart" className="w-5 h-5"></i>
           <span className="text-sm font-semibold">{currency(total)}</span>
-          <span className="absolute -top-2 -right-2 bg-brand-yellow text-gray-900 text-xs font-bold w-6 h-6 rounded-full grid place-items-center shadow-soft">
+          <span className="absolute -top-2 -right-2 bg-brand-yellow text-gray-900 text-xs font-bold w-6 h-6 rounded-full grid place-items-center">
             {cart.reduce((s,i)=>s+(i.qty||1),0)}
           </span>
         </a>
@@ -468,7 +392,7 @@
     }
 
     const Header = ({ onOpenAuth }) => (
-      <header className="desktopOnly sticky top-0 z-40 bg-white/85 backdrop-blur border-b border-gray-200">
+      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <Logo />
           <nav className="hidden md:flex items-center gap-6 text-sm">
@@ -483,7 +407,7 @@
             <button
               type="button"
               onClick={onOpenAuth}
-              className="hidden md:inline-flex items-center gap-2 border border-gray-200 bg-white/90 px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition text-sm font-semibold text-gray-800 focus-ring">
+              className="hidden md:inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition text-sm font-semibold text-gray-800">
               <i data-lucide="user" className="w-4 h-4"></i>
               <span>Konto</span>
             </button>
@@ -491,7 +415,7 @@
             <button
               type="button"
               onClick={onOpenAuth}
-              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white/90 shadow-soft focus-ring"
+              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white shadow-soft"
               aria-label="Moje konto">
               <i data-lucide="user" className="w-5 h-5"></i>
             </button>
@@ -502,94 +426,34 @@
       </header>
     );
 
-    const MobileAppBar = ({ onOpenAuth }) => (
-      <div className="mobileOnly sticky top-0 z-50 appTop">
-        <div className="mx-3 mt-3 cardX rounded-3xl px-4 py-3 flex items-center justify-between">
-          <Logo />
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onOpenAuth}
-              className="w-11 h-11 rounded-2xl bg-white/90 softBorder grid place-items-center shadow-soft focus-ring"
-              aria-label="Konto"
-            >
-              <i data-lucide="user" className="w-5 h-5"></i>
-            </button>
-            <a
-              href="#/koszyk"
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-2xl bg-gray-900 text-white shadow-soft focus-ring"
-            >
-              <i data-lucide="shopping-cart" className="w-5 h-5"></i>
-              <span className="text-sm font-extrabold">Koszyk</span>
-            </a>
-          </div>
-        </div>
-      </div>
-    );
-
-    const MobileTabs = () => (
-      <nav className="mobileOnly fixed bottom-3 left-1/2 -translate-x-1/2 z-[60] w-[min(640px,92%)]">
-        <div className="cardX rounded-3xl px-2 py-2">
-          <div className="grid grid-cols-4 gap-2">
-            <a href="#/" className="tapBtn flex flex-col items-center justify-center gap-1 bg-white/90 softBorder text-gray-900 focus-ring">
-              <i data-lucide="home" className="w-5 h-5"></i>
-              <span className="text-[11px] font-extrabold">Start</span>
-            </a>
-            <a href="#kategorie" className="tapBtn flex flex-col items-center justify-center gap-1 bg-white/90 softBorder text-gray-900 focus-ring">
-              <i data-lucide="layout-grid" className="w-5 h-5"></i>
-              <span className="text-[11px] font-extrabold">Menu</span>
-            </a>
-            <a href="#/kategoria/boxy-sniadaniowe" className="tapBtn flex flex-col items-center justify-center gap-1 bg-white/90 softBorder text-gray-900 focus-ring">
-              <i data-lucide="package-open" className="w-5 h-5"></i>
-              <span className="text-[11px] font-extrabold">Boxy</span>
-            </a>
-            <a href="#/koszyk" className="tapBtn flex flex-col items-center justify-center gap-1 bg-gray-900 text-white focus-ring">
-              <i data-lucide="shopping-cart" className="w-5 h-5"></i>
-              <span className="text-[11px] font-extrabold">Koszyk</span>
-            </a>
-          </div>
-        </div>
-      </nav>
-    );
-
     const Hero = () => (
       <section className="relative overflow-hidden">
-        <div className="pointer-events-none absolute -top-24 -left-24 w-[420px] h-[420px] rounded-full bg-brand-yellow/25 blur-3xl"></div>
-        <div className="pointer-events-none absolute -top-28 -right-28 w-[520px] h-[520px] rounded-full bg-blue-400/15 blur-3xl"></div>
-        <div className="pointer-events-none absolute top-40 left-1/2 -translate-x-1/2 w-[520px] h-[280px] rounded-full bg-violet-400/10 blur-3xl"></div>
-
         <div className="max-w-6xl mx-auto px-4 py-12 md:py-20">
-          <div className="max-w-2xl fade-up">
-            <div className="inline-flex items-center gap-2 mb-3 px-4 py-2 rounded-full bg-white/85 border border-gray-200 shadow-soft">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 mb-3 px-4 py-2 rounded-full bg-white/80 border border-gray-200 shadow-soft">
               <span className="text-xl">👋</span>
               <span className="text-sm md:text-base font-semibold text-gray-900">
                 Cześć, na co masz dziś ochotę?
               </span>
             </div>
 
-            <h1 className="bigTitle text-4xl md:text-5xl font-extrabold leading-tight">
+            <h1 className="text-4xl md:text-5xl font-extrabold leading-tight">
               Wybierz kategorię i{" "}
-              <span className="text-brand-yellow drop-shadow-sm">zamów</span>
+              <span className="text-brand-yellow">zamów online</span>
             </h1>
-            <p className="mt-3 muted text-gray-600 max-w-prose text-[15px] md:text-base">
-              Jak w kiosku: wybierasz kategorię → dodajesz pozycje → płacisz online.
+            <p className="mt-4 text-gray-600 max-w-prose">
+              Boxy śniadaniowe, lunche, kanapki, zdrowe, słodkie i napoje.
+              Jak w kiosku — wybierasz kategorię, klikasz pozycje i finalizujesz zamówienie.
             </p>
-
             <div className="mt-6 flex flex-wrap gap-3">
-              <a href="#kategorie" className="tapBtn inline-flex items-center justify-center gap-2 bg-brand-yellow text-gray-900 font-semibold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition focus-ring">
+              <a href="#kategorie" className="inline-flex items-center gap-2 bg-brand-yellow text-gray-900 font-semibold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition">
                 <i data-lucide="shopping-bag" className="w-5 h-5"></i>
                 Przeglądaj menu
               </a>
-              <a href="#/kategoria/boxy-sniadaniowe" className="tapBtn inline-flex items-center justify-center gap-2 border border-gray-300 bg-white/90 text-gray-900 font-semibold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition focus-ring">
+              <a href="#/kategoria/boxy-sniadaniowe" className="inline-flex items-center gap-2 border border-gray-300 bg-white text-gray-900 font-semibold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition">
                 <i data-lucide="package-open" className="w-5 h-5"></i>
                 Zobacz boxy śniadaniowe
               </a>
-            </div>
-
-            <div className="mt-8 flex flex-wrap gap-2 text-xs text-gray-600">
-              <span className="px-3 py-1.5 rounded-full bg-white/70 border border-gray-200">⚡ Szybkie zamówienie</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/70 border border-gray-200">🔒 Bezpieczna płatność</span>
-              <span className="px-3 py-1.5 rounded-full bg-white/70 border border-gray-200">🧾 Czytelne podsumowanie</span>
             </div>
           </div>
         </div>
@@ -608,9 +472,7 @@
       const handleClick = () => { window.location.hash = `#/kategoria/${category.id}`; };
       return (
         <button type="button" onClick={handleClick}
-          className="group relative bg-white/85 border border-gray-200 rounded-3xl p-5 text-left shadow-soft hover:shadow-kiosk hover:-translate-y-1 transition w-full focus-ring overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 opacity-70"></div>
-
+          className="group bg-white border border-gray-200 rounded-2xl p-5 text-left shadow-soft hover:shadow-md hover:-translate-y-1 transition w-full">
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-gray-500">
@@ -631,6 +493,8 @@
       );
     };
 
+    /* ====== KIOSK HELPERS ====== */
+
     const splitSubtitle = (text='') =>
       text.split('•').map(s => s.trim()).filter(Boolean);
 
@@ -643,14 +507,18 @@
       return badges;
     };
 
+    /* ====== LEPSZA KARTA PRODUKTU (KIOSK) ====== */
+
     const ProductCard = ({ item, categoryId, onAdd }) => {
       const bullets = splitSubtitle(item.subtitle || '');
       const badges = getBadges(categoryId, item.name);
 
       return (
-        <div className="relative bg-white/90 border border-gray-200 rounded-3xl p-5 md:p-6 shadow-soft hover:shadow-kiosk transition group overflow-hidden">
+        <div className="relative bg-white border border-gray-200 rounded-3xl p-5 md:p-6 shadow-soft hover:shadow-kiosk transition group overflow-hidden">
+          {/* top accent */}
           <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 opacity-70"></div>
 
+          {/* badges row */}
           {badges.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-3">
               {badges.map((b, i) => (
@@ -662,10 +530,12 @@
             </div>
           )}
 
+          {/* name */}
           <h3 className="text-lg md:text-xl font-extrabold text-gray-900 leading-snug">
             {item.name}
           </h3>
 
+          {/* bullets */}
           {bullets.length > 0 && (
             <ul className="mt-3 space-y-1.5 text-sm text-gray-700">
               {bullets.map((b, idx) => (
@@ -677,6 +547,7 @@
             </ul>
           )}
 
+          {/* bottom bar */}
           <div className="mt-5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <div className="px-3 py-1.5 rounded-xl bg-gray-900 text-white font-extrabold text-base md:text-lg shadow">
@@ -690,9 +561,8 @@
             <button
               type="button"
               onClick={() => onAdd(item)}
-              className="relative inline-flex items-center justify-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-4 py-2.5 rounded-2xl shadow-soft hover:scale-[1.04] active:scale-[0.98] transition focus-ring overflow-hidden"
+              className="inline-flex items-center justify-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-4 py-2.5 rounded-2xl shadow-soft hover:scale-[1.03] active:scale-[0.98] transition"
             >
-              <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition bg-gradient-to-r from-white/30 via-transparent to-white/20"></span>
               <i data-lucide="plus" className="w-4 h-4"></i> Dodaj
             </button>
           </div>
@@ -740,6 +610,7 @@
               </div>
             </div>
 
+            {/* grid like kiosk */}
             <div className="mt-6 grid sm:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
               {items.map(item => (
                 <ProductCard
@@ -779,19 +650,19 @@
                   <div className="md:col-span-2 space-y-4">
                     {cart.map(item => (
                       <div key={item.id}
-                        className="bg-white/90 border border-gray-200 rounded-2xl p-4 flex flex-col md:flex-row gap-4 md:items-center justify-between w-full">
+                        className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col md:flex-row gap-4 md:items-center justify-between w-full">
                         <div className="min-w-0 flex-1">
                           <div className="font-bold break-words">{item.name}</div>
                         </div>
 
                         <div className="flex flex-col sm:flex-row md:flex-row gap-3 md:gap-4 items-stretch md:items-center w-full md:w-auto justify-between md:justify-end">
                           <div className="flex items-center gap-2 self-start">
-                            <button onClick={()=> decQty(item.id)} className="w-8 h-8 rounded-lg border border-gray-200 grid place-items-center focus-ring">−</button>
+                            <button onClick={()=> decQty(item.id)} className="w-8 h-8 rounded-lg border border-gray-200 grid place-items-center">−</button>
                             <input value={item.qty||1}
                               onChange={(e)=> setQty(item.id, parseInt(e.target.value||'1',10))}
-                              className="w-14 text-center border border-gray-200 rounded-lg py-1 focus-ring"
+                              className="w-14 text-center border border-gray-200 rounded-lg py-1"
                               inputMode="numeric" pattern="[0-9]*"/>
-                            <button onClick={()=> incQty(item.id)} className="w-8 h-8 rounded-lg border border-gray-200 grid place-items-center focus-ring">+</button>
+                            <button onClick={()=> incQty(item.id)} className="w-8 h-8 rounded-lg border border-gray-200 grid place-items-center">+</button>
                           </div>
 
                           <div className="text-right self-center">
@@ -804,18 +675,16 @@
                       </div>
                     ))}
                   </div>
-
-                  {/* sticky summary (NEW) */}
-                  <aside className="bg-white/90 border border-gray-200 rounded-2xl p-5 md:sticky md:top-24">
+                  <aside className="bg-white border border-gray-200 rounded-2xl p-5">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold">Suma</span>
                       <span className="font-extrabold">{currency(total)}</span>
                     </div>
                     <div className="mt-4 grid gap-2">
-                      <button onClick={goToCheckout} className="w-full bg-brand-yellow text-gray-900 font-semibold rounded-xl px-4 py-3 focus-ring">
+                      <button onClick={goToCheckout} className="w-full bg-brand-yellow text-gray-900 font-semibold rounded-xl px-4 py-3">
                         Przejdź do zamówienia
                       </button>
-                      <button onClick={clear} className="w-full bg-gray-100 text-gray-700 rounded-xl px-4 py-3 focus-ring">
+                      <button onClick={clear} className="w-full bg-gray-100 text-gray-700 rounded-xl px-4 py-3">
                         Wyczyść koszyk
                       </button>
                     </div>
@@ -834,7 +703,7 @@
                     {EXTRA_ITEMS.map(extra => (
                       <button key={extra.id}
                         onClick={() => add({ type:'extra', name: extra.name, price: extra.price })}
-                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/90 border border-gray-200 shadow-soft text-sm hover:shadow-md hover:-translate-y-0.5 transition focus-ring">
+                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-gray-200 shadow-soft text-sm hover:shadow-md hover:-translate-y-0.5 transition">
                         <span className="text-base">+</span>
                         <span>{extra.name}</span>
                         <span className="font-semibold text-gray-900">{currency(extra.price)}</span>
@@ -893,7 +762,7 @@
             <h2 className="text-2xl font-extrabold mt-3">Zamówienie</h2>
 
             <div className="mt-6 grid lg:grid-cols-3 gap-6 items-start">
-              <div className="lg:col-span-2 bg-white/90 border border-gray-200 rounded-2xl p-5">
+              <div className="lg:col-span-2 bg-white border border-gray-200 rounded-2xl p-5">
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Imię i nazwisko *</label>
@@ -969,8 +838,7 @@
                 </div>
               </div>
 
-              {/* sticky summary (NEW) */}
-              <aside className="bg-white/90 border border-gray-200 rounded-2xl p-5 lg:sticky lg:top-24">
+              <aside className="bg-white border border-gray-200 rounded-2xl p-5">
                 <div className="font-semibold">Podsumowanie</div>
                 <div className="mt-3 space-y-3 max-h-64 overflow-auto pr-2">
                   {cart.map(i => (
@@ -987,7 +855,7 @@
                   <span className="font-extrabold">{currency(total)}</span>
                 </div>
                 <button onClick={submit}
-                  className="w-full mt-4 bg-brand-yellow text-gray-900 font-semibold rounded-xl px-4 py-3 focus-ring">
+                  className="w-full mt-4 bg-brand-yellow text-gray-900 font-semibold rounded-xl px-4 py-3">
                   Płatność online (PayU)
                 </button>
               </aside>
@@ -1017,7 +885,7 @@
       return (
         <div className="fixed inset-0 z-[90] bg-black/60 flex items-center justify-center px-4" onClick={onClose} role="dialog" aria-modal="true">
           <div className="relative w-full max-w-md bg-white rounded-2xl shadow-glass border border-gray-200 p-6" onClick={(e) => e.stopPropagation()}>
-            <button type="button" onClick={onClose} className="absolute top-3 right-3 p-2 rounded-full bg-white border border-gray-200 shadow-soft hover:bg-gray-50 focus-ring" aria-label="Zamknij okno logowania">
+            <button type="button" onClick={onClose} className="absolute top-3 right-3 p-2 rounded-full bg-white border border-gray-200 shadow-soft hover:bg-gray-50" aria-label="Zamknij okno logowania">
               <i data-lucide="x" className="w-4 h-4"></i>
             </button>
 
@@ -1062,7 +930,7 @@
                 </div>
               )}
 
-              <button type="submit" className="w-full mt-1 bg-gray-900 text-white font-semibold rounded-xl px-4 py-3 text-sm hover:bg-black focus-ring">
+              <button type="submit" className="w-full mt-1 bg-gray-900 text-white font-semibold rounded-xl px-4 py-3 text-sm hover:bg-black">
                 {mode === 'login' ? 'Zaloguj się' : 'Zarejestruj się'}
               </button>
             </form>
@@ -1093,7 +961,7 @@
       <>
         <Hero />
 
-        <section id="kategorie" className="py-12 md:py-20 bg-gradient-to-b from-white/60 to-brand-light">
+        <section id="kategorie" className="py-12 md:py-20 bg-gradient-to-b from-white to-brand-light">
           <div className="max-w-6xl mx-auto px-4">
             <SectionTitle eyebrow="Menu" title="Wybierz kategorię" subtitle="Najpierw wybierz kategorię, potem dodawaj pozycje do koszyka — w kilka kliknięć!" />
             <div className="mt-8 grid md:grid-cols-3 gap-6">
@@ -1102,16 +970,16 @@
           </div>
         </section>
 
-        <section id="kontakt" className="py-12 bg-white/70">
+        <section id="kontakt" className="py-12 bg-white">
           <div className="max-w-6xl mx-auto px-4">
             <SectionTitle title="Kontakt" subtitle="Masz pytania? Napisz do nas." />
-            <form className="max-w-xl mx-auto mt-8 bg-white/90 border border-gray-200 rounded-2xl p-6 shadow-soft">
+            <form className="max-w-xl mx-auto mt-8 bg-white border border-gray-200 rounded-2xl p-6 shadow-soft">
               <div className="grid md:grid-cols-2 gap-4">
-                <input className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus-ring" placeholder="Imię" />
-                <input className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus-ring" placeholder="Email" />
+                <input className="input w-full border border-gray-200 rounded-xl px-4 py-3" placeholder="Imię" />
+                <input className="input w-full border border-gray-200 rounded-xl px-4 py-3" placeholder="Email" />
               </div>
-              <textarea className="input w-full border border-gray-200 rounded-xl px-4 py-3 mt-4 focus-ring" rows="4" placeholder="Wiadomość"></textarea>
-              <button type="button" className="mt-4 bg-gray-900 text-white rounded-xl px-5 py-3 font-semibold focus-ring">Wyślij</button>
+              <textarea className="input w-full border border-gray-200 rounded-xl px-4 py-3 mt-4" rows="4" placeholder="Wiadomość"></textarea>
+              <button type="button" className="mt-4 bg-gray-900 text-white rounded-xl px-5 py-3 font-semibold">Wyślij</button>
             </form>
           </div>
         </section>
@@ -1119,12 +987,12 @@
     );
 
     const FloatingNav = () => (
-      <nav className="desktopOnly fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(720px,92%)] liquid border border-white/50 rounded-2xl shadow-glass">
+      <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(720px,92%)] liquid border border-white/50 rounded-2xl shadow-glass">
         <ul className="grid grid-cols-4">
-          <li><a href="#kategorie" className="flex flex-col items-center py-3 text-sm font-medium focus-ring"><i data-lucide="shopping-bag" className="w-5 h-5"></i>Menu</a></li>
-          <li><a href="#/kategoria/boxy-sniadaniowe" className="flex flex-col items-center py-3 text-sm font-medium focus-ring"><i data-lucide="package-open" className="w-5 h-5"></i>Boxy</a></li>
-          <li><a href="#/kategoria/lunche" className="flex flex-col items-center py-3 text-sm font-medium focus-ring"><i data-lucide="utensils-crossed" className="w-5 h-5"></i>Lunche</a></li>
-          <li><a href="#/koszyk" className="flex flex-col items-center py-3 text-sm font-medium focus-ring"><i data-lucide="shopping-cart" className="w-5 h-5"></i>Koszyk</a></li>
+          <li><a href="#kategorie" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="shopping-bag" className="w-5 h-5"></i>Menu</a></li>
+          <li><a href="#/kategoria/boxy-sniadaniowe" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="package-open" className="w-5 h-5"></i>Boxy</a></li>
+          <li><a href="#/kategoria/lunche" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="utensils-crossed" className="w-5 h-5"></i>Lunche</a></li>
+          <li><a href="#/koszyk" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="shopping-cart" className="w-5 h-5"></i>Koszyk</a></li>
         </ul>
       </nav>
     );
@@ -1149,30 +1017,18 @@
 
     const App = () => {
       const [authOpen, setAuthOpen] = useState(false);
-      const { appLike } = useDisplayMode();
-
-      useEffect(() => { lucide.createIcons(); }, [authOpen, appLike]);
+      useEffect(() => { lucide.createIcons(); }, [authOpen]);
 
       return (
         <ToastProvider>
           <CartProvider>
-            <div className={`appShell ${appLike ? "pb-28" : ""}`}>
-              {appLike ? (
-                <MobileAppBar onOpenAuth={() => setAuthOpen(true)} />
-              ) : (
-                <Header onOpenAuth={() => setAuthOpen(true)} />
-              )}
-
-              <Router />
-
-              {appLike ? <MobileTabs /> : <FloatingNav />}
-
-              <footer className="py-16 text-center text-sm text-gray-500">
-                © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
-              </footer>
-
-              <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
-            </div>
+            <Header onOpenAuth={() => setAuthOpen(true)} />
+            <Router />
+            <FloatingNav />
+            <footer className="py-16 text-center text-sm text-gray-500">
+              © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
+            </footer>
+            <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
           </CartProvider>
         </ToastProvider>
       );
@@ -1181,6 +1037,7 @@
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 
+  <!-- ===== UNDER CONSTRUCTION OVERLAY ===== -->
   <div id="ucOverlay" class="uc-overlay" style="display:none;">
     <div class="uc-card">
       <div class="uc-title">🚧 Strona w budowie</div>
@@ -1274,4 +1131,3 @@
   </script>
 </body>
 </html>
-
