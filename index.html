@@ -182,7 +182,6 @@
         radial-gradient(700px 420px at 50% 60%, rgba(139,92,246,.12), transparent 60%),
         linear-gradient(180deg, #fff7dd, #f5f7ff);
     }
-    /* delikatny “noise” premium */
     body:before{
       content:"";
       position: fixed;
@@ -236,7 +235,6 @@
 </head>
 
 <body class="bg-brand-light text-gray-900">
-  <!-- upgraded topbar -->
   <div id="topBar" class="w-full text-center text-sm py-2 font-semibold text-gray-900 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-300 border-b border-black/5">
     <span>🍳 Śniadania i lunche na świeżo — zamów online</span>
   </div>
@@ -245,10 +243,6 @@
 
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
-
-    /* =======================
-       TWOJE PRAWDZIWE MENU
-    ======================= */
 
     const PRODUCT_CATEGORIES = [
       { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open', description: 'Małe, średnie i duże zestawy. Także VEGE.' },
@@ -260,101 +254,26 @@
     ];
 
     const BREAKFAST_BOXES = [
-      {
-        id:'bs-small-1',
-        name:'Box śniadaniowy mały nr 1',
-        price: 38,
-        subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Sok pomarańczowy 250 ml'
-      },
-      {
-        id:'bs-small-2',
-        name:'Box śniadaniowy mały nr 2',
-        price: 40,
-        subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Sok pomarańczowy 250 ml'
-      },
-      {
-        id:'bs-small-3',
-        name:'Box śniadaniowy mały nr 3',
-        price: 42,
-        subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Sok pomarańczowy 250 ml'
-      },
-      {
-        id:'bs-small-vege',
-        name:'Box śniadaniowy mały VEGE',
-        price: 38,
-        subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Sok pomarańczowy 250 ml'
-      },
+      { id:'bs-small-1', name:'Box śniadaniowy mały nr 1', price: 38, subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Sok pomarańczowy 250 ml' },
+      { id:'bs-small-2', name:'Box śniadaniowy mały nr 2', price: 40, subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Sok pomarańczowy 250 ml' },
+      { id:'bs-small-3', name:'Box śniadaniowy mały nr 3', price: 42, subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Sok pomarańczowy 250 ml' },
+      { id:'bs-small-vege', name:'Box śniadaniowy mały VEGE', price: 38, subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Sok pomarańczowy 250 ml' },
 
-      {
-        id:'bs-med-1',
-        name:'Box śniadaniowy średni nr 1',
-        price: 52,
-        subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml'
-      },
-      {
-        id:'bs-med-2',
-        name:'Box śniadaniowy średni nr 2',
-        price: 54,
-        subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml'
-      },
-      {
-        id:'bs-med-3',
-        name:'Box śniadaniowy średni nr 3',
-        price: 56,
-        subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml'
-      },
-      {
-        id:'bs-med-vege',
-        name:'Box śniadaniowy średni VEGE',
-        price: 52,
-        subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml'
-      },
+      { id:'bs-med-1', name:'Box śniadaniowy średni nr 1', price: 52, subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml' },
+      { id:'bs-med-2', name:'Box śniadaniowy średni nr 2', price: 54, subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml' },
+      { id:'bs-med-3', name:'Box śniadaniowy średni nr 3', price: 56, subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml' },
+      { id:'bs-med-vege', name:'Box śniadaniowy średni VEGE', price: 52, subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
 
-      {
-        id:'bs-big-1',
-        name:'Box śniadaniowy duży nr 1',
-        price: 80,
-        subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Club sandwich z kurczakiem i bekonem, majonez, sałata, pomidor • Domowa granola z jogurtem greckim, owocami i miodem • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml'
-      },
-      {
-        id:'bs-big-2',
-        name:'Box śniadaniowy duży nr 2',
-        price: 82,
-        subtitle:'Buritto z jajecznicą i chorizo • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Domowa granola z jogurtem greckim, owocami i miodem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml'
-      },
-      {
-        id:'bs-big-3',
-        name:'Box śniadaniowy duży nr 3',
-        price: 84,
-        subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Domowa granola z jogurtem greckim, owocami i miodem • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml'
-      },
-      {
-        id:'bs-big-vege',
-        name:'Box śniadaniowy duży VEGE',
-        price: 80,
-        subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Vege club sandwich z camembert i awokado, majonez, sałata, pomidor • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Domowa granola z jogurtem greckim, owocami i miodem • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml'
-      },
+      { id:'bs-big-1', name:'Box śniadaniowy duży nr 1', price: 80, subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Club sandwich z kurczakiem i bekonem, majonez, sałata, pomidor • Domowa granola z jogurtem greckim, owocami i miodem • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml' },
+      { id:'bs-big-2', name:'Box śniadaniowy duży nr 2', price: 82, subtitle:'Buritto z jajecznicą i chorizo • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka koreańska z kurczakiem w panko, warzywa i sezamem • Domowa granola z jogurtem greckim, owocami i miodem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml' },
+      { id:'bs-big-3', name:'Box śniadaniowy duży nr 3', price: 84, subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Domowa granola z jogurtem greckim, owocami i miodem • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml' },
+      { id:'bs-big-vege', name:'Box śniadaniowy duży VEGE', price: 80, subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Vege club sandwich z camembert i awokado, majonez, sałata, pomidor • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Domowa granola z jogurtem greckim, owocami i miodem • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
     ];
 
     const LUNCHES = [
-      {
-        id:'lunch-week',
-        name:'Lunch tygodnia',
-        price: 49,
-        subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Corn Flake Chicken: panierowana w płatkach kukurydzianych pierś z kurczaka z ziemniaczanym puree i coleslawem • Domowa lemoniada 250 ml'
-      },
-      {
-        id:'lunch-month',
-        name:'Lunch miesiąca',
-        price: 59,
-        subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Kurczak Supreme: pieczona pierś z kurczaka z ziemniaczanym puree, warzywami i sosem demi glace • Domowa lemoniada 250 ml'
-      },
-      {
-        id:'lunch-vege',
-        name:'Lunch VEGE',
-        price: 49,
-        subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Tagliatelle z warzywami, oliwą z oliwek i pastą truflową • Domowa lemoniada 250 ml'
-      },
+      { id:'lunch-week', name:'Lunch tygodnia', price: 49, subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Corn Flake Chicken: panierowana w płatkach kukurydzianych pierś z kurczaka z ziemniaczanym puree i coleslawem • Domowa lemoniada 250 ml' },
+      { id:'lunch-month', name:'Lunch miesiąca', price: 59, subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Kurczak Supreme: pieczona pierś z kurczaka z ziemniaczanym puree, warzywami i sosem demi glace • Domowa lemoniada 250 ml' },
+      { id:'lunch-vege', name:'Lunch VEGE', price: 49, subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Tagliatelle z warzywami, oliwą z oliwek i pastą truflową • Domowa lemoniada 250 ml' },
     ];
 
     const SANDWICHES = [
@@ -403,10 +322,6 @@
       'napoje': DRINKS,
     };
 
-    /* =======================
-       APPKA
-    ======================= */
-
     const useLocalStorage = (key, initial) => {
       const [state, setState] = useState(() => {
         try { return JSON.parse(localStorage.getItem(key)) ?? initial } catch { return initial }
@@ -417,12 +332,11 @@
 
     const currency = (n) => new Intl.NumberFormat('pl-PL', { style:'currency', currency:'PLN' }).format(n);
 
-    // MOBILE / STANDALONE detection (app-like mode)
     const useDisplayMode = () => {
       const get = () => {
         const standalone =
           window.matchMedia?.("(display-mode: standalone)")?.matches ||
-          window.navigator.standalone === true; // iOS Safari
+          window.navigator.standalone === true;
         const isMobile = window.matchMedia?.("(max-width: 768px)")?.matches;
         return { standalone, isMobile, appLike: standalone || isMobile };
       };
@@ -553,7 +467,6 @@
       )
     }
 
-    // DESKTOP HEADER
     const Header = ({ onOpenAuth }) => (
       <header className="desktopOnly sticky top-0 z-40 bg-white/85 backdrop-blur border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -589,7 +502,6 @@
       </header>
     );
 
-    // MOBILE APP BAR
     const MobileAppBar = ({ onOpenAuth }) => (
       <div className="mobileOnly sticky top-0 z-50 appTop">
         <div className="mx-3 mt-3 cardX rounded-3xl px-4 py-3 flex items-center justify-between">
@@ -615,7 +527,6 @@
       </div>
     );
 
-    // MOBILE TABS
     const MobileTabs = () => (
       <nav className="mobileOnly fixed bottom-3 left-1/2 -translate-x-1/2 z-[60] w-[min(640px,92%)]">
         <div className="cardX rounded-3xl px-2 py-2">
@@ -641,7 +552,6 @@
       </nav>
     );
 
-    /* ===== HERO (UPGRADED) ===== */
     const Hero = () => (
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute -top-24 -left-24 w-[420px] h-[420px] rounded-full bg-brand-yellow/25 blur-3xl"></div>
@@ -721,8 +631,6 @@
       );
     };
 
-    /* ====== KIOSK HELPERS ====== */
-
     const splitSubtitle = (text='') =>
       text.split('•').map(s => s.trim()).filter(Boolean);
 
@@ -734,8 +642,6 @@
       if (upper.includes('VEGE')) badges.push({ label: 'VEGE', color: 'bg-kiosk-green/15 text-kiosk-green border-kiosk-green/30' });
       return badges;
     };
-
-    /* ====== LEPSZA KARTA PRODUKTU (KIOSK) ====== */
 
     const ProductCard = ({ item, categoryId, onAdd }) => {
       const bullets = splitSubtitle(item.subtitle || '');
@@ -899,7 +805,7 @@
                     ))}
                   </div>
 
-                  <!-- sticky summary (NEW) -->
+                  {/* sticky summary (NEW) */}
                   <aside className="bg-white/90 border border-gray-200 rounded-2xl p-5 md:sticky md:top-24">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold">Suma</span>
@@ -1063,7 +969,7 @@
                 </div>
               </div>
 
-              <!-- sticky summary (NEW) -->
+              {/* sticky summary (NEW) */}
               <aside className="bg-white/90 border border-gray-200 rounded-2xl p-5 lg:sticky lg:top-24">
                 <div className="font-semibold">Podsumowanie</div>
                 <div className="mt-3 space-y-3 max-h-64 overflow-auto pr-2">
@@ -1212,7 +1118,6 @@
       </>
     );
 
-    // DESKTOP floating nav
     const FloatingNav = () => (
       <nav className="desktopOnly fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(720px,92%)] liquid border border-white/50 rounded-2xl shadow-glass">
         <ul className="grid grid-cols-4">
@@ -1276,7 +1181,6 @@
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 
-  <!-- ===== UNDER CONSTRUCTION OVERLAY ===== -->
   <div id="ucOverlay" class="uc-overlay" style="display:none;">
     <div class="uc-card">
       <div class="uc-title">🚧 Strona w budowie</div>
@@ -1295,8 +1199,6 @@
 
   <script>
     (function(){
-      // UWAGA: webhook w kodzie frontend = każdy może go podejrzeć i spamować.
-      // Docelowo lepiej zrobić endpoint backend /api/newsletter i dopiero stamtąd wysyłać do Discorda.
       const WEBHOOK_URL = "https://discordapp.com/api/webhooks/1446213305067769970/ZkfUbnPddZ4PmXBeidPfhoRDyhKwZtlAnRksp_okBNb-dufbR2ueBLW7cqrb9MaSUpLv";
       const overlay = document.getElementById("ucOverlay");
       const devBtn = document.getElementById("ucDevBtn");
@@ -1372,3 +1274,4 @@
   </script>
 </body>
 </html>
+
