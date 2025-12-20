@@ -157,11 +157,87 @@
       .mobileOnly{ display:none !important; }
       .desktopOnly{ display:block !important; }
     }
+
+    /* ============================
+       PREMIUM POLISH PACK (NEW)
+    ============================ */
+    :root{
+      --ring: rgba(255,193,7,.38);
+      --shadow1: 0 10px 30px rgba(17,24,39,.10);
+      --shadow2: 0 18px 70px rgba(17,24,39,.12);
+      --border: rgba(17,24,39,.10);
+      --glass: rgba(255,255,255,.78);
+      --glass2: rgba(255,255,255,.62);
+      --text: #0b1220;
+    }
+    html, body{
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    body{
+      background:
+        radial-gradient(900px 520px at 12% -5%, rgba(255,193,7,.28), transparent 55%),
+        radial-gradient(900px 520px at 88% 0%, rgba(59,130,246,.20), transparent 55%),
+        radial-gradient(700px 420px at 50% 60%, rgba(139,92,246,.12), transparent 60%),
+        linear-gradient(180deg, #fff7dd, #f5f7ff);
+    }
+    /* delikatny “noise” premium */
+    body:before{
+      content:"";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: .06;
+      mix-blend-mode: multiply;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.7'/%3E%3C/svg%3E");
+    }
+    #root, #topBar { position: relative; z-index: 1; }
+
+    .cardX{
+      background: linear-gradient(180deg, var(--glass), var(--glass2));
+      border: 1px solid rgba(255,255,255,.55);
+      box-shadow: var(--shadow2);
+      backdrop-filter: blur(18px);
+    }
+    .softBorder{
+      border: 1px solid rgba(17,24,39,.12);
+    }
+    .tapBtn, .focus-ring{
+      transition: transform .15s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease, opacity .2s ease;
+    }
+    .tapBtn:hover{
+      transform: translateY(-1px);
+      box-shadow: var(--shadow1);
+    }
+    .tapBtn:active{
+      transform: translateY(0px) scale(.99);
+    }
+    .focus-ring:focus{
+      outline: none;
+      box-shadow: 0 0 0 4px var(--ring), var(--shadow1);
+    }
+    .input, textarea{
+      background: rgba(255,255,255,.92);
+      border: 1px solid rgba(17,24,39,.14) !important;
+    }
+    .input:focus, textarea:focus{
+      outline: none;
+      border-color: rgba(255,193,7,.65) !important;
+      box-shadow: 0 0 0 4px rgba(255,193,7,.22);
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp .35s ease both; }
   </style>
 </head>
 
 <body class="bg-brand-light text-gray-900">
-  <div id="topBar" class="w-full text-center text-sm bg-brand-yellow text-gray-900 py-1.5 font-medium">
+  <!-- upgraded topbar -->
+  <div id="topBar" class="w-full text-center text-sm py-2 font-semibold text-gray-900 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-300 border-b border-black/5">
     <span>🍳 Śniadania i lunche na świeżo — zamów online</span>
   </div>
 
@@ -467,10 +543,10 @@
     const CartButton = () => {
       const { cart, total } = useCart();
       return (
-        <a href="#/koszyk" className="relative inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition focus-ring">
+        <a href="#/koszyk" className="relative inline-flex items-center gap-2 border border-gray-200 bg-white/90 px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition focus-ring">
           <i data-lucide="shopping-cart" className="w-5 h-5"></i>
           <span className="text-sm font-semibold">{currency(total)}</span>
-          <span className="absolute -top-2 -right-2 bg-brand-yellow text-gray-900 text-xs font-bold w-6 h-6 rounded-full grid place-items-center">
+          <span className="absolute -top-2 -right-2 bg-brand-yellow text-gray-900 text-xs font-bold w-6 h-6 rounded-full grid place-items-center shadow-soft">
             {cart.reduce((s,i)=>s+(i.qty||1),0)}
           </span>
         </a>
@@ -494,7 +570,7 @@
             <button
               type="button"
               onClick={onOpenAuth}
-              className="hidden md:inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition text-sm font-semibold text-gray-800 focus-ring">
+              className="hidden md:inline-flex items-center gap-2 border border-gray-200 bg-white/90 px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition text-sm font-semibold text-gray-800 focus-ring">
               <i data-lucide="user" className="w-4 h-4"></i>
               <span>Konto</span>
             </button>
@@ -502,7 +578,7 @@
             <button
               type="button"
               onClick={onOpenAuth}
-              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white shadow-soft focus-ring"
+              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white/90 shadow-soft focus-ring"
               aria-label="Moje konto">
               <i data-lucide="user" className="w-5 h-5"></i>
             </button>
@@ -522,7 +598,7 @@
             <button
               type="button"
               onClick={onOpenAuth}
-              className="w-11 h-11 rounded-2xl bg-white softBorder grid place-items-center shadow-soft focus-ring"
+              className="w-11 h-11 rounded-2xl bg-white/90 softBorder grid place-items-center shadow-soft focus-ring"
               aria-label="Konto"
             >
               <i data-lucide="user" className="w-5 h-5"></i>
@@ -544,15 +620,15 @@
       <nav className="mobileOnly fixed bottom-3 left-1/2 -translate-x-1/2 z-[60] w-[min(640px,92%)]">
         <div className="cardX rounded-3xl px-2 py-2">
           <div className="grid grid-cols-4 gap-2">
-            <a href="#/" className="tapBtn flex flex-col items-center justify-center gap-1 bg-white softBorder text-gray-900 focus-ring">
+            <a href="#/" className="tapBtn flex flex-col items-center justify-center gap-1 bg-white/90 softBorder text-gray-900 focus-ring">
               <i data-lucide="home" className="w-5 h-5"></i>
               <span className="text-[11px] font-extrabold">Start</span>
             </a>
-            <a href="#kategorie" className="tapBtn flex flex-col items-center justify-center gap-1 bg-white softBorder text-gray-900 focus-ring">
+            <a href="#kategorie" className="tapBtn flex flex-col items-center justify-center gap-1 bg-white/90 softBorder text-gray-900 focus-ring">
               <i data-lucide="layout-grid" className="w-5 h-5"></i>
               <span className="text-[11px] font-extrabold">Menu</span>
             </a>
-            <a href="#/kategoria/boxy-sniadaniowe" className="tapBtn flex flex-col items-center justify-center gap-1 bg-white softBorder text-gray-900 focus-ring">
+            <a href="#/kategoria/boxy-sniadaniowe" className="tapBtn flex flex-col items-center justify-center gap-1 bg-white/90 softBorder text-gray-900 focus-ring">
               <i data-lucide="package-open" className="w-5 h-5"></i>
               <span className="text-[11px] font-extrabold">Boxy</span>
             </a>
@@ -565,11 +641,16 @@
       </nav>
     );
 
+    /* ===== HERO (UPGRADED) ===== */
     const Hero = () => (
       <section className="relative overflow-hidden">
+        <div className="pointer-events-none absolute -top-24 -left-24 w-[420px] h-[420px] rounded-full bg-brand-yellow/25 blur-3xl"></div>
+        <div className="pointer-events-none absolute -top-28 -right-28 w-[520px] h-[520px] rounded-full bg-blue-400/15 blur-3xl"></div>
+        <div className="pointer-events-none absolute top-40 left-1/2 -translate-x-1/2 w-[520px] h-[280px] rounded-full bg-violet-400/10 blur-3xl"></div>
+
         <div className="max-w-6xl mx-auto px-4 py-12 md:py-20">
-          <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 mb-3 px-4 py-2 rounded-full bg-white/80 border border-gray-200 shadow-soft">
+          <div className="max-w-2xl fade-up">
+            <div className="inline-flex items-center gap-2 mb-3 px-4 py-2 rounded-full bg-white/85 border border-gray-200 shadow-soft">
               <span className="text-xl">👋</span>
               <span className="text-sm md:text-base font-semibold text-gray-900">
                 Cześć, na co masz dziś ochotę?
@@ -578,7 +659,7 @@
 
             <h1 className="bigTitle text-4xl md:text-5xl font-extrabold leading-tight">
               Wybierz kategorię i{" "}
-              <span className="text-brand-yellow">zamów</span>
+              <span className="text-brand-yellow drop-shadow-sm">zamów</span>
             </h1>
             <p className="mt-3 muted text-gray-600 max-w-prose text-[15px] md:text-base">
               Jak w kiosku: wybierasz kategorię → dodajesz pozycje → płacisz online.
@@ -589,10 +670,16 @@
                 <i data-lucide="shopping-bag" className="w-5 h-5"></i>
                 Przeglądaj menu
               </a>
-              <a href="#/kategoria/boxy-sniadaniowe" className="tapBtn inline-flex items-center justify-center gap-2 border border-gray-300 bg-white text-gray-900 font-semibold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition focus-ring">
+              <a href="#/kategoria/boxy-sniadaniowe" className="tapBtn inline-flex items-center justify-center gap-2 border border-gray-300 bg-white/90 text-gray-900 font-semibold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition focus-ring">
                 <i data-lucide="package-open" className="w-5 h-5"></i>
                 Zobacz boxy śniadaniowe
               </a>
+            </div>
+
+            <div className="mt-8 flex flex-wrap gap-2 text-xs text-gray-600">
+              <span className="px-3 py-1.5 rounded-full bg-white/70 border border-gray-200">⚡ Szybkie zamówienie</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/70 border border-gray-200">🔒 Bezpieczna płatność</span>
+              <span className="px-3 py-1.5 rounded-full bg-white/70 border border-gray-200">🧾 Czytelne podsumowanie</span>
             </div>
           </div>
         </div>
@@ -611,7 +698,9 @@
       const handleClick = () => { window.location.hash = `#/kategoria/${category.id}`; };
       return (
         <button type="button" onClick={handleClick}
-          className="group bg-white/90 border border-gray-200 rounded-3xl p-5 text-left shadow-soft hover:shadow-md hover:-translate-y-1 transition w-full focus-ring">
+          className="group relative bg-white/85 border border-gray-200 rounded-3xl p-5 text-left shadow-soft hover:shadow-kiosk hover:-translate-y-1 transition w-full focus-ring overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 opacity-70"></div>
+
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-gray-500">
@@ -695,8 +784,9 @@
             <button
               type="button"
               onClick={() => onAdd(item)}
-              className="inline-flex items-center justify-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-4 py-2.5 rounded-2xl shadow-soft hover:scale-[1.03] active:scale-[0.98] transition focus-ring"
+              className="relative inline-flex items-center justify-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-4 py-2.5 rounded-2xl shadow-soft hover:scale-[1.04] active:scale-[0.98] transition focus-ring overflow-hidden"
             >
+              <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition bg-gradient-to-r from-white/30 via-transparent to-white/20"></span>
               <i data-lucide="plus" className="w-4 h-4"></i> Dodaj
             </button>
           </div>
@@ -808,7 +898,9 @@
                       </div>
                     ))}
                   </div>
-                  <aside className="bg-white/90 border border-gray-200 rounded-2xl p-5">
+
+                  <!-- sticky summary (NEW) -->
+                  <aside className="bg-white/90 border border-gray-200 rounded-2xl p-5 md:sticky md:top-24">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold">Suma</span>
                       <span className="font-extrabold">{currency(total)}</span>
@@ -836,7 +928,7 @@
                     {EXTRA_ITEMS.map(extra => (
                       <button key={extra.id}
                         onClick={() => add({ type:'extra', name: extra.name, price: extra.price })}
-                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-gray-200 shadow-soft text-sm hover:shadow-md hover:-translate-y-0.5 transition focus-ring">
+                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/90 border border-gray-200 shadow-soft text-sm hover:shadow-md hover:-translate-y-0.5 transition focus-ring">
                         <span className="text-base">+</span>
                         <span>{extra.name}</span>
                         <span className="font-semibold text-gray-900">{currency(extra.price)}</span>
@@ -971,7 +1063,8 @@
                 </div>
               </div>
 
-              <aside className="bg-white/90 border border-gray-200 rounded-2xl p-5">
+              <!-- sticky summary (NEW) -->
+              <aside className="bg-white/90 border border-gray-200 rounded-2xl p-5 lg:sticky lg:top-24">
                 <div className="font-semibold">Podsumowanie</div>
                 <div className="mt-3 space-y-3 max-h-64 overflow-auto pr-2">
                   {cart.map(i => (
@@ -1106,7 +1199,7 @@
         <section id="kontakt" className="py-12 bg-white/70">
           <div className="max-w-6xl mx-auto px-4">
             <SectionTitle title="Kontakt" subtitle="Masz pytania? Napisz do nas." />
-            <form className="max-w-xl mx-auto mt-8 bg-white border border-gray-200 rounded-2xl p-6 shadow-soft">
+            <form className="max-w-xl mx-auto mt-8 bg-white/90 border border-gray-200 rounded-2xl p-6 shadow-soft">
               <div className="grid md:grid-cols-2 gap-4">
                 <input className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus-ring" placeholder="Imię" />
                 <input className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus-ring" placeholder="Email" />
