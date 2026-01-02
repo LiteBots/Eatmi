@@ -16,27 +16,13 @@
         extend: {
           colors: {
             brand: {
-              yellow: '#FFC107',
-              dark: '#111827',
-              light: '#F9FAFB'
-            },
-            kiosk: {
-              bg: '#0B0F1A',
-              card: '#0F1629',
-              card2: '#111B34',
-              green: '#22C55E',
-              red: '#EF4444',
-              blue: '#3B82F6',
-              violet: '#8B5CF6',
-              orange: '#F59E0B',
-              gray: '#94A3B8'
+              yellow: '#FFC107',  // główny akcent
+              yellow2: '#FFB300', // hover/ciemniejszy
+              ink: '#0F172A',     // tekst
+              muted: '#475569',   // opisy
+              line: '#E2E8F0',    // border
+              bg: '#FFFFFF'
             }
-          },
-          boxShadow: {
-            soft: '0 10px 30px rgba(0,0,0,.08)',
-            glass: '0 8px 25px rgba(0,0,0,.12)',
-            kiosk: '0 14px 50px rgba(0,0,0,.35)',
-            yellow: '0 18px 60px rgba(255,193,7,.22)'
           },
           borderRadius: { xl2: '1.25rem' }
         }
@@ -56,43 +42,43 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
-    :root {
+    :root{
       --y: #FFC107;
-      --yd: rgba(255,193,7,.18);
-      --yd2: rgba(255,193,7,.10);
+      --y2:#FFB300;
+      --ink:#0F172A;
+      --line:#E2E8F0;
+      --muted:#475569;
     }
-
-    /* Yellow-rich background */
-    body {
-      background:
-        radial-gradient(900px 420px at 12% 0%, rgba(255,193,7,.22), transparent 60%),
-        radial-gradient(900px 420px at 92% 10%, rgba(255,193,7,.12), transparent 55%),
-        radial-gradient(700px 380px at 70% 95%, rgba(255,193,7,.10), transparent 55%),
-        linear-gradient(180deg, #ffffff 0%, #fff9e6 100%);
+    html, body { background: #fff; }
+    /* Flat: zero heavy shadows, tylko delikatna separacja */
+    .flat-card { border: 1px solid var(--line); background: #fff; }
+    .flat-card:hover { border-color: rgba(255,193,7,.65); }
+    .focus-yellow:focus { outline: none; box-shadow: 0 0 0 3px rgba(255,193,7,.28); border-color: rgba(255,193,7,.75); }
+    .btn-yellow { background: var(--y); color: #111827; }
+    .btn-yellow:hover { background: var(--y2); }
+    .btn-outline:hover { border-color: rgba(255,193,7,.8); }
+    .link-yellow { color: #B45309; }
+    .link-yellow:hover { color: #92400E; }
+    /* żółte podkreślenie nagłówków */
+    .underline-yellow{
+      background-image: linear-gradient(to right, rgba(255,193,7,.55), rgba(255,193,7,.55));
+      background-size: 100% 0.35em;
+      background-repeat: no-repeat;
+      background-position: 0 88%;
     }
-
-    .liquid { background: rgba(255,255,255,.78); backdrop-filter: blur(14px); }
-    .logo-glow { box-shadow: 0 12px 34px rgba(255,193,7,.22); }
-    .toast-enter { animation: toastIn .18s ease-out; }
-    .toast-bar { animation: toastBar 2.4s linear; transform-origin: left; }
-
-    /* Yellow hover glow for cards/buttons */
-    .y-glow:hover { box-shadow: 0 18px 60px rgba(255,193,7,.22); transform: translateY(-2px); }
-
-    /* Hero blobs */
-    .blob {
-      filter: blur(38px);
-      opacity: .65;
-      transform: translateZ(0);
+    /* małe “pill” żółte */
+    .pill-yellow{
+      background: rgba(255,193,7,.18);
+      border: 1px solid rgba(255,193,7,.55);
+      color: #111827;
     }
-
-    /* Toast animations */
+    /* toast */
+    .toast-in { animation: toastIn .16s ease-out; }
     @keyframes toastIn { from { transform: translateY(8px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
-    @keyframes toastBar { from { transform: scaleX(1) } to { transform: scaleX(0) } }
   </style>
 </head>
 
-<body class="text-gray-900">
+<body class="text-brand-ink">
   <div id="root"></div>
 
   <script type="text/babel">
@@ -181,7 +167,7 @@
     };
 
     /* =======================
-       HELPERS / STATE
+       STATE / HELPERS
     ======================= */
 
     const useLocalStorage = (key, initial) => {
@@ -200,46 +186,29 @@
 
     const ToastProvider = ({children}) => {
       const [toast, setToast] = useState(null);
-      const timeoutRef = React.useRef(null);
+      const tRef = React.useRef(null);
 
       const show = (message) => {
         setToast(message);
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        timeoutRef.current = setTimeout(() => setToast(null), 2500);
-      };
-
-      const close = () => {
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        setToast(null);
+        if (tRef.current) clearTimeout(tRef.current);
+        tRef.current = setTimeout(() => setToast(null), 2300);
       };
 
       return (
         <ToastContext.Provider value={{ show }}>
           {children}
           {toast && (
-            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[80] pointer-events-none">
-              <div className="relative pointer-events-auto toast-enter bg-white/95 border border-amber-200 shadow-glass rounded-2xl px-4 py-3 min-w-[260px] max-w-[90vw] flex items-start gap-3">
-                <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 text-lg">
+            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[80]">
+              <div className="toast-in flat-card rounded-2xl px-4 py-3 min-w-[280px] max-w-[90vw] flex items-start gap-3">
+                <div className="w-9 h-9 rounded-full flex items-center justify-center font-extrabold"
+                     style={{background:"rgba(255,193,7,.22)", border:"1px solid rgba(255,193,7,.55)"}}>
                   ✓
                 </div>
                 <div className="flex-1">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700">
+                  <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-brand-muted">
                     Dodano do koszyka
                   </div>
-                  <div className="text-sm text-gray-900 mt-0.5">
-                    {toast}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={close}
-                  className="ml-2 text-gray-400 hover:text-gray-700 text-xl leading-none"
-                  aria-label="Zamknij powiadomienie"
-                >
-                  ×
-                </button>
-                <div className="absolute left-4 right-4 -bottom-1.5 h-1 rounded-full overflow-hidden bg-amber-50">
-                  <div className="toast-bar h-full bg-brand-yellow"></div>
+                  <div className="text-sm font-semibold mt-0.5">{toast}</div>
                 </div>
               </div>
             </div>
@@ -249,16 +218,17 @@
     };
 
     const Logo = () => (
-      <a href="#/" className="flex items-center gap-3 group">
-        <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center border border-amber-200 overflow-hidden shadow-yellow logo-glow">
+      <a href="#/" className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-2xl grid place-items-center"
+             style={{background:"rgba(255,193,7,.18)", border:"1px solid rgba(255,193,7,.55)"}}>
           <img
             src="https://i.imgur.com/f9TN0Gh.png"
             alt="eatmi.pl — logo"
             loading="lazy"
-            className="w-9 h-9 object-contain transition-transform duration-500 group-hover:-rotate-6 group-hover:scale-110"
+            className="w-9 h-9 object-contain"
           />
         </div>
-        <span className="font-extrabold tracking-tight">
+        <span className="font-extrabold tracking-tight text-brand-ink">
           eatmi<span className="text-brand-yellow">.pl</span>
         </span>
       </a>
@@ -301,37 +271,40 @@
 
     const CartButton = () => {
       const { cart, total } = useCart();
+      const count = cart.reduce((s,i)=>s+(i.qty||1),0);
+
       return (
-        <a
-          href="#/koszyk"
-          className="relative inline-flex items-center gap-2 border border-amber-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-yellow transition"
-        >
-          <i data-lucide="shopping-cart" className="w-5 h-5 text-gray-900"></i>
+        <a href="#/koszyk"
+           className="inline-flex items-center gap-2 rounded-xl px-3 py-2 flat-card btn-outline"
+           style={{borderColor:"rgba(255,193,7,.45)"}}>
+          <i data-lucide="shopping-cart" className="w-5 h-5 text-brand-ink"></i>
           <span className="text-sm font-extrabold">{currency(total)}</span>
-          <span className="absolute -top-2 -right-2 bg-brand-yellow text-gray-900 text-xs font-extrabold w-6 h-6 rounded-full grid place-items-center shadow-soft border border-amber-300">
-            {cart.reduce((s,i)=>s+(i.qty||1),0)}
+          <span className="ml-1 text-xs font-extrabold px-2 py-1 rounded-full pill-yellow">
+            {count}
           </span>
         </a>
       );
     };
 
     const Header = ({ onOpenAuth }) => (
-      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur border-b border-amber-200">
+      <header className="sticky top-0 z-40 bg-white border-b border-brand-line">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <Logo />
-          <nav className="hidden md:flex items-center gap-6 text-sm">
-            <a href="#kategorie" className="hover:text-gray-900 text-gray-700 font-semibold">Menu</a>
-            <a href="#/kategoria/boxy-sniadaniowe" className="hover:text-gray-900 text-gray-700 font-semibold">Boxy</a>
-            <a href="#/kategoria/lunche" className="hover:text-gray-900 text-gray-700 font-semibold">Lunche</a>
-            <a href="#/kategoria/kanapki" className="hover:text-gray-900 text-gray-700 font-semibold">Kanapki</a>
-            <a href="#/kategoria/napoje" className="hover:text-gray-900 text-gray-700 font-semibold">Napoje</a>
+
+          <nav className="hidden md:flex items-center gap-6 text-sm font-semibold">
+            <a href="#kategorie" className="link-yellow">Menu</a>
+            <a href="#/kategoria/boxy-sniadaniowe" className="text-brand-ink hover:text-amber-700">Boxy</a>
+            <a href="#/kategoria/lunche" className="text-brand-ink hover:text-amber-700">Lunche</a>
+            <a href="#/kategoria/kanapki" className="text-brand-ink hover:text-amber-700">Kanapki</a>
+            <a href="#/kategoria/napoje" className="text-brand-ink hover:text-amber-700">Napoje</a>
           </nav>
 
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={onOpenAuth}
-              className="hidden md:inline-flex items-center gap-2 border border-amber-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-yellow transition text-sm font-extrabold text-gray-900"
+              className="hidden md:inline-flex items-center gap-2 rounded-xl px-4 py-2 flat-card btn-outline font-extrabold"
+              style={{borderColor:"rgba(255,193,7,.45)"}}
             >
               <i data-lucide="user" className="w-4 h-4"></i>
               <span>Konto</span>
@@ -340,7 +313,8 @@
             <button
               type="button"
               onClick={onOpenAuth}
-              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl border border-amber-200 bg-white shadow-soft hover:shadow-yellow transition"
+              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl flat-card"
+              style={{borderColor:"rgba(255,193,7,.45)"}}
               aria-label="Moje konto"
             >
               <i data-lucide="user" className="w-5 h-5"></i>
@@ -352,120 +326,119 @@
       </header>
     );
 
-    const Hero = () => (
-      <section className="relative overflow-hidden">
-        {/* blobs */}
-        <div className="pointer-events-none absolute -top-10 -left-20 w-[420px] h-[420px] rounded-full bg-brand-yellow blob"></div>
-        <div className="pointer-events-none absolute top-10 -right-28 w-[460px] h-[460px] rounded-full bg-amber-200 blob"></div>
-
-        <div className="max-w-6xl mx-auto px-4 py-12 md:py-20 relative">
-          <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 mb-3 px-4 py-2 rounded-full bg-white/85 border border-amber-200 shadow-soft">
-              <span className="text-xl">👋</span>
-              <span className="text-sm md:text-base font-extrabold text-gray-900">
-                Cześć, na co masz dziś ochotę?
-              </span>
-              <span className="ml-2 text-[11px] font-extrabold px-2 py-1 rounded-full bg-brand-yellow text-gray-900 shadow-soft">
-                NOWOŚĆ
-              </span>
-            </div>
-
-            <h1 className="text-4xl md:text-5xl font-extrabold leading-tight">
-              Wybierz kategorię i{" "}
-              <span className="text-brand-yellow drop-shadow-sm">zamów online</span>
-            </h1>
-
-            <p className="mt-4 text-gray-700 max-w-prose font-medium">
-              Boxy śniadaniowe, lunche, kanapki, zdrowe, słodkie i napoje.
-              Jak w kiosku — wybierasz kategorię, klikasz pozycje i finalizujesz zamówienie.
-            </p>
-
-            <div className="mt-6 flex flex-wrap gap-3">
-              <a
-                href="#kategorie"
-                className="inline-flex items-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-6 py-3 rounded-xl2 shadow-yellow hover:scale-[1.02] transition border border-amber-300"
-              >
-                <i data-lucide="shopping-bag" className="w-5 h-5"></i>
-                Przeglądaj menu
-              </a>
-
-              <a
-                href="#/kategoria/boxy-sniadaniowe"
-                className="inline-flex items-center gap-2 border border-amber-200 bg-white text-gray-900 font-extrabold px-6 py-3 rounded-xl2 shadow-soft hover:shadow-yellow hover:scale-[1.02] transition"
-              >
-                <i data-lucide="package-open" className="w-5 h-5 text-amber-600"></i>
-                Zobacz boxy śniadaniowe
-              </a>
-            </div>
-
-            {/* yellow highlights row */}
-            <div className="mt-8 grid sm:grid-cols-3 gap-3">
-              {[
-                { t: 'Szybkie zamówienie', d: '3 kliknięcia do koszyka', icon: 'zap' },
-                { t: 'Płatność PayU', d: 'Redirect po /api/payu/order', icon: 'credit-card' },
-                { t: 'Kiosk UI', d: 'Wyraźne kafle i CTA', icon: 'layout-grid' },
-              ].map((x, idx) => (
-                <div key={idx} className="bg-white/90 border border-amber-200 rounded-2xl p-4 shadow-soft y-glow transition">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-brand-yellow/30 border border-amber-200 grid place-items-center">
-                      <i data-lucide={x.icon} className="w-5 h-5 text-gray-900"></i>
-                    </div>
-                    <div>
-                      <div className="font-extrabold text-gray-900 leading-tight">{x.t}</div>
-                      <div className="text-xs text-gray-700 font-semibold">{x.d}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
+    const Stat = ({icon, title, desc}) => (
+      <div className="rounded-2xl flat-card p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl grid place-items-center"
+               style={{background:"rgba(255,193,7,.18)", border:"1px solid rgba(255,193,7,.55)"}}>
+            <i data-lucide={icon} className="w-5 h-5 text-brand-ink"></i>
+          </div>
+          <div>
+            <div className="font-extrabold">{title}</div>
+            <div className="text-xs text-brand-muted font-semibold">{desc}</div>
           </div>
         </div>
+      </div>
+    );
 
-        {/* yellow separator */}
-        <div className="h-2 bg-gradient-to-r from-amber-200 via-brand-yellow to-amber-200 opacity-80"></div>
+    const Hero = () => (
+      <section className="py-10 md:py-14">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="rounded-3xl flat-card p-6 md:p-10">
+            <div className="flex flex-col md:flex-row md:items-center gap-8">
+              <div className="flex-1">
+                <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full pill-yellow font-extrabold text-sm">
+                  <span>👋</span>
+                  <span>Witaj w eatmi</span>
+                  <span className="px-2 py-1 rounded-full bg-brand-yellow text-brand-ink font-extrabold text-[11px]">
+                    zamów online
+                  </span>
+                </div>
+
+                <h1 className="mt-4 text-3xl md:text-5xl font-extrabold leading-tight">
+                  Wybierz kategorię i{" "}
+                  <span className="underline-yellow">zamów w kilka kliknięć</span>
+                </h1>
+
+                <p className="mt-4 text-brand-muted font-medium max-w-prose">
+                  Minimalnie, czytelnie, szybko. Żółty prowadzi użytkownika do akcji —
+                  reszta jest czysta i flat.
+                </p>
+
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <a href="#kategorie"
+                     className="btn-yellow inline-flex items-center gap-2 px-5 py-3 rounded-xl font-extrabold">
+                    <i data-lucide="shopping-bag" className="w-5 h-5"></i>
+                    Przeglądaj menu
+                  </a>
+                  <a href="#/kategoria/boxy-sniadaniowe"
+                     className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-extrabold flat-card btn-outline"
+                     style={{borderColor:"rgba(255,193,7,.45)"}}>
+                    <i data-lucide="package-open" className="w-5 h-5 text-amber-700"></i>
+                    Zobacz boxy
+                  </a>
+                </div>
+
+                <div className="mt-6 flex flex-wrap gap-2">
+                  {["Boxy", "Lunch 12–16", "VEGE", "Szybkie dodawanie"].map((t, i) => (
+                    <span key={i} className="text-xs font-extrabold px-3 py-1.5 rounded-full pill-yellow">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="w-full md:w-[360px] space-y-3">
+                <Stat icon="zap" title="Szybko" desc="Dodajesz i lecisz do checkoutu" />
+                <Stat icon="credit-card" title="PayU" desc="Redirect z /api/payu/order" />
+                <Stat icon="layout-grid" title="Flat UI" desc="Białe tło + żółte akcenty" />
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
     );
 
     const SectionTitle = ({eyebrow, title, subtitle}) => (
-      <div className="text-center max-w-2xl mx-auto">
+      <div className="max-w-2xl">
         {eyebrow && (
-          <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-gray-800 font-extrabold">
-            <span className="w-2.5 h-2.5 rounded-full bg-brand-yellow shadow-soft border border-amber-300"></span>
+          <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest font-extrabold text-brand-muted">
+            <span className="w-2 h-2 rounded-full bg-brand-yellow"></span>
             {eyebrow}
-            <span className="w-2.5 h-2.5 rounded-full bg-brand-yellow shadow-soft border border-amber-300"></span>
           </div>
         )}
-        <h2 className="text-3xl md:text-4xl font-extrabold mt-2">
-          {title} <span className="text-brand-yellow">★</span>
+        <h2 className="mt-2 text-2xl md:text-3xl font-extrabold">
+          <span className="underline-yellow">{title}</span>
         </h2>
-        {subtitle && <p className="text-gray-700 mt-2 font-medium">{subtitle}</p>}
+        {subtitle && <p className="mt-2 text-brand-muted font-medium">{subtitle}</p>}
       </div>
     );
 
     const CategoryCard = ({ category }) => {
-      const handleClick = () => { window.location.hash = `#/kategoria/${category.id}`; };
+      const go = () => { window.location.hash = `#/kategoria/${category.id}`; };
       return (
-        <button
-          type="button"
-          onClick={handleClick}
-          className="group bg-white/95 border-2 border-amber-200 rounded-2xl p-5 text-left shadow-soft hover:shadow-yellow transition w-full y-glow"
+        <button type="button" onClick={go}
+          className="flat-card rounded-2xl p-5 text-left w-full transition-colors"
         >
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-gray-800 font-extrabold">
-                <span className="w-2.5 h-2.5 rounded-full bg-brand-yellow shadow-soft"></span>
+              <div className="text-xs font-extrabold text-brand-muted uppercase tracking-widest">
                 Kategoria
               </div>
-              <h3 className="mt-1 text-lg font-extrabold">{category.name}</h3>
+              <div className="mt-1 text-lg font-extrabold">{category.name}</div>
             </div>
-            <div className="w-11 h-11 rounded-2xl bg-brand-yellow/25 border border-amber-200 grid place-items-center">
-              <i data-lucide={category.icon} className="w-6 h-6 text-gray-900"></i>
+            <div className="w-11 h-11 rounded-xl grid place-items-center"
+                 style={{background:"rgba(255,193,7,.18)", border:"1px solid rgba(255,193,7,.55)"}}>
+              <i data-lucide={category.icon} className="w-6 h-6 text-brand-ink"></i>
             </div>
           </div>
-          <p className="mt-3 text-sm text-gray-700 font-medium">{category.description}</p>
-          <div className="mt-4 inline-flex items-center gap-2 text-sm font-extrabold text-gray-900 group-hover:gap-3 transition">
-            Otwórz kategorię <i data-lucide="arrow-right" className="w-4 h-4 text-amber-600"></i>
+
+          <div className="mt-3 text-sm text-brand-muted font-medium">
+            {category.description}
+          </div>
+
+          <div className="mt-4 inline-flex items-center gap-2 text-sm font-extrabold link-yellow">
+            Otwórz <i data-lucide="arrow-right" className="w-4 h-4"></i>
           </div>
         </button>
       );
@@ -477,9 +450,9 @@
     const getBadges = (categoryId, name) => {
       const badges = [];
       const upper = (name||'').toUpperCase();
-      if (categoryId === 'boxy-sniadaniowe') badges.push({ label: 'BOX', color: 'bg-amber-50 text-amber-700 border-amber-200' });
-      if (categoryId === 'lunche') badges.push({ label: 'LUNCH 12–16', color: 'bg-amber-50 text-amber-700 border-amber-200' });
-      if (upper.includes('VEGE')) badges.push({ label: 'VEGE', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' });
+      if (categoryId === 'boxy-sniadaniowe') badges.push('BOX');
+      if (categoryId === 'lunche') badges.push('LUNCH 12–16');
+      if (upper.includes('VEGE')) badges.push('VEGE');
       return badges;
     };
 
@@ -488,57 +461,55 @@
       const badges = getBadges(categoryId, item.name);
 
       return (
-        <div className="relative bg-white/95 border-2 border-amber-200 rounded-3xl p-5 md:p-6 shadow-soft hover:shadow-yellow transition group overflow-hidden y-glow">
-          <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-brand-yellow via-amber-200 to-brand-yellow opacity-90"></div>
-
-          {/* corner accent */}
-          <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-brand-yellow/25 blur-2xl"></div>
-
-          {badges.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-3">
-              {badges.map((b, i) => (
-                <span
-                  key={i}
-                  className={`text-[10px] font-extrabold tracking-widest uppercase border px-2.5 py-1 rounded-full ${b.color}`}
-                >
-                  {b.label}
-                </span>
-              ))}
+        <div className="flat-card rounded-2xl p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-lg font-extrabold leading-snug">{item.name}</div>
+              {badges.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {badges.map((b,i)=>(
+                    <span key={i} className="text-[10px] font-extrabold uppercase tracking-widest px-2 py-1 rounded-full pill-yellow">
+                      {b}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
 
-          <h3 className="text-lg md:text-xl font-extrabold text-gray-900 leading-snug">
-            {item.name}
-          </h3>
+            <div className="text-right">
+              <div className="text-xs font-extrabold text-brand-muted uppercase tracking-widest">Cena</div>
+              <div className="mt-1 inline-flex items-center gap-2">
+                <span className="px-3 py-1 rounded-xl font-extrabold"
+                      style={{background:"rgba(255,193,7,.18)", border:"1px solid rgba(255,193,7,.55)"}}>
+                  {currency(item.price)}
+                </span>
+              </div>
+            </div>
+          </div>
 
           {bullets.length > 0 && (
-            <ul className="mt-3 space-y-1.5 text-sm text-gray-800">
+            <ul className="mt-4 space-y-2 text-sm text-brand-muted font-medium">
               {bullets.map((b, idx) => (
                 <li key={idx} className="flex gap-2">
-                  <span className="mt-[6px] w-2 h-2 rounded-full bg-brand-yellow shrink-0 border border-amber-300"></span>
-                  <span className="font-medium">{b}</span>
+                  <span className="mt-[7px] w-2 h-2 rounded-full bg-brand-yellow shrink-0"></span>
+                  <span>{b}</span>
                 </li>
               ))}
             </ul>
           )}
 
           <div className="mt-5 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <div className="px-3 py-1.5 rounded-xl bg-gray-900 text-white font-extrabold text-base md:text-lg shadow">
-                {currency(item.price)}
-              </div>
-              <div className="text-xs text-gray-700 font-extrabold uppercase tracking-wider bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
-                / szt.
-              </div>
-            </div>
-
             <button
               type="button"
               onClick={() => onAdd(item)}
-              className="inline-flex items-center justify-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-4 py-2.5 rounded-2xl shadow-yellow hover:scale-[1.03] active:scale-[0.98] transition border border-amber-300"
+              className="btn-yellow inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-extrabold"
             >
               <i data-lucide="plus" className="w-4 h-4"></i> Dodaj
             </button>
+
+            <a href="#/koszyk" className="text-sm font-extrabold link-yellow">
+              Zobacz koszyk →
+            </a>
           </div>
         </div>
       );
@@ -553,11 +524,11 @@
         return (
           <section className="py-10">
             <div className="max-w-6xl mx-auto px-4">
-              <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-800 font-extrabold">
-                <i data-lucide="arrow-left" className="w-4 h-4 text-amber-600"></i> Wróć
+              <a href="#/" className="inline-flex items-center gap-2 text-sm font-extrabold link-yellow">
+                <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć
               </a>
               <h2 className="text-2xl font-extrabold mt-3">Kategoria nie istnieje</h2>
-              <p className="mt-2 text-gray-700 font-medium">Wróć do menu i wybierz jedną z dostępnych kategorii.</p>
+              <p className="mt-2 text-brand-muted font-medium">Wróć do menu i wybierz kategorię.</p>
             </div>
           </section>
         );
@@ -573,27 +544,31 @@
       return (
         <section className="py-8 md:py-10">
           <div className="max-w-6xl mx-auto px-4">
-            <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-800 font-extrabold">
-              <i data-lucide="arrow-left" className="w-4 h-4 text-amber-600"></i> Wróć do menu
-            </a>
+            <div className="flex items-center justify-between gap-3">
+              <a href="#/" className="inline-flex items-center gap-2 text-sm font-extrabold link-yellow">
+                <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do menu
+              </a>
+              <span className="text-xs font-extrabold px-3 py-1 rounded-full pill-yellow">
+                {items.length} pozycji
+              </span>
+            </div>
 
-            <div className="mt-4 flex items-center gap-3 bg-white/90 border-2 border-amber-200 rounded-2xl p-4 shadow-soft">
-              <div className="w-11 h-11 rounded-2xl bg-brand-yellow/25 border border-amber-200 grid place-items-center">
-                <i data-lucide={category.icon} className="w-6 h-6 text-gray-900"></i>
-              </div>
-              <div>
-                <h2 className="text-2xl md:text-3xl font-extrabold">{category.name}</h2>
-                <p className="text-sm text-gray-700 mt-1 font-medium">{category.description}</p>
-              </div>
-
-              <div className="ml-auto hidden md:flex items-center gap-2">
-                <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-amber-50 border border-amber-200">
-                  kliknij produkt → Dodaj
-                </span>
+            <div className="mt-5 rounded-2xl flat-card p-5">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl grid place-items-center"
+                     style={{background:"rgba(255,193,7,.18)", border:"1px solid rgba(255,193,7,.55)"}}>
+                  <i data-lucide={category.icon} className="w-6 h-6"></i>
+                </div>
+                <div>
+                  <h2 className="text-2xl md:text-3xl font-extrabold">
+                    <span className="underline-yellow">{category.name}</span>
+                  </h2>
+                  <p className="text-sm text-brand-muted font-medium mt-1">{category.description}</p>
+                </div>
               </div>
             </div>
 
-            <div className="mt-6 grid sm:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
+            <div className="mt-6 grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
               {items.map(item => (
                 <ProductCard
                   key={item.id}
@@ -621,21 +596,23 @@
       return (
         <section className="py-10">
           <div className="max-w-6xl mx-auto px-4">
-            <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-800 font-extrabold">
-              <i data-lucide="arrow-left" className="w-4 h-4 text-amber-600"></i> Wróć
-            </a>
-
-            <div className="mt-3 flex items-end justify-between gap-3">
-              <h2 className="text-2xl font-extrabold">Koszyk</h2>
-              <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-brand-yellow/25 border border-amber-200">
+            <div className="flex items-center justify-between gap-3">
+              <a href="#/" className="inline-flex items-center gap-2 text-sm font-extrabold link-yellow">
+                <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć
+              </a>
+              <span className="text-xs font-extrabold px-3 py-1 rounded-full pill-yellow">
                 {cart.reduce((s,i)=>s+(i.qty||1),0)} szt.
               </span>
             </div>
 
+            <h2 className="mt-4 text-2xl font-extrabold">
+              <span className="underline-yellow">Koszyk</span>
+            </h2>
+
             {cart.length === 0 ? (
-              <div className="mt-4 bg-white/90 border-2 border-amber-200 rounded-2xl p-6 shadow-soft">
-                <p className="text-gray-800 font-medium">Twój koszyk jest pusty.</p>
-                <a href="#kategorie" className="inline-flex mt-4 items-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-5 py-3 rounded-xl2 shadow-yellow border border-amber-300">
+              <div className="mt-4 rounded-2xl flat-card p-6">
+                <p className="text-brand-muted font-medium">Twój koszyk jest pusty.</p>
+                <a href="#kategorie" className="btn-yellow inline-flex mt-4 items-center gap-2 px-5 py-3 rounded-xl font-extrabold">
                   <i data-lucide="shopping-bag" className="w-5 h-5"></i> Wróć do menu
                 </a>
               </div>
@@ -644,86 +621,84 @@
                 <div className="mt-6 grid md:grid-cols-3 gap-6 items-start">
                   <div className="md:col-span-2 space-y-4">
                     {cart.map(item => (
-                      <div
-                        key={item.id}
-                        className="bg-white/95 border-2 border-amber-200 rounded-2xl p-4 shadow-soft y-glow transition"
-                      >
-                        <div className="flex flex-col md:flex-row gap-4 md:items-center justify-between">
+                      <div key={item.id} className="rounded-2xl flat-card p-4">
+                        <div className="flex flex-col md:flex-row md:items-center gap-4 justify-between">
                           <div className="min-w-0 flex-1">
                             <div className="font-extrabold break-words">{item.name}</div>
-                            <div className="text-xs text-gray-700 mt-1 font-medium">
-                              ID produktu: <span className="font-mono bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">{item.productId || 'brak'}</span>
+                            <div className="text-xs text-brand-muted mt-1 font-medium">
+                              ID: <span className="px-2 py-0.5 rounded-md pill-yellow font-mono">{item.productId || 'brak'}</span>
                             </div>
                           </div>
 
                           <div className="flex flex-col sm:flex-row gap-3 items-stretch md:items-center w-full md:w-auto justify-between md:justify-end">
-                            <div className="flex items-center gap-2 self-start">
-                              <button onClick={()=> decQty(item.id)} className="w-9 h-9 rounded-xl border-2 border-amber-200 bg-white grid place-items-center font-extrabold hover:bg-amber-50">−</button>
+                            <div className="flex items-center gap-2">
+                              <button onClick={()=> decQty(item.id)}
+                                      className="w-9 h-9 rounded-xl flat-card font-extrabold"
+                                      style={{borderColor:"rgba(255,193,7,.45)"}}>−</button>
                               <input
                                 value={item.qty||1}
                                 onChange={(e)=> setQty(item.id, parseInt(e.target.value||'1',10))}
-                                className="w-16 text-center border-2 border-amber-200 rounded-xl py-2 font-extrabold"
+                                className="w-16 text-center rounded-xl flat-card font-extrabold focus-yellow"
+                                style={{borderColor:"rgba(255,193,7,.45)", padding:"8px 10px"}}
                                 inputMode="numeric"
                                 pattern="[0-9]*"
                               />
-                              <button onClick={()=> incQty(item.id)} className="w-9 h-9 rounded-xl border-2 border-amber-200 bg-brand-yellow grid place-items-center font-extrabold hover:brightness-95">+</button>
+                              <button onClick={()=> incQty(item.id)}
+                                      className="w-9 h-9 rounded-xl font-extrabold btn-yellow">+</button>
                             </div>
 
                             <div className="text-right self-center">
                               <div className="font-extrabold whitespace-nowrap">{currency(lineTotal(item))}</div>
-                              <div className="text-xs text-gray-700 whitespace-nowrap font-medium">({currency(item.price)} / szt.)</div>
+                              <div className="text-xs text-brand-muted whitespace-nowrap font-medium">{currency(item.price)} / szt.</div>
                             </div>
 
-                            <button onClick={()=> remove(item.id)} className="text-red-600 hover:underline self-center text-sm font-extrabold">Usuń</button>
+                            <button onClick={()=> remove(item.id)} className="text-red-600 hover:underline self-center text-sm font-extrabold">
+                              Usuń
+                            </button>
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  <aside className="bg-white/95 border-2 border-amber-200 rounded-2xl p-5 shadow-soft">
+                  <aside className="rounded-2xl flat-card p-5">
                     <div className="flex items-center justify-between">
                       <span className="font-extrabold">Suma</span>
                       <span className="font-extrabold text-xl">{currency(total)}</span>
                     </div>
                     <div className="mt-4 grid gap-2">
-                      <button onClick={goToCheckout} className="w-full bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 shadow-yellow border border-amber-300">
+                      <button onClick={goToCheckout} className="btn-yellow w-full rounded-xl px-4 py-3 font-extrabold">
                         Przejdź do zamówienia
                       </button>
-                      <button onClick={clear} className="w-full bg-white text-gray-900 border-2 border-amber-200 rounded-xl px-4 py-3 font-extrabold hover:bg-amber-50">
+                      <button onClick={clear}
+                              className="w-full rounded-xl px-4 py-3 font-extrabold flat-card btn-outline"
+                              style={{borderColor:"rgba(255,193,7,.45)"}}>
                         Wyczyść koszyk
                       </button>
-                    </div>
-                    <div className="mt-4 text-xs text-gray-700 font-medium">
-                      Tip: żółte przyciski = akcje główne 😉
                     </div>
                   </aside>
                 </div>
 
-                <div className="mt-10 border-t-2 border-amber-200 pt-6">
-                  <h3 className="text-lg font-extrabold flex items-center gap-2">
-                    <span>Może dorzucisz coś jeszcze?</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-brand-yellow text-gray-900 border border-amber-300 font-extrabold">1 klik</span>
-                  </h3>
-                  <p className="text-sm text-gray-800 mt-1 font-medium">
-                    Słodki dodatek lub napój często robi różnicę — szczególnie przy większych zamówieniach.
-                  </p>
+                <div className="mt-10">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-lg font-extrabold">
+                      <span className="underline-yellow">Dodaj coś jeszcze</span>
+                    </h3>
+                    <span className="text-xs font-extrabold px-3 py-1 rounded-full pill-yellow">1 klik</span>
+                  </div>
 
                   <div className="mt-4 flex flex-wrap gap-3">
                     {EXTRA_ITEMS.map(extra => (
-                      <button
-                        key={extra.id}
-                        onClick={() => add({
-                          type:'extra',
-                          productId: extra.id,
-                          name: extra.name,
-                          price: extra.price
-                        })}
-                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/95 border-2 border-amber-200 shadow-soft text-sm hover:shadow-yellow hover:-translate-y-0.5 transition font-extrabold"
+                      <button key={extra.id}
+                        onClick={() => add({ type:'extra', productId: extra.id, name: extra.name, price: extra.price })}
+                        className="rounded-full px-4 py-2 font-extrabold flat-card btn-outline"
+                        style={{borderColor:"rgba(255,193,7,.45)"}}
                       >
-                        <span className="w-6 h-6 rounded-full bg-brand-yellow grid place-items-center border border-amber-300">+</span>
-                        <span>{extra.name}</span>
-                        <span className="text-gray-900">{currency(extra.price)}</span>
+                        <span className="inline-flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-full btn-yellow grid place-items-center">+</span>
+                          {extra.name}
+                          <span className="pill-yellow px-2 py-1 rounded-full text-xs">{currency(extra.price)}</span>
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -740,7 +715,6 @@
       const [form, setForm] = useState({
         imieNazwisko:'', telefon:'', email:'', miasto:'', kod:'', ulica:'', nrBud:'', pietro:'', lokal:'', uwagi:'', faktura:false, nip:'', firma:''
       });
-
       const handle = (k,v)=> setForm(s=> ({...s,[k]:v}));
 
       const submit = async () => {
@@ -752,7 +726,6 @@
           alert('Koszyk jest pusty.');
           return;
         }
-
         const missing = cart.find(i => !i.productId);
         if (missing) {
           alert("W koszyku jest pozycja bez productId. Dodaj produkt ponownie.");
@@ -779,13 +752,11 @@
             console.log("PAYU ERROR DETAILS:", data);
             return;
           }
-
           if (!data.redirectUri) {
             alert("Brak redirectUri. Zobacz konsolę (PAYU RESPONSE).");
             console.log("PAYU RESPONSE:", data);
             return;
           }
-
           window.location.href = data.redirectUri;
         } catch (e) {
           alert("Błąd połączenia z serwerem.");
@@ -793,17 +764,17 @@
         }
       };
 
-      const Input = ({label, required, value, onChange, type="text", placeholder}) => (
+      const Input = ({label, required, value, onChange, type="text"}) => (
         <div>
-          <label className="text-xs uppercase tracking-wider text-gray-800 font-extrabold">
-            {label}{required ? ' *' : ''}
+          <label className="text-xs uppercase tracking-widest font-extrabold text-brand-muted">
+            {label}{required ? " *" : ""}
           </label>
           <input
             type={type}
             value={value}
             onChange={onChange}
-            placeholder={placeholder || ''}
-            className="mt-1 w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white/95 font-semibold"
+            className="mt-1 w-full rounded-xl flat-card focus-yellow font-semibold px-4 py-3"
+            style={{borderColor:"rgba(255,193,7,.45)"}}
           />
         </div>
       );
@@ -811,19 +782,21 @@
       return (
         <section className="py-10">
           <div className="max-w-6xl mx-auto px-4">
-            <a href="#/koszyk" className="inline-flex items-center gap-2 text-sm text-gray-800 font-extrabold">
-              <i data-lucide="arrow-left" className="w-4 h-4 text-amber-600"></i> Wróć do koszyka
-            </a>
-
-            <div className="mt-3 flex items-end justify-between gap-3">
-              <h2 className="text-2xl font-extrabold">Zamówienie</h2>
-              <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-brand-yellow/25 border border-amber-200">
+            <div className="flex items-center justify-between gap-3">
+              <a href="#/koszyk" className="inline-flex items-center gap-2 text-sm font-extrabold link-yellow">
+                <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do koszyka
+              </a>
+              <span className="text-xs font-extrabold px-3 py-1 rounded-full pill-yellow">
                 do zapłaty: {currency(total)}
               </span>
             </div>
 
+            <h2 className="mt-4 text-2xl font-extrabold">
+              <span className="underline-yellow">Zamówienie</span>
+            </h2>
+
             <div className="mt-6 grid lg:grid-cols-3 gap-6 items-start">
-              <div className="lg:col-span-2 bg-white/95 border-2 border-amber-200 rounded-2xl p-5 shadow-soft">
+              <div className="lg:col-span-2 rounded-2xl flat-card p-5">
                 <div className="grid md:grid-cols-2 gap-4">
                   <Input label="Imię i nazwisko" required value={form.imieNazwisko} onChange={e=>handle('imieNazwisko', e.target.value)} />
                   <Input label="Nr telefonu" required value={form.telefon} onChange={e=>handle('telefon', e.target.value)} />
@@ -836,20 +809,24 @@
                   <Input label="Nr lokalu" value={form.lokal} onChange={e=>handle('lokal', e.target.value)} />
 
                   <div className="md:col-span-2">
-                    <label className="text-xs uppercase tracking-wider text-gray-800 font-extrabold">Uwagi do zamówienia</label>
+                    <label className="text-xs uppercase tracking-widest font-extrabold text-brand-muted">
+                      Uwagi do zamówienia
+                    </label>
                     <textarea
                       value={form.uwagi}
                       onChange={e=>handle('uwagi', e.target.value)}
-                      className="mt-1 w-full border-2 border-amber-200 rounded-xl px-4 py-3 min-h-[110px] bg-white/95 font-semibold focus:outline-none focus:ring-2 focus:ring-brand-yellow"
+                      className="mt-1 w-full rounded-xl flat-card focus-yellow font-semibold px-4 py-3 min-h-[110px]"
+                      style={{borderColor:"rgba(255,193,7,.45)"}}
                     ></textarea>
                   </div>
                 </div>
 
-                <div className="mt-4 border-t-2 border-amber-200 pt-4">
+                <div className="mt-4 pt-4 border-t border-brand-line">
                   <label className="flex items-center gap-2 text-sm font-extrabold">
                     <input type="checkbox" checked={form.faktura} onChange={e=>handle('faktura', e.target.checked)} />
                     Chcę dane do faktury
                   </label>
+
                   {form.faktura && (
                     <div className="grid md:grid-cols-2 gap-4 mt-3">
                       <Input label="NIP" value={form.nip} onChange={e=>handle('nip', e.target.value)} />
@@ -859,18 +836,17 @@
                 </div>
               </div>
 
-              <aside className="bg-white/95 border-2 border-amber-200 rounded-2xl p-5 shadow-soft">
+              <aside className="rounded-2xl flat-card p-5">
                 <div className="font-extrabold">Podsumowanie</div>
                 <div className="mt-3 space-y-3 max-h-64 overflow-auto pr-2">
                   {cart.map(i => (
-                    <div key={i.id} className="text-sm border border-amber-200 rounded-xl p-3 bg-amber-50/40">
-                      <div className="flex items-center justify-between">
+                    <div key={i.id} className="rounded-xl p-3"
+                         style={{border:"1px dashed rgba(255,193,7,.55)", background:"rgba(255,193,7,.10)"}}>
+                      <div className="flex items-center justify-between text-sm">
                         <span className="font-extrabold">{i.name} × {i.qty||1}</span>
                         <span className="font-extrabold">{currency(lineTotal(i))}</span>
                       </div>
-                      <div className="text-[11px] text-gray-700 mt-1 font-mono">
-                        {i.productId}
-                      </div>
+                      <div className="text-[11px] mt-1 font-mono text-brand-muted">{i.productId}</div>
                     </div>
                   ))}
                 </div>
@@ -880,15 +856,12 @@
                   <span className="font-extrabold">{currency(total)}</span>
                 </div>
 
-                <button
-                  onClick={submit}
-                  className="w-full mt-4 bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 shadow-yellow border border-amber-300 hover:brightness-95"
-                >
+                <button onClick={submit} className="btn-yellow w-full mt-4 rounded-xl px-4 py-3 font-extrabold">
                   Płatność online (PayU)
                 </button>
 
-                <div className="text-xs text-gray-700 mt-3 font-medium">
-                  Jeśli coś nie działa: F12 → Console → <span className="font-mono">PAYU ERROR DETAILS</span>.
+                <div className="text-xs text-brand-muted mt-3 font-medium">
+                  Debug: F12 → Console → <span className="font-mono">PAYU ERROR DETAILS</span>
                 </div>
               </aside>
             </div>
@@ -915,70 +888,69 @@
       };
 
       return (
-        <div className="fixed inset-0 z-[90] bg-black/60 flex items-center justify-center px-4" onClick={onClose} role="dialog" aria-modal="true">
-          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-glass border-2 border-amber-200 p-6" onClick={(e) => e.stopPropagation()}>
-            <button type="button" onClick={onClose} className="absolute top-3 right-3 p-2 rounded-full bg-brand-yellow border border-amber-300 shadow-soft hover:brightness-95" aria-label="Zamknij okno logowania">
-              <i data-lucide="x" className="w-4 h-4 text-gray-900"></i>
+        <div className="fixed inset-0 z-[90] bg-black/40 flex items-center justify-center px-4" onClick={onClose} role="dialog" aria-modal="true">
+          <div className="relative w-full max-w-md rounded-2xl flat-card p-6" onClick={(e) => e.stopPropagation()}>
+            <button type="button" onClick={onClose}
+              className="absolute top-3 right-3 w-10 h-10 rounded-xl btn-yellow font-extrabold">
+              ×
             </button>
 
             <div className="mb-4">
-              <div className="text-xs uppercase tracking-[0.16em] text-gray-800 font-extrabold">
+              <div className="text-xs uppercase tracking-widest text-brand-muted font-extrabold">
                 {mode === 'login' ? 'Logowanie' : 'Rejestracja'}
               </div>
               <h3 className="text-xl font-extrabold mt-1">
                 {mode === 'login' ? 'Zaloguj się do eatmi' : 'Załóż konto w eatmi'}
               </h3>
-              <p className="text-xs text-gray-700 mt-1 font-medium">
-                {mode === 'login'
-                  ? 'Zamawiaj szybciej i śledź historię zamówień (makieta).'
-                  : 'Utwórz konto, aby w przyszłości zapisywać dane dostawy (makieta).'}
+              <p className="text-xs text-brand-muted mt-1 font-medium">
+                Makieta UI — backend logowania dodamy później.
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label className="text-xs uppercase tracking-wider text-gray-800 font-extrabold">Adres e-mail</label>
+                <label className="text-xs uppercase tracking-widest text-brand-muted font-extrabold">Adres e-mail</label>
                 <input type="email" required value={form.email}
                   onChange={(e) => handleChange('email', e.target.value)}
-                  placeholder="np. jan.kowalski@example.com"
-                  className="mt-1 w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white/95 font-semibold"/>
+                  className="mt-1 w-full rounded-xl flat-card focus-yellow font-semibold px-4 py-3"
+                  style={{borderColor:"rgba(255,193,7,.45)"}} />
               </div>
 
               <div>
-                <label className="text-xs uppercase tracking-wider text-gray-800 font-extrabold">Hasło</label>
+                <label className="text-xs uppercase tracking-widest text-brand-muted font-extrabold">Hasło</label>
                 <input type="password" required value={form.password}
                   onChange={(e) => handleChange('password', e.target.value)}
-                  placeholder="Wpisz hasło"
-                  className="mt-1 w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white/95 font-semibold"/>
+                  className="mt-1 w-full rounded-xl flat-card focus-yellow font-semibold px-4 py-3"
+                  style={{borderColor:"rgba(255,193,7,.45)"}} />
               </div>
 
               {mode === 'register' && (
                 <div>
-                  <label className="text-xs uppercase tracking-wider text-gray-800 font-extrabold">Powtórz hasło</label>
+                  <label className="text-xs uppercase tracking-widest text-brand-muted font-extrabold">Powtórz hasło</label>
                   <input type="password" required value={form.confirm}
                     onChange={(e) => handleChange('confirm', e.target.value)}
-                    placeholder="Powtórz hasło"
-                    className="mt-1 w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white/95 font-semibold"/>
+                    className="mt-1 w-full rounded-xl flat-card focus-yellow font-semibold px-4 py-3"
+                    style={{borderColor:"rgba(255,193,7,.45)"}} />
                 </div>
               )}
 
-              <button type="submit" className="w-full mt-1 bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 text-sm shadow-yellow border border-amber-300 hover:brightness-95">
+              <button type="submit" className="btn-yellow w-full rounded-xl px-4 py-3 font-extrabold">
                 {mode === 'login' ? 'Zaloguj się' : 'Zarejestruj się'}
               </button>
             </form>
 
-            <div className="mt-4 text-xs text-gray-800 text-center font-medium">
+            <div className="mt-4 text-xs text-brand-muted text-center font-medium">
               {mode === 'login' ? (
                 <>Nie masz konta?{' '}
                   <button type="button" onClick={() => { setMode('register'); setForm({ email:'', password:'', confirm:'' }) }}
-                    className="font-extrabold text-gray-900 underline underline-offset-2">
+                    className="font-extrabold link-yellow">
                     Zarejestruj się
                   </button>
                 </>
               ) : (
                 <>Masz konto?{' '}
                   <button type="button" onClick={() => { setMode('login'); setForm({ email:'', password:'', confirm:'' }) }}
-                    className="font-extrabold text-gray-900 underline underline-offset-2">
+                    className="font-extrabold link-yellow">
                     Zaloguj się
                   </button>
                 </>
@@ -993,31 +965,32 @@
       <>
         <Hero />
 
-        <section id="kategorie" className="py-12 md:py-20">
+        <section id="kategorie" className="py-10 md:py-14">
           <div className="max-w-6xl mx-auto px-4">
             <SectionTitle
               eyebrow="Menu"
               title="Wybierz kategorię"
-              subtitle="Najpierw wybierz kategorię, potem dodawaj pozycje do koszyka — w kilka kliknięć!"
+              subtitle="Białe tło + żółte akcenty, całość flat i czytelna."
             />
-            <div className="mt-8 grid md:grid-cols-3 gap-6">
+            <div className="mt-6 grid md:grid-cols-3 gap-5">
               {PRODUCT_CATEGORIES.map(cat => <CategoryCard key={cat.id} category={cat} />)}
             </div>
           </div>
-
-          <div className="mt-14 h-2 bg-gradient-to-r from-transparent via-brand-yellow to-transparent opacity-70"></div>
         </section>
 
-        <section id="kontakt" className="py-12">
+        <section id="kontakt" className="py-10 md:py-14">
           <div className="max-w-6xl mx-auto px-4">
             <SectionTitle title="Kontakt" subtitle="Masz pytania? Napisz do nas." />
-            <form className="max-w-xl mx-auto mt-8 bg-white/95 border-2 border-amber-200 rounded-2xl p-6 shadow-soft y-glow transition">
+            <form className="max-w-xl mt-6 rounded-2xl flat-card p-6">
               <div className="grid md:grid-cols-2 gap-4">
-                <input className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 font-semibold focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white/95" placeholder="Imię" />
-                <input className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 font-semibold focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white/95" placeholder="Email" />
+                <input className="rounded-xl flat-card focus-yellow font-semibold px-4 py-3"
+                       style={{borderColor:"rgba(255,193,7,.45)"}} placeholder="Imię" />
+                <input className="rounded-xl flat-card focus-yellow font-semibold px-4 py-3"
+                       style={{borderColor:"rgba(255,193,7,.45)"}} placeholder="Email" />
               </div>
-              <textarea className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 mt-4 font-semibold focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white/95" rows="4" placeholder="Wiadomość"></textarea>
-              <button type="button" className="mt-4 bg-brand-yellow text-gray-900 rounded-xl px-5 py-3 font-extrabold shadow-yellow border border-amber-300 hover:brightness-95">
+              <textarea className="mt-4 rounded-xl flat-card focus-yellow font-semibold px-4 py-3 w-full min-h-[120px]"
+                        style={{borderColor:"rgba(255,193,7,.45)"}} placeholder="Wiadomość"></textarea>
+              <button type="button" className="btn-yellow mt-4 rounded-xl px-5 py-3 font-extrabold">
                 Wyślij
               </button>
             </form>
@@ -1027,28 +1000,17 @@
     );
 
     const FloatingNav = () => (
-      <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(720px,92%)] liquid border-2 border-amber-200 rounded-2xl shadow-glass">
+      <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(720px,92%)] bg-white rounded-2xl"
+           style={{border:"1px solid rgba(255,193,7,.55)"}}>
         <ul className="grid grid-cols-4">
-          <li>
-            <a href="#kategorie" className="flex flex-col items-center py-3 text-sm font-extrabold text-gray-900">
-              <i data-lucide="shopping-bag" className="w-5 h-5 text-amber-600"></i>Menu
-            </a>
-          </li>
-          <li>
-            <a href="#/kategoria/boxy-sniadaniowe" className="flex flex-col items-center py-3 text-sm font-extrabold text-gray-900">
-              <i data-lucide="package-open" className="w-5 h-5 text-amber-600"></i>Boxy
-            </a>
-          </li>
-          <li>
-            <a href="#/kategoria/lunche" className="flex flex-col items-center py-3 text-sm font-extrabold text-gray-900">
-              <i data-lucide="utensils-crossed" className="w-5 h-5 text-amber-600"></i>Lunche
-            </a>
-          </li>
-          <li>
-            <a href="#/koszyk" className="flex flex-col items-center py-3 text-sm font-extrabold text-gray-900">
-              <i data-lucide="shopping-cart" className="w-5 h-5 text-amber-600"></i>Koszyk
-            </a>
-          </li>
+          <li><a href="#kategorie" className="flex flex-col items-center py-3 text-sm font-extrabold">
+            <i data-lucide="shopping-bag" className="w-5 h-5 text-amber-700"></i>Menu</a></li>
+          <li><a href="#/kategoria/boxy-sniadaniowe" className="flex flex-col items-center py-3 text-sm font-extrabold">
+            <i data-lucide="package-open" className="w-5 h-5 text-amber-700"></i>Boxy</a></li>
+          <li><a href="#/kategoria/lunche" className="flex flex-col items-center py-3 text-sm font-extrabold">
+            <i data-lucide="utensils-crossed" className="w-5 h-5 text-amber-700"></i>Lunche</a></li>
+          <li><a href="#/koszyk" className="flex flex-col items-center py-3 text-sm font-extrabold">
+            <i data-lucide="shopping-cart" className="w-5 h-5 text-amber-700"></i>Koszyk</a></li>
         </ul>
       </nav>
     );
@@ -1083,11 +1045,9 @@
             <Header onOpenAuth={() => setAuthOpen(true)} />
             <Router />
             <FloatingNav />
-            <footer className="py-16 text-center text-sm text-gray-800 font-semibold">
-              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/90 border-2 border-amber-200 shadow-soft">
-                © {new Date().getFullYear()} <span className="font-extrabold">eatmi.pl</span>
-                <span className="w-2 h-2 rounded-full bg-brand-yellow border border-amber-300"></span>
-                Wszystkie prawa zastrzeżone
+            <footer className="py-14 text-center text-sm text-brand-muted font-medium">
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full pill-yellow font-extrabold">
+                © {new Date().getFullYear()} eatmi.pl
               </span>
             </footer>
             <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
