@@ -350,32 +350,27 @@
               Boxy śniadaniowe, lunche, kanapki, zdrowe, słodkie i napoje.
               Jak w kiosku — wybierasz kategorię, klikasz pozycje i finalizujesz zamówienie.
             </p>
+
+            <!-- FIX: oba przyciski żółte -->
             <div className="mt-6 flex flex-wrap gap-3">
-              <a href="#kategorie" className="inline-flex items-center gap-2 bg-brand-yellow text-gray-900 font-semibold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition">
+              <a
+                href="#kategorie"
+                className="inline-flex items-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition hover:ring-2 hover:ring-brand-yellow/40"
+              >
                 <i data-lucide="shopping-bag" className="w-5 h-5"></i>
                 Przeglądaj menu
               </a>
-              <a href="#/kategoria/boxy-sniadaniowe" className="inline-flex items-center gap-2 border border-gray-300 bg-white text-gray-900 font-semibold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition
-                                                         hover:ring-2 hover:ring-brand-yellow/50">
+
+              <a
+                href="#/kategoria/boxy-sniadaniowe"
+                className="inline-flex items-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition hover:ring-2 hover:ring-brand-yellow/40"
+              >
                 <i data-lucide="package-open" className="w-5 h-5"></i>
                 Zobacz boxy śniadaniowe
               </a>
             </div>
 
-            {/* ŻÓŁTE SZYBKIE PRZYCISKI */}
-            <div className="mt-6 flex flex-wrap gap-2">
-              {PRODUCT_CATEGORIES.map((c) => (
-                <a
-                  key={c.id}
-                  href={`#/kategoria/${c.id}`}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-brand-yellow/40 bg-brand-yellow/15
-                             text-sm font-extrabold text-gray-900 hover:bg-brand-yellow/25 transition"
-                >
-                  <span className="w-2 h-2 rounded-full bg-brand-yellow"></span>
-                  {c.name}
-                </a>
-              ))}
-            </div>
+            <!-- USUNIĘTO: żółte chipsy kategorii pod przyciskami -->
           </div>
         </div>
       </section>
@@ -398,7 +393,6 @@
           className="group relative bg-white border border-gray-200 rounded-2xl p-5 text-left shadow-soft hover:shadow-md hover:-translate-y-1 transition w-full overflow-hidden
                      hover:ring-2 hover:ring-brand-yellow/60"
         >
-          {/* żółty akcent */}
           <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 opacity-80"></div>
 
           <div className="flex items-center justify-between gap-3 mt-1">
@@ -445,7 +439,6 @@
         <div className="relative bg-white border border-gray-200 rounded-3xl p-5 md:p-6 shadow-soft hover:shadow-kiosk transition group overflow-hidden hover:ring-2 hover:ring-brand-yellow/40">
           <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 opacity-70"></div>
 
-          {/* żółte badge */}
           <div className="mt-3 inline-flex items-center gap-2">
             <span className="text-[10px] font-extrabold tracking-widest uppercase px-2.5 py-1 rounded-full bg-brand-yellow text-gray-900 shadow-sm">
               HIT
@@ -545,24 +538,6 @@
                 <h2 className="text-2xl md:text-3xl font-extrabold">{category.name}</h2>
                 <p className="text-sm text-gray-600 mt-1">{category.description}</p>
               </div>
-            </div>
-
-            {/* żółte chipsy na górze kategorii */}
-            <div className="mt-5 flex flex-wrap gap-2">
-              {PRODUCT_CATEGORIES.map((c) => (
-                <a
-                  key={c.id}
-                  href={`#/kategoria/${c.id}`}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-extrabold transition
-                    ${c.id === categoryId
-                      ? 'border-brand-yellow bg-brand-yellow text-gray-900'
-                      : 'border-brand-yellow/40 bg-brand-yellow/15 text-gray-900 hover:bg-brand-yellow/25'
-                    }`}
-                >
-                  <span className={`w-2 h-2 rounded-full ${c.id === categoryId ? 'bg-gray-900' : 'bg-brand-yellow'}`}></span>
-                  {c.name}
-                </a>
-              ))}
             </div>
 
             <div className="mt-6 grid sm:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
@@ -1017,20 +992,7 @@
           <div className="max-w-6xl mx-auto px-4">
             <SectionTitle eyebrow="Menu" title="Wybierz kategorię" subtitle="Najpierw wybierz kategorię, potem dodawaj pozycje do koszyka — w kilka kliknięć!" />
 
-            {/* żółte chipsy w sekcji Menu */}
-            <div className="mt-6 flex flex-wrap justify-center gap-2">
-              {PRODUCT_CATEGORIES.map((c) => (
-                <a
-                  key={c.id}
-                  href={`#/kategoria/${c.id}`}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-brand-yellow/40 bg-brand-yellow/15
-                             text-sm font-extrabold text-gray-900 hover:bg-brand-yellow/25 transition"
-                >
-                  <span className="w-2 h-2 rounded-full bg-brand-yellow"></span>
-                  {c.name}
-                </a>
-              ))}
-            </div>
+            {/* USUNIĘTO: chipsy w sekcji "Wybierz kategorię" */}
 
             <div className="mt-8 grid md:grid-cols-3 gap-6">
               {PRODUCT_CATEGORIES.map(cat => <CategoryCard key={cat.id} category={cat} />)}
