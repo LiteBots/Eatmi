@@ -7,8 +7,10 @@
   <meta name="description" content="eatmi.pl — Boxy śniadaniowe, lunche, kanapki, zdrowe, słodkie i napoje." />
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="manifest" href="/manifest.webmanifest">
-  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind config MUST be before tailwindcdn script -->
   <script>
+    tailwind = window.tailwind || {};
     tailwind.config = {
       theme: {
         extend: {
@@ -38,918 +40,938 @@
           borderRadius: { xl2: '1.25rem' }
         }
       }
-    }
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Minimal styles (optional, but nice) -->
+  <style>
+    .liquid { background: rgba(255,255,255,.75); backdrop-filter: blur(12px); }
+    .logo-glow { box-shadow: 0 12px 30px rgba(255,193,7,.18); }
+    .toast-enter { animation: toastIn .18s ease-out; }
+    .toast-bar { animation: toastBar 2.4s linear; transform-origin: left; }
+    @keyframes toastIn { from { transform: translateY(8px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+    @keyframes toastBar { from { transform: scaleX(1) } to { transform: scaleX(0) } }
+  </style>
+
+  <!-- React 18 + ReactDOM 18 -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+  <!-- Babel for inline JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Lucide icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="bg-brand-light text-gray-900">
+  <!-- ROOT is required -->
+  <div id="root"></div>
+
   <script type="text/babel">
-  const { useState, useEffect, useMemo } = React;
+    const { useState, useEffect, useMemo } = React;
 
-  /* =======================
-     TWOJE PRAWDZIWE MENU
-  ======================= */
+    /* =======================
+       TWOJE PRAWDZIWE MENU
+    ======================= */
 
-  const PRODUCT_CATEGORIES = [
-    { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open', description: 'Małe, średnie i duże zestawy. Także VEGE.' },
-    { id: 'lunche', name: 'Lunche', icon: 'utensils-crossed', description: 'Lunch tygodnia, miesiąca i vege (12:00–16:00).' },
-    { id: 'kanapki', name: 'Kanapki', icon: 'sandwich', description: 'Kanapki i buritto na maślanym pieczywie.' },
-    { id: 'zdrowe', name: 'Zdrowe', icon: 'leaf', description: 'Granola i sałatki w wersjach fit.' },
-    { id: 'slodkie', name: 'Słodkie', icon: 'ice-cream', description: 'Desery, pancakes, tost francuski i smoothie.' },
-    { id: 'napoje', name: 'Napoje', icon: 'cup-soda', description: 'Kawy, herbaty, lemoniada i sok.' },
-  ];
+    const PRODUCT_CATEGORIES = [
+      { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open', description: 'Małe, średnie i duże zestawy. Także VEGE.' },
+      { id: 'lunche', name: 'Lunche', icon: 'utensils-crossed', description: 'Lunch tygodnia, miesiąca i vege (12:00–16:00).' },
+      { id: 'kanapki', name: 'Kanapki', icon: 'sandwich', description: 'Kanapki i buritto na maślanym pieczywie.' },
+      { id: 'zdrowe', name: 'Zdrowe', icon: 'leaf', description: 'Granola i sałatki w wersjach fit.' },
+      { id: 'slodkie', name: 'Słodkie', icon: 'ice-cream', description: 'Desery, pancakes, tost francuski i smoothie.' },
+      { id: 'napoje', name: 'Napoje', icon: 'cup-soda', description: 'Kawy, herbaty, lemoniada i sok.' },
+    ];
 
-  const BREAKFAST_BOXES = [
-    { id:'bs-small-1', name:'Box śniadaniowy mały nr 1', price: 38, subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Sok pomarańczowy 250 ml' },
-    { id:'bs-small-2', name:'Box śniadaniowy mały nr 2', price: 40, subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Sok pomarańczowy 250 ml' },
-    { id:'bs-small-3', name:'Box śniadaniowy mały nr 3', price: 42, subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Sok pomarańczowy 250 ml' },
-    { id:'bs-small-vege', name:'Box śniadaniowy mały VEGE', price: 38, subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Sok pomarańczowy 250 ml' },
+    const BREAKFAST_BOXES = [
+      { id:'bs-small-1', name:'Box śniadaniowy mały nr 1', price: 38, subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Sok pomarańczowy 250 ml' },
+      { id:'bs-small-2', name:'Box śniadaniowy mały nr 2', price: 40, subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Sok pomarańczowy 250 ml' },
+      { id:'bs-small-3', name:'Box śniadaniowy mały nr 3', price: 42, subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Sok pomarańczowy 250 ml' },
+      { id:'bs-small-vege', name:'Box śniadaniowy mały VEGE', price: 38, subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Sok pomarańczowy 250 ml' },
 
-    { id:'bs-med-1', name:'Box śniadaniowy średni nr 1', price: 52, subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml' },
-    { id:'bs-med-2', name:'Box śniadaniowy średni nr 2', price: 54, subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml' },
-    { id:'bs-med-3', name:'Box śniadaniowy średni nr 3', price: 56, subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml' },
-    { id:'bs-med-vege', name:'Box śniadaniowy średni VEGE', price: 52, subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
+      { id:'bs-med-1', name:'Box śniadaniowy średni nr 1', price: 52, subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml' },
+      { id:'bs-med-2', name:'Box śniadaniowy średni nr 2', price: 54, subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml' },
+      { id:'bs-med-3', name:'Box śniadaniowy średni nr 3', price: 56, subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml' },
+      { id:'bs-med-vege', name:'Box śniadaniowy średni VEGE', price: 52, subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
 
-    { id:'bs-big-1', name:'Box śniadaniowy duży nr 1', price: 80, subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Club sandwich z kurczakiem i bekonem, majonez, sałata, pomidor • Domowa granola z jogurtem greckim, owocami i miodem • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml' },
-    { id:'bs-big-2', name:'Box śniadaniowy duży nr 2', price: 82, subtitle:'Buritto z jajecznicą i chorizo • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka koreańska z kurczakiem w panko, warzywa i sezamem • Domowa granola z jogurtem greckim, owocami i miodem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml' },
-    { id:'bs-big-3', name:'Box śniadaniowy duży nr 3', price: 84, subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Domowa granola z jogurtem greckim, owocami i miodem • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml' },
-    { id:'bs-big-vege', name:'Box śniadaniowy duży VEGE', price: 80, subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Vege club sandwich z camembert i awokado, majonez, sałata, pomidor • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Domowa granola z jogurtem greckim, owocami i miodem • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
-  ];
+      { id:'bs-big-1', name:'Box śniadaniowy duży nr 1', price: 80, subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Club sandwich z kurczakiem i bekonem, majonez, sałata, pomidor • Domowa granola z jogurtem greckim, owocami i miodem • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml' },
+      { id:'bs-big-2', name:'Box śniadaniowy duży nr 2', price: 82, subtitle:'Buritto z jajecznicą i chorizo • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka koreańska z kurczakiem w panko, warzywa i sezamem • Domowa granola z jogurtem greckim, owocami i miodem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml' },
+      { id:'bs-big-3', name:'Box śniadaniowy duży nr 3', price: 84, subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Domowa granola z jogurtem greckim, owocami i miodem • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml' },
+      { id:'bs-big-vege', name:'Box śniadaniowy duży VEGE', price: 80, subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Vege club sandwich z camembert i awokado, majonez, sałata, pomidor • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Domowa granola z jogurtem greckim, owocami i miodem • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
+    ];
 
-  const LUNCHES = [
-    { id:'lunch-week', name:'Lunch tygodnia', price: 49, subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Corn Flake Chicken: panierowana w płatkach kukurydzianych pierś z kurczaka z ziemniaczanym puree i coleslawem • Domowa lemoniada 250 ml' },
-    { id:'lunch-month', name:'Lunch miesiąca', price: 59, subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Kurczak Supreme: pieczona pierś z kurczaka z ziemniaczanym puree, warzywami i sosem demi glace • Domowa lemoniada 250 ml' },
-    { id:'lunch-vege', name:'Lunch VEGE', price: 49, subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Tagliatelle z warzywami, oliwą z oliwek i pastą truflową • Domowa lemoniada 250 ml' },
-  ];
+    const LUNCHES = [
+      { id:'lunch-week', name:'Lunch tygodnia', price: 49, subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Corn Flake Chicken: panierowana w płatkach kukurydzianych pierś z kurczaka z ziemniaczanym puree i coleslawem • Domowa lemoniada 250 ml' },
+      { id:'lunch-month', name:'Lunch miesiąca', price: 59, subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Kurczak Supreme: pieczona pierś z kurczaka z ziemniaczanym puree, warzywami i sosem demi glace • Domowa lemoniada 250 ml' },
+      { id:'lunch-vege', name:'Lunch VEGE', price: 49, subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Tagliatelle z warzywami, oliwą z oliwek i pastą truflową • Domowa lemoniada 250 ml' },
+    ];
 
-  const SANDWICHES = [
-    { id:'k-jajecznica-bekon', name:'Maślane pieczywo z jajecznicą, bekonem i majonezem sriracha', price: 17 },
-    { id:'k-club-kurczak', name:'Club sandwich z grillowanym kurczakiem, chrupiący bekon, majonez, sałata i pomidor', price: 17 },
-    { id:'k-club-vege', name:'Vege club sandwich z camembert, palonym awokado, majonezem, sałatą i pomidorem', price: 17 },
-    { id:'k-jajecznica-avo', name:'Maślane pieczywo z jajecznicą, awokado i majonezem sriracha', price: 17 },
-    { id:'k-buritto-chorizo', name:'Buritto z jajecznicą z mozzarellą, chorizo i majonezem sriracha', price: 19 },
-    { id:'k-rostbef', name:'Maślane pieczywo z rostbefem, jajkiem poche, rukolą, sosem musztardowo-chrzanowym i oliwą truflową', price: 21 },
-  ];
+    const SANDWICHES = [
+      { id:'k-jajecznica-bekon', name:'Maślane pieczywo z jajecznicą, bekonem i majonezem sriracha', price: 17 },
+      { id:'k-club-kurczak', name:'Club sandwich z grillowanym kurczakiem, chrupiący bekon, majonez, sałata i pomidor', price: 17 },
+      { id:'k-club-vege', name:'Vege club sandwich z camembert, palonym awokado, majonezem, sałatą i pomidorem', price: 17 },
+      { id:'k-jajecznica-avo', name:'Maślane pieczywo z jajecznicą, awokado i majonezem sriracha', price: 17 },
+      { id:'k-buritto-chorizo', name:'Buritto z jajecznicą z mozzarellą, chorizo i majonezem sriracha', price: 19 },
+      { id:'k-rostbef', name:'Maślane pieczywo z rostbefem, jajkiem poche, rukolą, sosem musztardowo-chrzanowym i oliwą truflową', price: 21 },
+    ];
 
-  const HEALTHY = [
-    { id:'z-granola', name:'Domowa granola z jogurtem greckim, owoce i miód', price: 19 },
-    { id:'z-cezar', name:'Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską, parmezanem i grzankami', price: 19 },
-    { id:'z-koreanska', name:'Sałatka koreańska z kurczakiem w panko, warzywa i sezam, słodki sos sojowy', price: 19 },
-    { id:'z-burak', name:'Sałatka z carpaccio z buraka i serem kozim, karmelizowane orzechy pekan, mix sałat i pomarańczowy dressing', price: 19 },
-  ];
+    const HEALTHY = [
+      { id:'z-granola', name:'Domowa granola z jogurtem greckim, owoce i miód', price: 19 },
+      { id:'z-cezar', name:'Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską, parmezanem i grzankami', price: 19 },
+      { id:'z-koreanska', name:'Sałatka koreańska z kurczakiem w panko, warzywa i sezam, słodki sos sojowy', price: 19 },
+      { id:'z-burak', name:'Sałatka z carpaccio z buraka i serem kozim, karmelizowane orzechy pekan, mix sałat i pomarańczowy dressing', price: 19 },
+    ];
 
-  const SWEETS = [
-    { id:'s-smoothie', name:'Smoothie Mango Lassi (mango, jogurt grecki, miód)', price: 19 },
-    { id:'s-tost-fr', name:'Tost francuski z owocami i miodem', price: 19 },
-    { id:'s-pancakes', name:'Pancakes (2 szt.) z Nutellą i owocami', price: 19 },
-    { id:'s-deser-czeko', name:'Deser czekoladowy z owocami i kruszonką', price: 19 },
-  ];
+    const SWEETS = [
+      { id:'s-smoothie', name:'Smoothie Mango Lassi (mango, jogurt grecki, miód)', price: 19 },
+      { id:'s-tost-fr', name:'Tost francuski z owocami i miodem', price: 19 },
+      { id:'s-pancakes', name:'Pancakes (2 szt.) z Nutellą i owocami', price: 19 },
+      { id:'s-deser-czeko', name:'Deser czekoladowy z owocami i kruszonką', price: 19 },
+    ];
 
-  const DRINKS = [
-    { id:'n-lemoniada', name:'Domowa lemoniada 250 ml', price: 12 },
-    { id:'n-sok-pom', name:'Sok pomarańczowy 250 ml', price: 12 },
-    { id:'n-kawa-filt-cz', name:'Kawa filtrowana czarna 300 ml', price: 10 },
-    { id:'n-kawa-filt-b', name:'Kawa filtrowana biała 300 ml', price: 10 },
-    { id:'n-espresso-double', name:'Kawa czarna (podwójne espresso) 300 ml', price: 11 },
-    { id:'n-flat-white', name:'Kawa Flat White (podwójne espresso) 300 ml', price: 11 },
-    { id:'n-latte', name:'Latte (podwójne espresso) 300 ml', price: 12 },
-    { id:'n-cappu', name:'Cappuccino (podwójne espresso) 300 ml', price: 11 },
-    { id:'n-matcha', name:'Matcha 300 ml', price: 18 },
-    { id:'n-herbata-cz', name:'Herbata czarna z cytryną 300 ml', price: 9 },
-    { id:'n-zimowa', name:'Zimowa herbata z miodem, cytrusami, goździkami i sokiem malinowym 300 ml', price: 15 },
-  ];
+    const DRINKS = [
+      { id:'n-lemoniada', name:'Domowa lemoniada 250 ml', price: 12 },
+      { id:'n-sok-pom', name:'Sok pomarańczowy 250 ml', price: 12 },
+      { id:'n-kawa-filt-cz', name:'Kawa filtrowana czarna 300 ml', price: 10 },
+      { id:'n-kawa-filt-b', name:'Kawa filtrowana biała 300 ml', price: 10 },
+      { id:'n-espresso-double', name:'Kawa czarna (podwójne espresso) 300 ml', price: 11 },
+      { id:'n-flat-white', name:'Kawa Flat White (podwójne espresso) 300 ml', price: 11 },
+      { id:'n-latte', name:'Latte (podwójne espresso) 300 ml', price: 12 },
+      { id:'n-cappu', name:'Cappuccino (podwójne espresso) 300 ml', price: 11 },
+      { id:'n-matcha', name:'Matcha 300 ml', price: 18 },
+      { id:'n-herbata-cz', name:'Herbata czarna z cytryną 300 ml', price: 9 },
+      { id:'n-zimowa', name:'Zimowa herbata z miodem, cytrusami, goździkami i sokiem malinowym 300 ml', price: 15 },
+    ];
 
-  const PRODUCTS = {
-    'boxy-sniadaniowe': BREAKFAST_BOXES,
-    'lunche': LUNCHES,
-    'kanapki': SANDWICHES,
-    'zdrowe': HEALTHY,
-    'slodkie': SWEETS,
-    'napoje': DRINKS,
-  };
-
-  /* =======================
-     APPKA
-  ======================= */
-
-  const useLocalStorage = (key, initial) => {
-    const [state, setState] = useState(() => {
-      try { return JSON.parse(localStorage.getItem(key)) ?? initial } catch { return initial }
-    });
-    useEffect(() => { localStorage.setItem(key, JSON.stringify(state)) }, [key, state]);
-    return [state, setState];
-  };
-
-  const currency = (n) =>
-    new Intl.NumberFormat('pl-PL', { style:'currency', currency:'PLN' }).format(n);
-
-  const ToastContext = React.createContext();
-  const useToast = () => React.useContext(ToastContext);
-
-  const ToastProvider = ({children}) => {
-    const [toast, setToast] = useState(null);
-    const timeoutRef = React.useRef(null);
-
-    const show = (message) => {
-      setToast(message);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => setToast(null), 2500);
+    const PRODUCTS = {
+      'boxy-sniadaniowe': BREAKFAST_BOXES,
+      'lunche': LUNCHES,
+      'kanapki': SANDWICHES,
+      'zdrowe': HEALTHY,
+      'slodkie': SWEETS,
+      'napoje': DRINKS,
     };
 
-    const close = () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      setToast(null);
+    /* =======================
+       APPKA
+    ======================= */
+
+    const useLocalStorage = (key, initial) => {
+      const [state, setState] = useState(() => {
+        try { return JSON.parse(localStorage.getItem(key)) ?? initial } catch { return initial }
+      });
+      useEffect(() => { localStorage.setItem(key, JSON.stringify(state)) }, [key, state]);
+      return [state, setState];
     };
 
-    return (
-      <ToastContext.Provider value={{ show }}>
-        {children}
-        {toast && (
-          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[80] pointer-events-none">
-            <div className="relative pointer-events-auto toast-enter bg-white/95 border border-emerald-200 shadow-glass rounded-2xl px-4 py-3 min-w-[260px] max-w-[90vw] flex items-start gap-3">
-              <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-lg">
-                ✓
-              </div>
-              <div className="flex-1">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-600">
-                  Dodano do koszyka
+    const currency = (n) =>
+      new Intl.NumberFormat('pl-PL', { style:'currency', currency:'PLN' }).format(n);
+
+    const ToastContext = React.createContext();
+    const useToast = () => React.useContext(ToastContext);
+
+    const ToastProvider = ({children}) => {
+      const [toast, setToast] = useState(null);
+      const timeoutRef = React.useRef(null);
+
+      const show = (message) => {
+        setToast(message);
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => setToast(null), 2500);
+      };
+
+      const close = () => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        setToast(null);
+      };
+
+      return (
+        <ToastContext.Provider value={{ show }}>
+          {children}
+          {toast && (
+            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[80] pointer-events-none">
+              <div className="relative pointer-events-auto toast-enter bg-white/95 border border-emerald-200 shadow-glass rounded-2xl px-4 py-3 min-w-[260px] max-w-[90vw] flex items-start gap-3">
+                <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-lg">
+                  ✓
                 </div>
-                <div className="text-sm text-gray-900 mt-0.5">
-                  {toast}
+                <div className="flex-1">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-600">
+                    Dodano do koszyka
+                  </div>
+                  <div className="text-sm text-gray-900 mt-0.5">
+                    {toast}
+                  </div>
                 </div>
-              </div>
-              <button
-                type="button"
-                onClick={close}
-                className="ml-2 text-gray-400 hover:text-gray-600 text-xl leading-none"
-                aria-label="Zamknij powiadomienie"
-              >
-                ×
-              </button>
-              <div className="absolute left-4 right-4 -bottom-1.5 h-1 rounded-full overflow-hidden bg-emerald-50">
-                <div className="toast-bar h-full bg-emerald-400"></div>
+                <button
+                  type="button"
+                  onClick={close}
+                  className="ml-2 text-gray-400 hover:text-gray-600 text-xl leading-none"
+                  aria-label="Zamknij powiadomienie"
+                >
+                  ×
+                </button>
+                <div className="absolute left-4 right-4 -bottom-1.5 h-1 rounded-full overflow-hidden bg-emerald-50">
+                  <div className="toast-bar h-full bg-emerald-400"></div>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </ToastContext.Provider>
-    );
-  };
-
-  const Logo = () => (
-    <a href="#/" className="flex items-center gap-3 group">
-      <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center border border-gray-100 overflow-hidden shadow-soft logo-glow">
-        <img
-          src="https://i.imgur.com/f9TN0Gh.png"
-          alt="eatmi.pl — logo"
-          loading="lazy"
-          className="w-9 h-9 object-contain transition-transform duration-500 group-hover:-rotate-6 group-hover:scale-110"
-        />
-      </div>
-      <span className="font-extrabold tracking-tight">
-        eatmi<span className="text-brand-yellow">.pl</span>
-      </span>
-    </a>
-  );
-
-  const CartContext = React.createContext();
-
-  const CartProvider = ({children}) => {
-    const [cart, setCart] = useLocalStorage('eatmi-cart', []);
-    const { show } = useToast() || {};
-
-    // ✅ W koszyku trzymamy:
-    // - id: unikalny identyfikator wpisu w koszyku (do usuwania)
-    // - productId: stałe ID produktu z menu (np. bs-small-1)
-    // - name, price: do wyświetlania w UI
-    const add = (entry) => {
-      const newItem = {
-        id: (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
-        qty: 1,
-        ...entry
-      };
-      setCart(prev => [...prev, newItem]);
-      if (show) show(`Dodano: ${entry.name}`);
+          )}
+        </ToastContext.Provider>
+      );
     };
 
-    const remove  = (id) => setCart(prev => prev.filter(i => i.id !== id));
-    const setQty  = (id, qty) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: Math.max(1, qty|0)} : i));
-    const incQty  = (id) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: (i.qty||1)+1} : i));
-    const decQty  = (id) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: Math.max(1, (i.qty||1)-1)} : i));
-    const clear   = () => setCart([]);
-
-    const lineTotal = (i) => (i.price || 0) * (i.qty || 1);
-    const total  = useMemo(() => cart.reduce((s,i)=> s + lineTotal(i), 0), [cart]);
-
-    return (
-      <CartContext.Provider value={{cart, add, remove, setQty, incQty, decQty, clear, lineTotal, total}}>
-        {children}
-      </CartContext.Provider>
-    );
-  };
-
-  const useCart = () => React.useContext(CartContext);
-
-  const CartButton = () => {
-    const { cart, total } = useCart();
-    return (
-      <a href="#/koszyk" className="relative inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition">
-        <i data-lucide="shopping-cart" className="w-5 h-5"></i>
-        <span className="text-sm font-semibold">{currency(total)}</span>
-        <span className="absolute -top-2 -right-2 bg-brand-yellow text-gray-900 text-xs font-bold w-6 h-6 rounded-full grid place-items-center">
-          {cart.reduce((s,i)=>s+(i.qty||1),0)}
+    const Logo = () => (
+      <a href="#/" className="flex items-center gap-3 group">
+        <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center border border-gray-100 overflow-hidden shadow-soft logo-glow">
+          <img
+            src="https://i.imgur.com/f9TN0Gh.png"
+            alt="eatmi.pl — logo"
+            loading="lazy"
+            className="w-9 h-9 object-contain transition-transform duration-500 group-hover:-rotate-6 group-hover:scale-110"
+          />
+        </div>
+        <span className="font-extrabold tracking-tight">
+          eatmi<span className="text-brand-yellow">.pl</span>
         </span>
       </a>
     );
-  };
 
-  const Header = ({ onOpenAuth }) => (
-    <header className="sticky top-0 z-40 bg-white/85 backdrop-blur border-b border-gray-200">
-      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <Logo />
-        <nav className="hidden md:flex items-center gap-6 text-sm">
-          <a href="#kategorie" className="hover:text-gray-900 text-gray-600">Menu</a>
-          <a href="#/kategoria/boxy-sniadaniowe" className="hover:text-gray-900 text-gray-600">Boxy</a>
-          <a href="#/kategoria/lunche" className="hover:text-gray-900 text-gray-600">Lunche</a>
-          <a href="#/kategoria/kanapki" className="hover:text-gray-900 text-gray-600">Kanapki</a>
-          <a href="#/kategoria/napoje" className="hover:text-gray-900 text-gray-600">Napoje</a>
-        </nav>
+    const CartContext = React.createContext();
 
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onOpenAuth}
-            className="hidden md:inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition text-sm font-semibold text-gray-800">
-            <i data-lucide="user" className="w-4 h-4"></i>
-            <span>Konto</span>
-          </button>
+    const CartProvider = ({children}) => {
+      const [cart, setCart] = useLocalStorage('eatmi-cart', []);
+      const toast = useToast(); // always exists because ToastProvider wraps CartProvider below
+      const show = toast?.show;
 
-          <button
-            type="button"
-            onClick={onOpenAuth}
-            className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white shadow-soft"
-            aria-label="Moje konto">
-            <i data-lucide="user" className="w-5 h-5"></i>
-          </button>
+      const add = (entry) => {
+        const newItem = {
+          id: (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
+          qty: 1,
+          ...entry
+        };
+        setCart(prev => [...prev, newItem]);
+        if (show) show(`Dodano: ${entry.name}`);
+      };
 
-          <CartButton />
-        </div>
-      </div>
-    </header>
-  );
+      const remove  = (id) => setCart(prev => prev.filter(i => i.id !== id));
+      const setQty  = (id, qty) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: Math.max(1, qty|0)} : i));
+      const incQty  = (id) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: (i.qty||1)+1} : i));
+      const decQty  = (id) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: Math.max(1, (i.qty||1)-1)} : i));
+      const clear   = () => setCart([]);
 
-  const Hero = () => (
-    <section className="relative overflow-hidden">
-      <div className="max-w-6xl mx-auto px-4 py-12 md:py-20">
-        <div className="max-w-2xl">
-          <div className="inline-flex items-center gap-2 mb-3 px-4 py-2 rounded-full bg-white/80 border border-gray-200 shadow-soft">
-            <span className="text-xl">👋</span>
-            <span className="text-sm md:text-base font-semibold text-gray-900">
-              Cześć, na co masz dziś ochotę?
-            </span>
-          </div>
+      const lineTotal = (i) => (i.price || 0) * (i.qty || 1);
+      const total  = useMemo(() => cart.reduce((s,i)=> s + lineTotal(i), 0), [cart]);
 
-          <h1 className="text-4xl md:text-5xl font-extrabold leading-tight">
-            Wybierz kategorię i{" "}
-            <span className="text-brand-yellow">zamów online</span>
-          </h1>
-          <p className="mt-4 text-gray-600 max-w-prose">
-            Boxy śniadaniowe, lunche, kanapki, zdrowe, słodkie i napoje.
-            Jak w kiosku — wybierasz kategorię, klikasz pozycje i finalizujesz zamówienie.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <a href="#kategorie" className="inline-flex items-center gap-2 bg-brand-yellow text-gray-900 font-semibold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition">
-              <i data-lucide="shopping-bag" className="w-5 h-5"></i>
-              Przeglądaj menu
-            </a>
-            <a href="#/kategoria/boxy-sniadaniowe" className="inline-flex items-center gap-2 border border-gray-300 bg-white text-gray-900 font-semibold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition">
-              <i data-lucide="package-open" className="w-5 h-5"></i>
-              Zobacz boxy śniadaniowe
-            </a>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
+      return (
+        <CartContext.Provider value={{cart, add, remove, setQty, incQty, decQty, clear, lineTotal, total}}>
+          {children}
+        </CartContext.Provider>
+      );
+    };
 
-  const SectionTitle = ({eyebrow, title, subtitle}) => (
-    <div className="text-center max-w-2xl mx-auto">
-      {eyebrow && <div className="text-xs uppercase tracking-widest text-gray-500">{eyebrow}</div>}
-      <h2 className="text-3xl md:text-4xl font-extrabold mt-1">{title}</h2>
-      {subtitle && <p className="text-gray-600 mt-2">{subtitle}</p>}
-    </div>
-  );
+    const useCart = () => React.useContext(CartContext);
 
-  const CategoryCard = ({ category }) => {
-    const handleClick = () => { window.location.hash = `#/kategoria/${category.id}`; };
-    return (
-      <button type="button" onClick={handleClick}
-        className="group bg-white border border-gray-200 rounded-2xl p-5 text-left shadow-soft hover:shadow-md hover:-translate-y-1 transition w-full">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-gray-500">
-              <span className="w-2 h-2 rounded-full bg-brand-yellow"></span>
-              Kategoria
-            </div>
-            <h3 className="mt-1 text-lg font-extrabold">{category.name}</h3>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center">
-            <i data-lucide={category.icon} className="w-5 h-5 text-gray-900"></i>
+    const CartButton = () => {
+      const { cart, total } = useCart();
+      return (
+        <a href="#/koszyk" className="relative inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition">
+          <i data-lucide="shopping-cart" className="w-5 h-5"></i>
+          <span className="text-sm font-semibold">{currency(total)}</span>
+          <span className="absolute -top-2 -right-2 bg-brand-yellow text-gray-900 text-xs font-bold w-6 h-6 rounded-full grid place-items-center">
+            {cart.reduce((s,i)=>s+(i.qty||1),0)}
+          </span>
+        </a>
+      );
+    };
+
+    const Header = ({ onOpenAuth }) => (
+      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur border-b border-gray-200">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <Logo />
+          <nav className="hidden md:flex items-center gap-6 text-sm">
+            <a href="#kategorie" className="hover:text-gray-900 text-gray-600">Menu</a>
+            <a href="#/kategoria/boxy-sniadaniowe" className="hover:text-gray-900 text-gray-600">Boxy</a>
+            <a href="#/kategoria/lunche" className="hover:text-gray-900 text-gray-600">Lunche</a>
+            <a href="#/kategoria/kanapki" className="hover:text-gray-900 text-gray-600">Kanapki</a>
+            <a href="#/kategoria/napoje" className="hover:text-gray-900 text-gray-600">Napoje</a>
+          </nav>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onOpenAuth}
+              className="hidden md:inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition text-sm font-semibold text-gray-800">
+              <i data-lucide="user" className="w-4 h-4"></i>
+              <span>Konto</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onOpenAuth}
+              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white shadow-soft"
+              aria-label="Moje konto">
+              <i data-lucide="user" className="w-5 h-5"></i>
+            </button>
+
+            <CartButton />
           </div>
         </div>
-        <p className="mt-3 text-sm text-gray-600">{category.description}</p>
-        <div className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-gray-900 group-hover:gap-3 transition">
-          Otwórz kategorię <i data-lucide="arrow-right" className="w-4 h-4"></i>
-        </div>
-      </button>
+      </header>
     );
-  };
 
-  /* ====== KIOSK HELPERS ====== */
-
-  const splitSubtitle = (text='') =>
-    text.split('•').map(s => s.trim()).filter(Boolean);
-
-  const getBadges = (categoryId, name) => {
-    const badges = [];
-    const upper = (name||'').toUpperCase();
-    if (categoryId === 'boxy-sniadaniowe') badges.push({ label: 'BOX', color: 'bg-kiosk-blue/15 text-kiosk-blue border-kiosk-blue/30' });
-    if (categoryId === 'lunche') badges.push({ label: 'LUNCH 12–16', color: 'bg-kiosk-orange/15 text-kiosk-orange border-kiosk-orange/30' });
-    if (upper.includes('VEGE')) badges.push({ label: 'VEGE', color: 'bg-kiosk-green/15 text-kiosk-green border-kiosk-green/30' });
-    return badges;
-  };
-
-  /* ====== PRODUCT CARD ====== */
-
-  const ProductCard = ({ item, categoryId, onAdd }) => {
-    const bullets = splitSubtitle(item.subtitle || '');
-    const badges = getBadges(categoryId, item.name);
-
-    return (
-      <div className="relative bg-white border border-gray-200 rounded-3xl p-5 md:p-6 shadow-soft hover:shadow-kiosk transition group overflow-hidden">
-        <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 opacity-70"></div>
-
-        {badges.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {badges.map((b, i) => (
-              <span key={i}
-                className={`text-[10px] font-extrabold tracking-widest uppercase border px-2.5 py-1 rounded-full ${b.color}`}>
-                {b.label}
+    const Hero = () => (
+      <section className="relative overflow-hidden">
+        <div className="max-w-6xl mx-auto px-4 py-12 md:py-20">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 mb-3 px-4 py-2 rounded-full bg-white/80 border border-gray-200 shadow-soft">
+              <span className="text-xl">👋</span>
+              <span className="text-sm md:text-base font-semibold text-gray-900">
+                Cześć, na co masz dziś ochotę?
               </span>
-            ))}
-          </div>
-        )}
-
-        <h3 className="text-lg md:text-xl font-extrabold text-gray-900 leading-snug">
-          {item.name}
-        </h3>
-
-        {bullets.length > 0 && (
-          <ul className="mt-3 space-y-1.5 text-sm text-gray-700">
-            {bullets.map((b, idx) => (
-              <li key={idx} className="flex gap-2">
-                <span className="mt-[6px] w-1.5 h-1.5 rounded-full bg-gray-900/60 shrink-0"></span>
-                <span>{b}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <div className="mt-5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <div className="px-3 py-1.5 rounded-xl bg-gray-900 text-white font-extrabold text-base md:text-lg shadow">
-              {currency(item.price)}
             </div>
-            <div className="text-xs text-gray-500 font-semibold uppercase tracking-wider">
-              / szt.
+
+            <h1 className="text-4xl md:text-5xl font-extrabold leading-tight">
+              Wybierz kategorię i{" "}
+              <span className="text-brand-yellow">zamów online</span>
+            </h1>
+            <p className="mt-4 text-gray-600 max-w-prose">
+              Boxy śniadaniowe, lunche, kanapki, zdrowe, słodkie i napoje.
+              Jak w kiosku — wybierasz kategorię, klikasz pozycje i finalizujesz zamówienie.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <a href="#kategorie" className="inline-flex items-center gap-2 bg-brand-yellow text-gray-900 font-semibold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition">
+                <i data-lucide="shopping-bag" className="w-5 h-5"></i>
+                Przeglądaj menu
+              </a>
+              <a href="#/kategoria/boxy-sniadaniowe" className="inline-flex items-center gap-2 border border-gray-300 bg-white text-gray-900 font-semibold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition">
+                <i data-lucide="package-open" className="w-5 h-5"></i>
+                Zobacz boxy śniadaniowe
+              </a>
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={() => onAdd(item)}
-            className="inline-flex items-center justify-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-4 py-2.5 rounded-2xl shadow-soft hover:scale-[1.03] active:scale-[0.98] transition"
-          >
-            <i data-lucide="plus" className="w-4 h-4"></i> Dodaj
-          </button>
         </div>
+      </section>
+    );
+
+    const SectionTitle = ({eyebrow, title, subtitle}) => (
+      <div className="text-center max-w-2xl mx-auto">
+        {eyebrow && <div className="text-xs uppercase tracking-widest text-gray-500">{eyebrow}</div>}
+        <h2 className="text-3xl md:text-4xl font-extrabold mt-1">{title}</h2>
+        {subtitle && <p className="text-gray-600 mt-2">{subtitle}</p>}
       </div>
     );
-  };
 
-  // ✅ TU JEST KLUCZ: productId = item.id
-  const CategoryPage = ({ categoryId }) => {
-    const { add } = useCart();
-    const category = PRODUCT_CATEGORIES.find(c => c.id === categoryId);
-    const items = PRODUCTS[categoryId] || [];
+    const CategoryCard = ({ category }) => {
+      const handleClick = () => { window.location.hash = `#/kategoria/${category.id}`; };
+      return (
+        <button type="button" onClick={handleClick}
+          className="group bg-white border border-gray-200 rounded-2xl p-5 text-left shadow-soft hover:shadow-md hover:-translate-y-1 transition w-full">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-gray-500">
+                <span className="w-2 h-2 rounded-full bg-brand-yellow"></span>
+                Kategoria
+              </div>
+              <h3 className="mt-1 text-lg font-extrabold">{category.name}</h3>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center">
+              <i data-lucide={category.icon} className="w-5 h-5 text-gray-900"></i>
+            </div>
+          </div>
+          <p className="mt-3 text-sm text-gray-600">{category.description}</p>
+          <div className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-gray-900 group-hover:gap-3 transition">
+            Otwórz kategorię <i data-lucide="arrow-right" className="w-4 h-4"></i>
+          </div>
+        </button>
+      );
+    };
 
-    if (!category) {
+    /* ====== KIOSK HELPERS ====== */
+    const splitSubtitle = (text='') =>
+      text.split('•').map(s => s.trim()).filter(Boolean);
+
+    const getBadges = (categoryId, name) => {
+      const badges = [];
+      const upper = (name||'').toUpperCase();
+      if (categoryId === 'boxy-sniadaniowe') badges.push({ label: 'BOX', color: 'bg-kiosk-blue/15 text-kiosk-blue border-kiosk-blue/30' });
+      if (categoryId === 'lunche') badges.push({ label: 'LUNCH 12–16', color: 'bg-kiosk-orange/15 text-kiosk-orange border-kiosk-orange/30' });
+      if (upper.includes('VEGE')) badges.push({ label: 'VEGE', color: 'bg-kiosk-green/15 text-kiosk-green border-kiosk-green/30' });
+      return badges;
+    };
+
+    /* ====== PRODUCT CARD ====== */
+    const ProductCard = ({ item, categoryId, onAdd }) => {
+      const bullets = splitSubtitle(item.subtitle || '');
+      const badges = getBadges(categoryId, item.name);
+
+      return (
+        <div className="relative bg-white border border-gray-200 rounded-3xl p-5 md:p-6 shadow-soft hover:shadow-kiosk transition group overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 opacity-70"></div>
+
+          {badges.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {badges.map((b, i) => (
+                <span key={i}
+                  className={`text-[10px] font-extrabold tracking-widest uppercase border px-2.5 py-1 rounded-full ${b.color}`}>
+                  {b.label}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <h3 className="text-lg md:text-xl font-extrabold text-gray-900 leading-snug">
+            {item.name}
+          </h3>
+
+          {bullets.length > 0 && (
+            <ul className="mt-3 space-y-1.5 text-sm text-gray-700">
+              {bullets.map((b, idx) => (
+                <li key={idx} className="flex gap-2">
+                  <span className="mt-[6px] w-1.5 h-1.5 rounded-full bg-gray-900/60 shrink-0"></span>
+                  <span>{b}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="mt-5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className="px-3 py-1.5 rounded-xl bg-gray-900 text-white font-extrabold text-base md:text-lg shadow">
+                {currency(item.price)}
+              </div>
+              <div className="text-xs text-gray-500 font-semibold uppercase tracking-wider">
+                / szt.
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onAdd(item)}
+              className="inline-flex items-center justify-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-4 py-2.5 rounded-2xl shadow-soft hover:scale-[1.03] active:scale-[0.98] transition"
+            >
+              <i data-lucide="plus" className="w-4 h-4"></i> Dodaj
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    const CategoryPage = ({ categoryId }) => {
+      const { add } = useCart();
+      const category = PRODUCT_CATEGORIES.find(c => c.id === categoryId);
+      const items = PRODUCTS[categoryId] || [];
+
+      if (!category) {
+        return (
+          <section className="py-10">
+            <div className="max-w-6xl mx-auto px-4">
+              <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-600">
+                <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć
+              </a>
+              <h2 className="text-2xl font-extrabold mt-3">Kategoria nie istnieje</h2>
+              <p className="mt-2 text-gray-600">Wróć do menu i wybierz jedną z dostępnych kategorii.</p>
+            </div>
+          </section>
+        );
+      }
+
+      const handleAdd = (item) => add({
+        type: 'product',
+        productId: item.id,
+        name: item.name,
+        price: item.price
+      });
+
+      return (
+        <section className="py-8 md:py-10">
+          <div className="max-w-6xl mx-auto px-4">
+            <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-600">
+              <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do menu
+            </a>
+
+            <div className="mt-4 flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 grid place-items-center">
+                <i data-lucide={category.icon} className="w-6 h-6 text-gray-900"></i>
+              </div>
+              <div>
+                <h2 className="text-2xl md:text-3xl font-extrabold">{category.name}</h2>
+                <p className="text-sm text-gray-600 mt-1">{category.description}</p>
+              </div>
+            </div>
+
+            <div className="mt-6 grid sm:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
+              {items.map(item => (
+                <ProductCard
+                  key={item.id}
+                  item={item}
+                  categoryId={categoryId}
+                  onAdd={handleAdd}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+      );
+    };
+
+    const EXTRA_ITEMS = [
+      { id:'extra-granola', name:'Domowa granola', price: 19 },
+      { id:'extra-lemoniada',name:'Domowa lemoniada', price: 12 },
+      { id:'extra-deser', name:'Deser czekoladowy', price: 19 },
+    ];
+
+    const Koszyk = () => {
+      const { cart, remove, clear, total, incQty, decQty, setQty, lineTotal, add } = useCart();
+      const goToCheckout = () => window.location.hash = '#/zamowienie';
+
       return (
         <section className="py-10">
           <div className="max-w-6xl mx-auto px-4">
             <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-600">
               <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć
             </a>
-            <h2 className="text-2xl font-extrabold mt-3">Kategoria nie istnieje</h2>
-            <p className="mt-2 text-gray-600">Wróć do menu i wybierz jedną z dostępnych kategorii.</p>
+            <h2 className="text-2xl font-extrabold mt-3">Koszyk</h2>
+
+            {cart.length === 0 ? (
+              <p className="text-gray-600 mt-2">Twój koszyk jest pusty.</p>
+            ) : (
+              <>
+                <div className="mt-6 grid md:grid-cols-3 gap-6 items-start">
+                  <div className="md:col-span-2 space-y-4">
+                    {cart.map(item => (
+                      <div key={item.id}
+                        className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col md:flex-row gap-4 md:items-center justify-between w-full">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-bold break-words">{item.name}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            ID produktu: <span className="font-mono">{item.productId || 'brak'}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row md:flex-row gap-3 md:gap-4 items-stretch md:items-center w-full md:w-auto justify-between md:justify-end">
+                          <div className="flex items-center gap-2 self-start">
+                            <button onClick={()=> decQty(item.id)} className="w-8 h-8 rounded-lg border border-gray-200 grid place-items-center">−</button>
+                            <input
+                              value={item.qty||1}
+                              onChange={(e)=> setQty(item.id, parseInt(e.target.value||'1',10))}
+                              className="w-14 text-center border border-gray-200 rounded-lg py-1"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                            />
+                            <button onClick={()=> incQty(item.id)} className="w-8 h-8 rounded-lg border border-gray-200 grid place-items-center">+</button>
+                          </div>
+
+                          <div className="text-right self-center">
+                            <div className="font-extrabold whitespace-nowrap">{currency(lineTotal(item))}</div>
+                            <div className="text-xs text-gray-500 whitespace-nowrap">({currency(item.price)} / szt.)</div>
+                          </div>
+
+                          <button onClick={()=> remove(item.id)} className="text-red-600 hover:underline self-center text-sm">Usuń</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <aside className="bg-white border border-gray-200 rounded-2xl p-5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">Suma</span>
+                      <span className="font-extrabold">{currency(total)}</span>
+                    </div>
+                    <div className="mt-4 grid gap-2">
+                      <button onClick={goToCheckout} className="w-full bg-brand-yellow text-gray-900 font-semibold rounded-xl px-4 py-3">
+                        Przejdź do zamówienia
+                      </button>
+                      <button onClick={clear} className="w-full bg-gray-100 text-gray-700 rounded-xl px-4 py-3">
+                        Wyczyść koszyk
+                      </button>
+                    </div>
+                  </aside>
+                </div>
+
+                <div className="mt-10 border-t border-gray-200 pt-6">
+                  <h3 className="text-lg font-bold flex items-center gap-2">
+                    <span>Może dorzucisz coś jeszcze?</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-900 text-white">1 klik i dodane</span>
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Słodki dodatek lub napój często robi różnicę — szczególnie przy większych zamówieniach.
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    {EXTRA_ITEMS.map(extra => (
+                      <button key={extra.id}
+                        onClick={() => add({
+                          type:'extra',
+                          productId: extra.id,
+                          name: extra.name,
+                          price: extra.price
+                        })}
+                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-gray-200 shadow-soft text-sm hover:shadow-md hover:-translate-y-0.5 transition">
+                        <span className="text-base">+</span>
+                        <span>{extra.name}</span>
+                        <span className="font-semibold text-gray-900">{currency(extra.price)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </section>
       );
-    }
+    };
 
-    const handleAdd = (item) => add({
-      type: 'product',
-      productId: item.id,
-      name: item.name,
-      price: item.price
-    });
+    const Zamowienie = () => {
+      const { cart, total, lineTotal } = useCart();
+      const [form, setForm] = useState({
+        imieNazwisko:'', telefon:'', email:'', miasto:'', kod:'', ulica:'', nrBud:'', pietro:'', lokal:'', uwagi:'', faktura:false, nip:'', firma:''
+      });
 
-    return (
-      <section className="py-8 md:py-10">
-        <div className="max-w-6xl mx-auto px-4">
-          <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-600">
-            <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do menu
-          </a>
+      const handle = (k,v)=> setForm(s=> ({...s,[k]:v}));
 
-          <div className="mt-4 flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 grid place-items-center">
-              <i data-lucide={category.icon} className="w-6 h-6 text-gray-900"></i>
-            </div>
-            <div>
-              <h2 className="text-2xl md:text-3xl font-extrabold">{category.name}</h2>
-              <p className="text-sm text-gray-600 mt-1">{category.description}</p>
-            </div>
-          </div>
+      const submit = async () => {
+        if(!form.imieNazwisko || !form.telefon || !form.miasto || !form.ulica) {
+          alert('Uzupełnij wymagane pola');
+          return;
+        }
+        if (!cart.length) {
+          alert('Koszyk jest pusty.');
+          return;
+        }
 
-          <div className="mt-6 grid sm:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
-            {items.map(item => (
-              <ProductCard
-                key={item.id}
-                item={item}
-                categoryId={categoryId}
-                onAdd={handleAdd}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-    );
-  };
+        const missing = cart.find(i => !i.productId);
+        if (missing) {
+          alert("W koszyku jest pozycja bez productId. Dodaj produkt ponownie.");
+          console.log("Missing productId item:", missing);
+          return;
+        }
 
-  const EXTRA_ITEMS = [
-    { id:'extra-granola', name:'Domowa granola', price: 19 },
-    { id:'extra-lemoniada',name:'Domowa lemoniada', price: 12 },
-    { id:'extra-deser', name:'Deser czekoladowy', price: 19 },
-  ];
+        try {
+          const payload = {
+            customer: form,
+            cart: cart.map(i => ({ productId: i.productId, qty: i.qty || 1 }))
+          };
 
-  const Koszyk = () => {
-    const { cart, remove, clear, total, incQty, decQty, setQty, lineTotal, add } = useCart();
-    const goToCheckout = () => window.location.hash = '#/zamowienie';
+          const r = await fetch("/api/payu/order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
 
-    return (
-      <section className="py-10">
-        <div className="max-w-6xl mx-auto px-4">
-          <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-600">
-            <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć
-          </a>
-          <h2 className="text-2xl font-extrabold mt-3">Koszyk</h2>
+          const data = await r.json().catch(() => ({}));
 
-          {cart.length === 0 ? (
-            <p className="text-gray-600 mt-2">Twój koszyk jest pusty.</p>
-          ) : (
-            <>
-              <div className="mt-6 grid md:grid-cols-3 gap-6 items-start">
-                <div className="md:col-span-2 space-y-4">
-                  {cart.map(item => (
-                    <div key={item.id}
-                      className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col md:flex-row gap-4 md:items-center justify-between w-full">
-                      <div className="min-w-0 flex-1">
-                        <div className="font-bold break-words">{item.name}</div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          ID produktu: <span className="font-mono">{item.productId || 'brak'}</span>
-                        </div>
+          if (!r.ok) {
+            alert("Błąd serwera: " + (data.error || r.status));
+            console.log("PAYU ERROR DETAILS:", data);
+            return;
+          }
+
+          if (!data.redirectUri) {
+            alert("Brak redirectUri. Zobacz konsolę (PAYU RESPONSE).");
+            console.log("PAYU RESPONSE:", data);
+            return;
+          }
+
+          window.location.href = data.redirectUri;
+        } catch (e) {
+          alert("Błąd połączenia z serwerem.");
+          console.log(e);
+        }
+      };
+
+      return (
+        <section className="py-10">
+          <div className="max-w-6xl mx-auto px-4">
+            <a href="#/koszyk" className="inline-flex items-center gap-2 text-sm text-gray-600">
+              <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do koszyka
+            </a>
+            <h2 className="text-2xl font-extrabold mt-3">Zamówienie</h2>
+
+            <div className="mt-6 grid lg:grid-cols-3 gap-6 items-start">
+              <div className="lg:col-span-2 bg-white border border-gray-200 rounded-2xl p-5">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Imię i nazwisko *</label>
+                    <input value={form.imieNazwisko} onChange={e=>handle('imieNazwisko', e.target.value)}
+                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Nr telefonu *</label>
+                    <input value={form.telefon} onChange={e=>handle('telefon', e.target.value)}
+                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Adres email</label>
+                    <input value={form.email} onChange={e=>handle('email', e.target.value)}
+                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Miasto *</label>
+                    <input value={form.miasto} onChange={e=>handle('miasto', e.target.value)}
+                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Kod pocztowy</label>
+                    <input value={form.kod} onChange={e=>handle('kod', e.target.value)}
+                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Ulica *</label>
+                    <input value={form.ulica} onChange={e=>handle('ulica', e.target.value)}
+                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Nr budynku</label>
+                    <input value={form.nrBud} onChange={e=>handle('nrBud', e.target.value)}
+                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Piętro</label>
+                    <input value={form.pietro} onChange={e=>handle('pietro', e.target.value)}
+                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Nr lokalu</label>
+                    <input value={form.lokal} onChange={e=>handle('lokal', e.target.value)}
+                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Uwagi do zamówienia</label>
+                    <textarea value={form.uwagi} onChange={e=>handle('uwagi', e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 min-h-[100px]"></textarea>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={form.faktura} onChange={e=>handle('faktura', e.target.checked)} />
+                    Chcę dane do faktury
+                  </label>
+                  {form.faktura && (
+                    <div className="grid md:grid-cols-2 gap-4 mt-3">
+                      <div>
+                        <label className="text-xs uppercase tracking-wider text-gray-500">NIP</label>
+                        <input value={form.nip} onChange={e=>handle('nip', e.target.value)}
+                          className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
                       </div>
+                      <div>
+                        <label className="text-xs uppercase tracking-wider text-gray-500">Nazwa firmy</label>
+                        <input value={form.firma} onChange={e=>handle('firma', e.target.value)}
+                          className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
 
-                      <div className="flex flex-col sm:flex-row md:flex-row gap-3 md:gap-4 items-stretch md:items-center w-full md:w-auto justify-between md:justify-end">
-                        <div className="flex items-center gap-2 self-start">
-                          <button onClick={()=> decQty(item.id)} className="w-8 h-8 rounded-lg border border-gray-200 grid place-items-center">−</button>
-                          <input
-                            value={item.qty||1}
-                            onChange={(e)=> setQty(item.id, parseInt(e.target.value||'1',10))}
-                            className="w-14 text-center border border-gray-200 rounded-lg py-1"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                          />
-                          <button onClick={()=> incQty(item.id)} className="w-8 h-8 rounded-lg border border-gray-200 grid place-items-center">+</button>
-                        </div>
-
-                        <div className="text-right self-center">
-                          <div className="font-extrabold whitespace-nowrap">{currency(lineTotal(item))}</div>
-                          <div className="text-xs text-gray-500 whitespace-nowrap">({currency(item.price)} / szt.)</div>
-                        </div>
-
-                        <button onClick={()=> remove(item.id)} className="text-red-600 hover:underline self-center text-sm">Usuń</button>
+              <aside className="bg-white border border-gray-200 rounded-2xl p-5">
+                <div className="font-semibold">Podsumowanie</div>
+                <div className="mt-3 space-y-3 max-h-64 overflow-auto pr-2">
+                  {cart.map(i => (
+                    <div key={i.id} className="text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{i.name} × {i.qty||1}</span>
+                        <span className="font-bold">{currency(lineTotal(i))}</span>
+                      </div>
+                      <div className="text-[11px] text-gray-500 mt-0.5 font-mono">
+                        {i.productId}
                       </div>
                     </div>
                   ))}
                 </div>
-
-                <aside className="bg-white border border-gray-200 rounded-2xl p-5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold">Suma</span>
-                    <span className="font-extrabold">{currency(total)}</span>
-                  </div>
-                  <div className="mt-4 grid gap-2">
-                    <button onClick={goToCheckout} className="w-full bg-brand-yellow text-gray-900 font-semibold rounded-xl px-4 py-3">
-                      Przejdź do zamówienia
-                    </button>
-                    <button onClick={clear} className="w-full bg-gray-100 text-gray-700 rounded-xl px-4 py-3">
-                      Wyczyść koszyk
-                    </button>
-                  </div>
-                </aside>
-              </div>
-
-              <div className="mt-10 border-t border-gray-200 pt-6">
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                  <span>Może dorzucisz coś jeszcze?</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-900 text-white">1 klik i dodane</span>
-                </h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  Słodki dodatek lub napój często robi różnicę — szczególnie przy większych zamówieniach.
-                </p>
-
-                <div className="mt-4 flex flex-wrap gap-3">
-                  {EXTRA_ITEMS.map(extra => (
-                    <button key={extra.id}
-                      onClick={() => add({
-                        type:'extra',
-                        productId: extra.id,
-                        name: extra.name,
-                        price: extra.price
-                      })}
-                      className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-gray-200 shadow-soft text-sm hover:shadow-md hover:-translate-y-0.5 transition">
-                      <span className="text-base">+</span>
-                      <span>{extra.name}</span>
-                      <span className="font-semibold text-gray-900">{currency(extra.price)}</span>
-                    </button>
-                  ))}
+                <div className="flex items-center justify-between mt-4 text-lg">
+                  <span className="font-bold">Do zapłaty</span>
+                  <span className="font-extrabold">{currency(total)}</span>
                 </div>
-              </div>
-            </>
-          )}
-        </div>
-      </section>
-    );
-  };
-
-  const Zamowienie = () => {
-    const { cart, total, lineTotal } = useCart();
-    const [form, setForm] = useState({
-      imieNazwisko:'', telefon:'', email:'', miasto:'', kod:'', ulica:'', nrBud:'', pietro:'', lokal:'', uwagi:'', faktura:false, nip:'', firma:''
-    });
-
-    const handle = (k,v)=> setForm(s=> ({...s,[k]:v}));
-
-    const submit = async () => {
-      if(!form.imieNazwisko || !form.telefon || !form.miasto || !form.ulica) {
-        alert('Uzupełnij wymagane pola');
-        return;
-      }
-      if (!cart.length) {
-        alert('Koszyk jest pusty.');
-        return;
-      }
-
-      // ✅ sprawdź czy każdy item ma productId
-      const missing = cart.find(i => !i.productId);
-      if (missing) {
-        alert("W koszyku jest pozycja bez productId. Dodaj produkt ponownie.");
-        console.log("Missing productId item:", missing);
-        return;
-      }
-
-      try {
-        // ✅ do backendu wysyłamy tylko productId + qty (backend liczy kwotę i tworzy PayU order)
-        const payload = {
-          customer: form,
-          cart: cart.map(i => ({ productId: i.productId, qty: i.qty || 1 }))
-        };
-
-        const r = await fetch("/api/payu/order", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        const data = await r.json().catch(() => ({}));
-
-        if (!r.ok) {
-          alert("Błąd serwera: " + (data.error || r.status));
-          console.log("PAYU ERROR DETAILS:", data);
-          return;
-        }
-
-        if (!data.redirectUri) {
-          alert("Brak redirectUri. Zobacz konsolę (PAYU RESPONSE).");
-          console.log("PAYU RESPONSE:", data);
-          return;
-        }
-
-        window.location.href = data.redirectUri;
-      } catch (e) {
-        alert("Błąd połączenia z serwerem.");
-        console.log(e);
-      }
+                <button onClick={submit}
+                  className="w-full mt-4 bg-brand-yellow text-gray-900 font-semibold rounded-xl px-4 py-3">
+                  Płatność online (PayU)
+                </button>
+                <div className="text-xs text-gray-500 mt-3">
+                  Jeśli coś nie działa, sprawdź konsolę (F12) → log: <span className="font-mono">PAYU ERROR DETAILS</span>.
+                </div>
+              </aside>
+            </div>
+          </div>
+        </section>
+      );
     };
 
-    return (
-      <section className="py-10">
-        <div className="max-w-6xl mx-auto px-4">
-          <a href="#/koszyk" className="inline-flex items-center gap-2 text-sm text-gray-600">
-            <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do koszyka
-          </a>
-          <h2 className="text-2xl font-extrabold mt-3">Zamówienie</h2>
+    const AuthModal = ({ open, onClose }) => {
+      const [mode, setMode] = useState('login');
+      const [form, setForm] = useState({ email: '', password: '', confirm: '' });
+      if (!open) return null;
 
-          <div className="mt-6 grid lg:grid-cols-3 gap-6 items-start">
-            <div className="lg:col-span-2 bg-white border border-gray-200 rounded-2xl p-5">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs uppercase tracking-wider text-gray-500">Imię i nazwisko *</label>
-                  <input value={form.imieNazwisko} onChange={e=>handle('imieNazwisko', e.target.value)}
-                    className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                </div>
-                <div>
-                  <label className="text-xs uppercase tracking-wider text-gray-500">Nr telefonu *</label>
-                  <input value={form.telefon} onChange={e=>handle('telefon', e.target.value)}
-                    className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                </div>
-                <div>
-                  <label className="text-xs uppercase tracking-wider text-gray-500">Adres email</label>
-                  <input value={form.email} onChange={e=>handle('email', e.target.value)}
-                    className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                </div>
-                <div>
-                  <label className="text-xs uppercase tracking-wider text-gray-500">Miasto *</label>
-                  <input value={form.miasto} onChange={e=>handle('miasto', e.target.value)}
-                    className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                </div>
-                <div>
-                  <label className="text-xs uppercase tracking-wider text-gray-500">Kod pocztowy</label>
-                  <input value={form.kod} onChange={e=>handle('kod', e.target.value)}
-                    className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                </div>
-                <div>
-                  <label className="text-xs uppercase tracking-wider text-gray-500">Ulica *</label>
-                  <input value={form.ulica} onChange={e=>handle('ulica', e.target.value)}
-                    className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                </div>
-                <div>
-                  <label className="text-xs uppercase tracking-wider text-gray-500">Nr budynku</label>
-                  <input value={form.nrBud} onChange={e=>handle('nrBud', e.target.value)}
-                    className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                </div>
-                <div>
-                  <label className="text-xs uppercase tracking-wider text-gray-500">Piętro</label>
-                  <input value={form.pietro} onChange={e=>handle('pietro', e.target.value)}
-                    className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                </div>
-                <div>
-                  <label className="text-xs uppercase tracking-wider text-gray-500">Nr lokalu</label>
-                  <input value={form.lokal} onChange={e=>handle('lokal', e.target.value)}
-                    className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                </div>
-                <div className="md:col-span-2">
-                  <label className="text-xs uppercase tracking-wider text-gray-500">Uwagi do zamówienia</label>
-                  <textarea value={form.uwagi} onChange={e=>handle('uwagi', e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 min-h-[100px]"></textarea>
-                </div>
-              </div>
+      const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
-              <div className="mt-4">
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={form.faktura} onChange={e=>handle('faktura', e.target.checked)} />
-                  Chcę dane do faktury
-                </label>
-                {form.faktura && (
-                  <div className="grid md:grid-cols-2 gap-4 mt-3">
-                    <div>
-                      <label className="text-xs uppercase tracking-wider text-gray-500">NIP</label>
-                      <input value={form.nip} onChange={e=>handle('nip', e.target.value)}
-                        className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                    </div>
-                    <div>
-                      <label className="text-xs uppercase tracking-wider text-gray-500">Nazwa firmy</label>
-                      <input value={form.firma} onChange={e=>handle('firma', e.target.value)}
-                        className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                    </div>
-                  </div>
-                )}
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (mode === 'register' && form.password !== form.confirm) {
+          alert('Hasła nie są takie same.');
+          return;
+        }
+        alert(`(${mode === 'login' ? 'Logowanie' : 'Rejestracja'}) to na razie makieta UI :)`);
+        onClose();
+      };
+
+      return (
+        <div className="fixed inset-0 z-[90] bg-black/60 flex items-center justify-center px-4" onClick={onClose} role="dialog" aria-modal="true">
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-glass border border-gray-200 p-6" onClick={(e) => e.stopPropagation()}>
+            <button type="button" onClick={onClose} className="absolute top-3 right-3 p-2 rounded-full bg-white border border-gray-200 shadow-soft hover:bg-gray-50" aria-label="Zamknij okno logowania">
+              <i data-lucide="x" className="w-4 h-4"></i>
+            </button>
+
+            <div className="mb-4">
+              <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">
+                {mode === 'login' ? 'Logowanie' : 'Rejestracja'}
               </div>
+              <h3 className="text-xl font-extrabold mt-1">
+                {mode === 'login' ? 'Zaloguj się do eatmi' : 'Załóż konto w eatmi'}
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                {mode === 'login'
+                  ? 'Zamawiaj szybciej i śledź historię zamówień (makieta).'
+                  : 'Utwórz konto, aby w przyszłości zapisywać dane dostawy (makieta).'}
+              </p>
             </div>
 
-            <aside className="bg-white border border-gray-200 rounded-2xl p-5">
-              <div className="font-semibold">Podsumowanie</div>
-              <div className="mt-3 space-y-3 max-h-64 overflow-auto pr-2">
-                {cart.map(i => (
-                  <div key={i.id} className="text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{i.name} × {i.qty||1}</span>
-                      <span className="font-bold">{currency(lineTotal(i))}</span>
-                    </div>
-                    <div className="text-[11px] text-gray-500 mt-0.5 font-mono">
-                      {i.productId}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between mt-4 text-lg">
-                <span className="font-bold">Do zapłaty</span>
-                <span className="font-extrabold">{currency(total)}</span>
-              </div>
-              <button onClick={submit}
-                className="w-full mt-4 bg-brand-yellow text-gray-900 font-semibold rounded-xl px-4 py-3">
-                Płatność online (PayU)
-              </button>
-              <div className="text-xs text-gray-500 mt-3">
-                Jeśli coś nie działa, sprawdź konsolę (F12) → log: <span className="font-mono">PAYU ERROR DETAILS</span>.
-              </div>
-            </aside>
-          </div>
-        </div>
-      </section>
-    );
-  };
-
-  const AuthModal = ({ open, onClose }) => {
-    const [mode, setMode] = useState('login');
-    const [form, setForm] = useState({ email: '', password: '', confirm: '' });
-    if (!open) return null;
-
-    const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
-
-    const handleSubmit = (e) => {
-      e.preventDefault();
-      if (mode === 'register' && form.password !== form.confirm) {
-        alert('Hasła nie są takie same.');
-        return;
-      }
-      alert(`(${mode === 'login' ? 'Logowanie' : 'Rejestracja'}) to na razie makieta UI :)`);
-      onClose();
-    };
-
-    return (
-      <div className="fixed inset-0 z-[90] bg-black/60 flex items-center justify-center px-4" onClick={onClose} role="dialog" aria-modal="true">
-        <div className="relative w-full max-w-md bg-white rounded-2xl shadow-glass border border-gray-200 p-6" onClick={(e) => e.stopPropagation()}>
-          <button type="button" onClick={onClose} className="absolute top-3 right-3 p-2 rounded-full bg-white border border-gray-200 shadow-soft hover:bg-gray-50" aria-label="Zamknij okno logowania">
-            <i data-lucide="x" className="w-4 h-4"></i>
-          </button>
-
-          <div className="mb-4">
-            <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">
-              {mode === 'login' ? 'Logowanie' : 'Rejestracja'}
-            </div>
-            <h3 className="text-xl font-extrabold mt-1">
-              {mode === 'login' ? 'Zaloguj się do eatmi' : 'Załóż konto w eatmi'}
-            </h3>
-            <p className="text-xs text-gray-500 mt-1">
-              {mode === 'login'
-                ? 'Zamawiaj szybciej i śledź historię zamówień (makieta).'
-                : 'Utwórz konto, aby w przyszłości zapisywać dane dostawy (makieta).'}
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div>
-              <label className="text-xs uppercase tracking-wider text-gray-500">Adres e-mail</label>
-              <input type="email" required value={form.email}
-                onChange={(e) => handleChange('email', e.target.value)}
-                placeholder="np. jan.kowalski@example.com"
-                className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-            </div>
-
-            <div>
-              <label className="text-xs uppercase tracking-wider text-gray-500">Hasło</label>
-              <input type="password" required value={form.password}
-                onChange={(e) => handleChange('password', e.target.value)}
-                placeholder="Wpisz hasło"
-                className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-            </div>
-
-            {mode === 'register' && (
+            <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label className="text-xs uppercase tracking-wider text-gray-500">Powtórz hasło</label>
-                <input type="password" required value={form.confirm}
-                  onChange={(e) => handleChange('confirm', e.target.value)}
-                  placeholder="Powtórz hasło"
+                <label className="text-xs uppercase tracking-wider text-gray-500">Adres e-mail</label>
+                <input type="email" required value={form.email}
+                  onChange={(e) => handleChange('email', e.target.value)}
+                  placeholder="np. jan.kowalski@example.com"
                   className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
               </div>
-            )}
 
-            <button type="submit" className="w-full mt-1 bg-gray-900 text-white font-semibold rounded-xl px-4 py-3 text-sm hover:bg-black">
-              {mode === 'login' ? 'Zaloguj się' : 'Zarejestruj się'}
-            </button>
-          </form>
+              <div>
+                <label className="text-xs uppercase tracking-wider text-gray-500">Hasło</label>
+                <input type="password" required value={form.password}
+                  onChange={(e) => handleChange('password', e.target.value)}
+                  placeholder="Wpisz hasło"
+                  className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+              </div>
 
-          <div className="mt-4 text-xs text-gray-600 text-center">
-            {mode === 'login' ? (
-              <>Nie masz konta?{' '}
-                <button type="button" onClick={() => { setMode('register'); setForm({ email:'', password:'', confirm:'' }) }}
-                  className="font-semibold text-gray-900 underline underline-offset-2">
-                  Zarejestruj się
-                </button>
-              </>
-            ) : (
-              <>Masz konto?{' '}
-                <button type="button" onClick={() => { setMode('login'); setForm({ email:'', password:'', confirm:'' }) }}
-                  className="font-semibold text-gray-900 underline underline-offset-2">
-                  Zaloguj się
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
+              {mode === 'register' && (
+                <div>
+                  <label className="text-xs uppercase tracking-wider text-gray-500">Powtórz hasło</label>
+                  <input type="password" required value={form.confirm}
+                    onChange={(e) => handleChange('confirm', e.target.value)}
+                    placeholder="Powtórz hasło"
+                    className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                </div>
+              )}
 
-  const Home = () => (
-    <>
-      <Hero />
+              <button type="submit" className="w-full mt-1 bg-gray-900 text-white font-semibold rounded-xl px-4 py-3 text-sm hover:bg-black">
+                {mode === 'login' ? 'Zaloguj się' : 'Zarejestruj się'}
+              </button>
+            </form>
 
-      <section id="kategorie" className="py-12 md:py-20 bg-gradient-to-b from-white to-brand-light">
-        <div className="max-w-6xl mx-auto px-4">
-          <SectionTitle eyebrow="Menu" title="Wybierz kategorię" subtitle="Najpierw wybierz kategorię, potem dodawaj pozycje do koszyka — w kilka kliknięć!" />
-          <div className="mt-8 grid md:grid-cols-3 gap-6">
-            {PRODUCT_CATEGORIES.map(cat => <CategoryCard key={cat.id} category={cat} />)}
-          </div>
-        </div>
-      </section>
-
-      <section id="kontakt" className="py-12 bg-white">
-        <div className="max-w-6xl mx-auto px-4">
-          <SectionTitle title="Kontakt" subtitle="Masz pytania? Napisz do nas." />
-          <form className="max-w-xl mx-auto mt-8 bg-white border border-gray-200 rounded-2xl p-6 shadow-soft">
-            <div className="grid md:grid-cols-2 gap-4">
-              <input className="input w-full border border-gray-200 rounded-xl px-4 py-3" placeholder="Imię" />
-              <input className="input w-full border border-gray-200 rounded-xl px-4 py-3" placeholder="Email" />
+            <div className="mt-4 text-xs text-gray-600 text-center">
+              {mode === 'login' ? (
+                <>Nie masz konta?{' '}
+                  <button type="button" onClick={() => { setMode('register'); setForm({ email:'', password:'', confirm:'' }) }}
+                    className="font-semibold text-gray-900 underline underline-offset-2">
+                    Zarejestruj się
+                  </button>
+                </>
+              ) : (
+                <>Masz konto?{' '}
+                  <button type="button" onClick={() => { setMode('login'); setForm({ email:'', password:'', confirm:'' }) }}
+                    className="font-semibold text-gray-900 underline underline-offset-2">
+                    Zaloguj się
+                  </button>
+                </>
+              )}
             </div>
-            <textarea className="input w-full border border-gray-200 rounded-xl px-4 py-3 mt-4" rows="4" placeholder="Wiadomość"></textarea>
-            <button type="button" className="mt-4 bg-gray-900 text-white rounded-xl px-5 py-3 font-semibold">Wyślij</button>
-          </form>
+          </div>
         </div>
-      </section>
-    </>
-  );
+      );
+    };
 
-  const FloatingNav = () => (
-    <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(720px,92%)] liquid border border-white/50 rounded-2xl shadow-glass">
-      <ul className="grid grid-cols-4">
-        <li><a href="#kategorie" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="shopping-bag" className="w-5 h-5"></i>Menu</a></li>
-        <li><a href="#/kategoria/boxy-sniadaniowe" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="package-open" className="w-5 h-5"></i>Boxy</a></li>
-        <li><a href="#/kategoria/lunche" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="utensils-crossed" className="w-5 h-5"></i>Lunche</a></li>
-        <li><a href="#/koszyk" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="shopping-cart" className="w-5 h-5"></i>Koszyk</a></li>
-      </ul>
-    </nav>
-  );
+    const Home = () => (
+      <>
+        <Hero />
 
-  const Router = () => {
-    const [route, setRoute] = useState(window.location.hash || '#/');
+        <section id="kategorie" className="py-12 md:py-20 bg-gradient-to-b from-white to-brand-light">
+          <div className="max-w-6xl mx-auto px-4">
+            <SectionTitle eyebrow="Menu" title="Wybierz kategorię" subtitle="Najpierw wybierz kategorię, potem dodawaj pozycje do koszyka — w kilka kliknięć!" />
+            <div className="mt-8 grid md:grid-cols-3 gap-6">
+              {PRODUCT_CATEGORIES.map(cat => <CategoryCard key={cat.id} category={cat} />)}
+            </div>
+          </div>
+        </section>
 
-    useEffect(()=>{
-      const onHash = () => setRoute(window.location.hash || '#/');
-      window.addEventListener('hashchange', onHash);
-      return ()=> window.removeEventListener('hashchange', onHash);
-    },[]);
-
-    useEffect(()=> { lucide.createIcons(); }, [route]);
-
-    if (route.startsWith('#/kategoria/')) {
-      const id = route.split('/')[2];
-      return <CategoryPage categoryId={id} />;
-    }
-    if(route === '#/koszyk') return <Koszyk />;
-    if(route === '#/zamowienie') return <Zamowienie />;
-    return <Home />;
-  };
-
-  const App = () => {
-    const [authOpen, setAuthOpen] = useState(false);
-    useEffect(() => { lucide.createIcons(); }, [authOpen]);
-
-    return (
-      <ToastProvider>
-        <CartProvider>
-          <Header onOpenAuth={() => setAuthOpen(true)} />
-          <Router />
-          <FloatingNav />
-          <footer className="py-16 text-center text-sm text-gray-500">
-            © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
-          </footer>
-          <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
-        </CartProvider>
-      </ToastProvider>
+        <section id="kontakt" className="py-12 bg-white">
+          <div className="max-w-6xl mx-auto px-4">
+            <SectionTitle title="Kontakt" subtitle="Masz pytania? Napisz do nas." />
+            <form className="max-w-xl mx-auto mt-8 bg-white border border-gray-200 rounded-2xl p-6 shadow-soft">
+              <div className="grid md:grid-cols-2 gap-4">
+                <input className="input w-full border border-gray-200 rounded-xl px-4 py-3" placeholder="Imię" />
+                <input className="input w-full border border-gray-200 rounded-xl px-4 py-3" placeholder="Email" />
+              </div>
+              <textarea className="input w-full border border-gray-200 rounded-xl px-4 py-3 mt-4" rows="4" placeholder="Wiadomość"></textarea>
+              <button type="button" className="mt-4 bg-gray-900 text-white rounded-xl px-5 py-3 font-semibold">Wyślij</button>
+            </form>
+          </div>
+        </section>
+      </>
     );
-  };
 
-  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-</script>
+    const FloatingNav = () => (
+      <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(720px,92%)] liquid border border-white/50 rounded-2xl shadow-glass">
+        <ul className="grid grid-cols-4">
+          <li><a href="#kategorie" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="shopping-bag" className="w-5 h-5"></i>Menu</a></li>
+          <li><a href="#/kategoria/boxy-sniadaniowe" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="package-open" className="w-5 h-5"></i>Boxy</a></li>
+          <li><a href="#/kategoria/lunche" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="utensils-crossed" className="w-5 h-5"></i>Lunche</a></li>
+          <li><a href="#/koszyk" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="shopping-cart" className="w-5 h-5"></i>Koszyk</a></li>
+        </ul>
+      </nav>
+    );
 
+    const Router = () => {
+      const [route, setRoute] = useState(window.location.hash || '#/');
+
+      useEffect(()=>{
+        const onHash = () => setRoute(window.location.hash || '#/');
+        window.addEventListener('hashchange', onHash);
+        return ()=> window.removeEventListener('hashchange', onHash);
+      },[]);
+
+      useEffect(()=> { window.lucide?.createIcons?.(); }, [route]);
+
+      if (route.startsWith('#/kategoria/')) {
+        const id = route.split('/')[2];
+        return <CategoryPage categoryId={id} />;
+      }
+      if(route === '#/koszyk') return <Koszyk />;
+      if(route === '#/zamowienie') return <Zamowienie />;
+      return <Home />;
+    };
+
+    const App = () => {
+      const [authOpen, setAuthOpen] = useState(false);
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [authOpen]);
+
+      return (
+        <ToastProvider>
+          <CartProvider>
+            <Header onOpenAuth={() => setAuthOpen(true)} />
+            <Router />
+            <FloatingNav />
+            <footer className="py-16 text-center text-sm text-gray-500">
+              © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
+            </footer>
+            <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+          </CartProvider>
+        </ToastProvider>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
 </body>
 </html>
