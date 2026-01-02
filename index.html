@@ -8,7 +8,6 @@
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="manifest" href="/manifest.webmanifest">
 
-  <!-- Tailwind config BEFORE tailwindcdn -->
   <script>
     tailwind = window.tailwind || {};
     tailwind.config = {
@@ -16,15 +15,13 @@
         extend: {
           colors: {
             brand: {
-              yellow: '#FFC107',  // główny akcent
-              yellow2: '#FFB300', // hover/ciemniejszy
-              ink: '#0F172A',     // tekst
-              muted: '#475569',   // opisy
-              line: '#E2E8F0',    // border
-              bg: '#FFFFFF'
+              yellow: '#FFC107',
+              yellow2: '#FFB300',
+              ink: '#0F172A',
+              muted: '#475569',
+              line: '#E2E8F0'
             }
-          },
-          borderRadius: { xl2: '1.25rem' }
+          }
         }
       }
     };
@@ -35,7 +32,7 @@
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
 
-  <!-- Babel for inline JSX -->
+  <!-- Babel for JSX -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <!-- Lucide icons -->
@@ -43,42 +40,28 @@
 
   <style>
     :root{
-      --y: #FFC107;
-      --y2:#FFB300;
-      --ink:#0F172A;
-      --line:#E2E8F0;
-      --muted:#475569;
+      --y:#FFC107; --y2:#FFB300;
+      --ink:#0F172A; --muted:#475569; --line:#E2E8F0;
     }
-    html, body { background: #fff; }
-    /* Flat: zero heavy shadows, tylko delikatna separacja */
-    .flat-card { border: 1px solid var(--line); background: #fff; }
-    .flat-card:hover { border-color: rgba(255,193,7,.65); }
-    .focus-yellow:focus { outline: none; box-shadow: 0 0 0 3px rgba(255,193,7,.28); border-color: rgba(255,193,7,.75); }
-    .btn-yellow { background: var(--y); color: #111827; }
-    .btn-yellow:hover { background: var(--y2); }
-    .btn-outline:hover { border-color: rgba(255,193,7,.8); }
-    .link-yellow { color: #B45309; }
-    .link-yellow:hover { color: #92400E; }
-    /* żółte podkreślenie nagłówków */
-    .underline-yellow{
-      background-image: linear-gradient(to right, rgba(255,193,7,.55), rgba(255,193,7,.55));
-      background-size: 100% 0.35em;
-      background-repeat: no-repeat;
-      background-position: 0 88%;
-    }
-    /* małe “pill” żółte */
-    .pill-yellow{
-      background: rgba(255,193,7,.18);
-      border: 1px solid rgba(255,193,7,.55);
-      color: #111827;
-    }
-    /* toast */
-    .toast-in { animation: toastIn .16s ease-out; }
-    @keyframes toastIn { from { transform: translateY(8px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+    html,body{ background:#fff; color:var(--ink); }
+
+    /* Flat, prosto */
+    .card{ background:#fff; border:1px solid var(--line); border-radius:16px; }
+    .card:hover{ border-color: rgba(255,193,7,.65); }
+    .focusY:focus{ outline:none; box-shadow:0 0 0 3px rgba(255,193,7,.28); border-color: rgba(255,193,7,.75); }
+
+    .btnY{ background:var(--y); color:#111827; font-weight:800; border-radius:14px; }
+    .btnY:hover{ background:var(--y2); }
+    .btnO{ background:#fff; border:1px solid rgba(255,193,7,.55); font-weight:800; border-radius:14px; }
+    .btnO:hover{ border-color: rgba(255,193,7,.85); }
+
+    .pillPrice{ background:rgba(255,193,7,.18); border:1px solid rgba(255,193,7,.55); border-radius:999px; padding:.35rem .7rem; font-weight:900; }
+    .toastIn{ animation: toastIn .16s ease-out; }
+    @keyframes toastIn{ from{ transform:translateY(8px); opacity:0 } to{ transform:translateY(0); opacity:1 } }
   </style>
 </head>
 
-<body class="text-brand-ink">
+<body>
   <div id="root"></div>
 
   <script type="text/babel">
@@ -89,12 +72,12 @@
     ======================= */
 
     const PRODUCT_CATEGORIES = [
-      { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open', description: 'Małe, średnie i duże zestawy. Także VEGE.' },
-      { id: 'lunche', name: 'Lunche', icon: 'utensils-crossed', description: 'Lunch tygodnia, miesiąca i vege (12:00–16:00).' },
-      { id: 'kanapki', name: 'Kanapki', icon: 'sandwich', description: 'Kanapki i buritto na maślanym pieczywie.' },
-      { id: 'zdrowe', name: 'Zdrowe', icon: 'leaf', description: 'Granola i sałatki w wersjach fit.' },
-      { id: 'slodkie', name: 'Słodkie', icon: 'ice-cream', description: 'Desery, pancakes, tost francuski i smoothie.' },
-      { id: 'napoje', name: 'Napoje', icon: 'cup-soda', description: 'Kawy, herbaty, lemoniada i sok.' },
+      { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open' },
+      { id: 'lunche', name: 'Lunche', icon: 'utensils-crossed' },
+      { id: 'kanapki', name: 'Kanapki', icon: 'sandwich' },
+      { id: 'zdrowe', name: 'Zdrowe', icon: 'leaf' },
+      { id: 'slodkie', name: 'Słodkie', icon: 'ice-cream' },
+      { id: 'napoje', name: 'Napoje', icon: 'cup-soda' },
     ];
 
     const BREAKFAST_BOXES = [
@@ -167,7 +150,7 @@
     };
 
     /* =======================
-       STATE / HELPERS
+       HELPERS / STATE
     ======================= */
 
     const useLocalStorage = (key, initial) => {
@@ -181,6 +164,13 @@
     const currency = (n) =>
       new Intl.NumberFormat('pl-PL', { style:'currency', currency:'PLN' }).format(n);
 
+    const splitSubtitle = (text='') =>
+      text.split('•').map(s => s.trim()).filter(Boolean);
+
+    /* =======================
+       TOAST
+    ======================= */
+
     const ToastContext = React.createContext();
     const useToast = () => React.useContext(ToastContext);
 
@@ -191,25 +181,20 @@
       const show = (message) => {
         setToast(message);
         if (tRef.current) clearTimeout(tRef.current);
-        tRef.current = setTimeout(() => setToast(null), 2300);
+        tRef.current = setTimeout(() => setToast(null), 1700);
       };
 
       return (
         <ToastContext.Provider value={{ show }}>
           {children}
           {toast && (
-            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[80]">
-              <div className="toast-in flat-card rounded-2xl px-4 py-3 min-w-[280px] max-w-[90vw] flex items-start gap-3">
-                <div className="w-9 h-9 rounded-full flex items-center justify-center font-extrabold"
+            <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[80]">
+              <div className="toastIn card px-4 py-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full grid place-items-center font-black"
                      style={{background:"rgba(255,193,7,.22)", border:"1px solid rgba(255,193,7,.55)"}}>
                   ✓
                 </div>
-                <div className="flex-1">
-                  <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-brand-muted">
-                    Dodano do koszyka
-                  </div>
-                  <div className="text-sm font-semibold mt-0.5">{toast}</div>
-                </div>
+                <div className="text-sm font-extrabold">{toast}</div>
               </div>
             </div>
           )}
@@ -217,29 +202,16 @@
       );
     };
 
-    const Logo = () => (
-      <a href="#/" className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-2xl grid place-items-center"
-             style={{background:"rgba(255,193,7,.18)", border:"1px solid rgba(255,193,7,.55)"}}>
-          <img
-            src="https://i.imgur.com/f9TN0Gh.png"
-            alt="eatmi.pl — logo"
-            loading="lazy"
-            className="w-9 h-9 object-contain"
-          />
-        </div>
-        <span className="font-extrabold tracking-tight text-brand-ink">
-          eatmi<span className="text-brand-yellow">.pl</span>
-        </span>
-      </a>
-    );
+    /* =======================
+       CART
+    ======================= */
 
     const CartContext = React.createContext();
+    const useCart = () => React.useContext(CartContext);
 
     const CartProvider = ({children}) => {
       const [cart, setCart] = useLocalStorage('eatmi-cart', []);
       const toast = useToast();
-      const show = toast?.show;
 
       const add = (entry) => {
         const newItem = {
@@ -248,17 +220,17 @@
           ...entry
         };
         setCart(prev => [...prev, newItem]);
-        if (show) show(`Dodano: ${entry.name}`);
+        toast?.show?.(entry.name);
       };
 
-      const remove  = (id) => setCart(prev => prev.filter(i => i.id !== id));
+      const remove = (id) => setCart(prev => prev.filter(i => i.id !== id));
       const setQty  = (id, qty) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: Math.max(1, qty|0)} : i));
       const incQty  = (id) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: (i.qty||1)+1} : i));
       const decQty  = (id) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: Math.max(1, (i.qty||1)-1)} : i));
-      const clear   = () => setCart([]);
+      const clear = () => setCart([]);
 
       const lineTotal = (i) => (i.price || 0) * (i.qty || 1);
-      const total  = useMemo(() => cart.reduce((s,i)=> s + lineTotal(i), 0), [cart]);
+      const total = useMemo(() => cart.reduce((s,i)=> s + lineTotal(i), 0), [cart]);
 
       return (
         <CartContext.Provider value={{cart, add, remove, setQty, incQty, decQty, clear, lineTotal, total}}>
@@ -267,249 +239,115 @@
       );
     };
 
-    const useCart = () => React.useContext(CartContext);
+    /* =======================
+       UI: HEADER + NAV
+    ======================= */
+
+    const Logo = () => (
+      <a href="#/" className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-2xl grid place-items-center"
+             style={{background:"rgba(255,193,7,.18)", border:"1px solid rgba(255,193,7,.55)"}}>
+          <img src="https://i.imgur.com/f9TN0Gh.png" alt="eatmi.pl" className="w-9 h-9 object-contain" />
+        </div>
+        <span className="font-extrabold tracking-tight">
+          eatmi<span className="text-brand-yellow">.pl</span>
+        </span>
+      </a>
+    );
 
     const CartButton = () => {
       const { cart, total } = useCart();
       const count = cart.reduce((s,i)=>s+(i.qty||1),0);
-
       return (
-        <a href="#/koszyk"
-           className="inline-flex items-center gap-2 rounded-xl px-3 py-2 flat-card btn-outline"
-           style={{borderColor:"rgba(255,193,7,.45)"}}>
-          <i data-lucide="shopping-cart" className="w-5 h-5 text-brand-ink"></i>
-          <span className="text-sm font-extrabold">{currency(total)}</span>
-          <span className="ml-1 text-xs font-extrabold px-2 py-1 rounded-full pill-yellow">
-            {count}
-          </span>
+        <a href="#/koszyk" className="btnO px-4 py-2 inline-flex items-center gap-2">
+          <i data-lucide="shopping-cart" className="w-5 h-5"></i>
+          <span className="font-extrabold">{currency(total)}</span>
+          <span className="pillPrice text-xs">{count}</span>
         </a>
       );
     };
 
-    const Header = ({ onOpenAuth }) => (
+    const Header = () => (
       <header className="sticky top-0 z-40 bg-white border-b border-brand-line">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <Logo />
-
-          <nav className="hidden md:flex items-center gap-6 text-sm font-semibold">
-            <a href="#kategorie" className="link-yellow">Menu</a>
-            <a href="#/kategoria/boxy-sniadaniowe" className="text-brand-ink hover:text-amber-700">Boxy</a>
-            <a href="#/kategoria/lunche" className="text-brand-ink hover:text-amber-700">Lunche</a>
-            <a href="#/kategoria/kanapki" className="text-brand-ink hover:text-amber-700">Kanapki</a>
-            <a href="#/kategoria/napoje" className="text-brand-ink hover:text-amber-700">Napoje</a>
-          </nav>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onOpenAuth}
-              className="hidden md:inline-flex items-center gap-2 rounded-xl px-4 py-2 flat-card btn-outline font-extrabold"
-              style={{borderColor:"rgba(255,193,7,.45)"}}
-            >
-              <i data-lucide="user" className="w-4 h-4"></i>
-              <span>Konto</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onOpenAuth}
-              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl flat-card"
-              style={{borderColor:"rgba(255,193,7,.45)"}}
-              aria-label="Moje konto"
-            >
-              <i data-lucide="user" className="w-5 h-5"></i>
-            </button>
-
-            <CartButton />
-          </div>
+          <CartButton />
         </div>
       </header>
     );
 
-    const Stat = ({icon, title, desc}) => (
-      <div className="rounded-2xl flat-card p-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl grid place-items-center"
-               style={{background:"rgba(255,193,7,.18)", border:"1px solid rgba(255,193,7,.55)"}}>
-            <i data-lucide={icon} className="w-5 h-5 text-brand-ink"></i>
-          </div>
-          <div>
-            <div className="font-extrabold">{title}</div>
-            <div className="text-xs text-brand-muted font-semibold">{desc}</div>
+    const BottomBar = () => {
+      const { total, cart } = useCart();
+      if (!cart.length) return null;
+      return (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-brand-line z-40">
+          <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+            <div className="font-extrabold">{currency(total)}</div>
+            <a href="#/koszyk" className="btnY px-5 py-3">
+              Koszyk
+            </a>
           </div>
         </div>
-      </div>
-    );
+      );
+    };
 
-    const Hero = () => (
-      <section className="py-10 md:py-14">
+    /* =======================
+       PAGES
+    ======================= */
+
+    const Home = () => (
+      <section className="py-8 md:py-10">
         <div className="max-w-6xl mx-auto px-4">
-          <div className="rounded-3xl flat-card p-6 md:p-10">
-            <div className="flex flex-col md:flex-row md:items-center gap-8">
-              <div className="flex-1">
-                <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full pill-yellow font-extrabold text-sm">
-                  <span>👋</span>
-                  <span>Witaj w eatmi</span>
-                  <span className="px-2 py-1 rounded-full bg-brand-yellow text-brand-ink font-extrabold text-[11px]">
-                    zamów online
-                  </span>
+          <h1 className="text-2xl md:text-3xl font-extrabold">
+            Zamów online
+          </h1>
+
+          <div className="mt-5 grid md:grid-cols-3 gap-4">
+            {PRODUCT_CATEGORIES.map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => window.location.hash = `#/kategoria/${cat.id}`}
+                className="card p-5 text-left"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="font-extrabold text-lg">{cat.name}</div>
+                  <div className="w-11 h-11 rounded-xl grid place-items-center"
+                       style={{background:"rgba(255,193,7,.18)", border:"1px solid rgba(255,193,7,.55)"}}>
+                    <i data-lucide={cat.icon} className="w-6 h-6"></i>
+                  </div>
                 </div>
-
-                <h1 className="mt-4 text-3xl md:text-5xl font-extrabold leading-tight">
-                  Wybierz kategorię i{" "}
-                  <span className="underline-yellow">zamów w kilka kliknięć</span>
-                </h1>
-
-                <p className="mt-4 text-brand-muted font-medium max-w-prose">
-                  Minimalnie, czytelnie, szybko. Żółty prowadzi użytkownika do akcji —
-                  reszta jest czysta i flat.
-                </p>
-
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <a href="#kategorie"
-                     className="btn-yellow inline-flex items-center gap-2 px-5 py-3 rounded-xl font-extrabold">
-                    <i data-lucide="shopping-bag" className="w-5 h-5"></i>
-                    Przeglądaj menu
-                  </a>
-                  <a href="#/kategoria/boxy-sniadaniowe"
-                     className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-extrabold flat-card btn-outline"
-                     style={{borderColor:"rgba(255,193,7,.45)"}}>
-                    <i data-lucide="package-open" className="w-5 h-5 text-amber-700"></i>
-                    Zobacz boxy
-                  </a>
-                </div>
-
-                <div className="mt-6 flex flex-wrap gap-2">
-                  {["Boxy", "Lunch 12–16", "VEGE", "Szybkie dodawanie"].map((t, i) => (
-                    <span key={i} className="text-xs font-extrabold px-3 py-1.5 rounded-full pill-yellow">
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="w-full md:w-[360px] space-y-3">
-                <Stat icon="zap" title="Szybko" desc="Dodajesz i lecisz do checkoutu" />
-                <Stat icon="credit-card" title="PayU" desc="Redirect z /api/payu/order" />
-                <Stat icon="layout-grid" title="Flat UI" desc="Białe tło + żółte akcenty" />
-              </div>
-            </div>
+              </button>
+            ))}
           </div>
         </div>
       </section>
     );
 
-    const SectionTitle = ({eyebrow, title, subtitle}) => (
-      <div className="max-w-2xl">
-        {eyebrow && (
-          <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest font-extrabold text-brand-muted">
-            <span className="w-2 h-2 rounded-full bg-brand-yellow"></span>
-            {eyebrow}
-          </div>
-        )}
-        <h2 className="mt-2 text-2xl md:text-3xl font-extrabold">
-          <span className="underline-yellow">{title}</span>
-        </h2>
-        {subtitle && <p className="mt-2 text-brand-muted font-medium">{subtitle}</p>}
-      </div>
-    );
-
-    const CategoryCard = ({ category }) => {
-      const go = () => { window.location.hash = `#/kategoria/${category.id}`; };
-      return (
-        <button type="button" onClick={go}
-          className="flat-card rounded-2xl p-5 text-left w-full transition-colors"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-xs font-extrabold text-brand-muted uppercase tracking-widest">
-                Kategoria
-              </div>
-              <div className="mt-1 text-lg font-extrabold">{category.name}</div>
-            </div>
-            <div className="w-11 h-11 rounded-xl grid place-items-center"
-                 style={{background:"rgba(255,193,7,.18)", border:"1px solid rgba(255,193,7,.55)"}}>
-              <i data-lucide={category.icon} className="w-6 h-6 text-brand-ink"></i>
-            </div>
-          </div>
-
-          <div className="mt-3 text-sm text-brand-muted font-medium">
-            {category.description}
-          </div>
-
-          <div className="mt-4 inline-flex items-center gap-2 text-sm font-extrabold link-yellow">
-            Otwórz <i data-lucide="arrow-right" className="w-4 h-4"></i>
-          </div>
-        </button>
-      );
-    };
-
-    const splitSubtitle = (text='') =>
-      text.split('•').map(s => s.trim()).filter(Boolean);
-
-    const getBadges = (categoryId, name) => {
-      const badges = [];
-      const upper = (name||'').toUpperCase();
-      if (categoryId === 'boxy-sniadaniowe') badges.push('BOX');
-      if (categoryId === 'lunche') badges.push('LUNCH 12–16');
-      if (upper.includes('VEGE')) badges.push('VEGE');
-      return badges;
-    };
-
-    const ProductCard = ({ item, categoryId, onAdd }) => {
+    const ProductRow = ({ item, onAdd }) => {
       const bullets = splitSubtitle(item.subtitle || '');
-      const badges = getBadges(categoryId, item.name);
-
       return (
-        <div className="flat-card rounded-2xl p-5">
+        <div className="card p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-lg font-extrabold leading-snug">{item.name}</div>
-              {badges.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {badges.map((b,i)=>(
-                    <span key={i} className="text-[10px] font-extrabold uppercase tracking-widest px-2 py-1 rounded-full pill-yellow">
-                      {b}
-                    </span>
+              <div className="font-extrabold">{item.name}</div>
+              {bullets.length > 0 && (
+                <div className="mt-2 text-sm text-brand-muted font-medium space-y-1">
+                  {bullets.slice(0, 3).map((b, i) => (
+                    <div key={i} className="flex gap-2">
+                      <span className="mt-[7px] w-2 h-2 rounded-full bg-brand-yellow shrink-0"></span>
+                      <span>{b}</span>
+                    </div>
                   ))}
                 </div>
               )}
             </div>
 
-            <div className="text-right">
-              <div className="text-xs font-extrabold text-brand-muted uppercase tracking-widest">Cena</div>
-              <div className="mt-1 inline-flex items-center gap-2">
-                <span className="px-3 py-1 rounded-xl font-extrabold"
-                      style={{background:"rgba(255,193,7,.18)", border:"1px solid rgba(255,193,7,.55)"}}>
-                  {currency(item.price)}
-                </span>
-              </div>
+            <div className="text-right shrink-0">
+              <div className="pillPrice">{currency(item.price)}</div>
+              <button onClick={() => onAdd(item)} className="btnY mt-3 px-4 py-2">
+                Dodaj
+              </button>
             </div>
-          </div>
-
-          {bullets.length > 0 && (
-            <ul className="mt-4 space-y-2 text-sm text-brand-muted font-medium">
-              {bullets.map((b, idx) => (
-                <li key={idx} className="flex gap-2">
-                  <span className="mt-[7px] w-2 h-2 rounded-full bg-brand-yellow shrink-0"></span>
-                  <span>{b}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div className="mt-5 flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => onAdd(item)}
-              className="btn-yellow inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-extrabold"
-            >
-              <i data-lucide="plus" className="w-4 h-4"></i> Dodaj
-            </button>
-
-            <a href="#/koszyk" className="text-sm font-extrabold link-yellow">
-              Zobacz koszyk →
-            </a>
           </div>
         </div>
       );
@@ -522,19 +360,15 @@
 
       if (!category) {
         return (
-          <section className="py-10">
+          <section className="py-8">
             <div className="max-w-6xl mx-auto px-4">
-              <a href="#/" className="inline-flex items-center gap-2 text-sm font-extrabold link-yellow">
-                <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć
-              </a>
-              <h2 className="text-2xl font-extrabold mt-3">Kategoria nie istnieje</h2>
-              <p className="mt-2 text-brand-muted font-medium">Wróć do menu i wybierz kategorię.</p>
+              <a className="btnO px-4 py-2 inline-block" href="#/">Wróć</a>
             </div>
           </section>
         );
       }
 
-      const handleAdd = (item) => add({
+      const onAdd = (item) => add({
         type: 'product',
         productId: item.id,
         name: item.name,
@@ -545,37 +379,17 @@
         <section className="py-8 md:py-10">
           <div className="max-w-6xl mx-auto px-4">
             <div className="flex items-center justify-between gap-3">
-              <a href="#/" className="inline-flex items-center gap-2 text-sm font-extrabold link-yellow">
-                <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do menu
+              <a className="btnO px-4 py-2 inline-flex items-center gap-2" href="#/">
+                <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć
               </a>
-              <span className="text-xs font-extrabold px-3 py-1 rounded-full pill-yellow">
-                {items.length} pozycji
-              </span>
+              <a className="btnY px-4 py-2" href="#/koszyk">Koszyk</a>
             </div>
 
-            <div className="mt-5 rounded-2xl flat-card p-5">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl grid place-items-center"
-                     style={{background:"rgba(255,193,7,.18)", border:"1px solid rgba(255,193,7,.55)"}}>
-                  <i data-lucide={category.icon} className="w-6 h-6"></i>
-                </div>
-                <div>
-                  <h2 className="text-2xl md:text-3xl font-extrabold">
-                    <span className="underline-yellow">{category.name}</span>
-                  </h2>
-                  <p className="text-sm text-brand-muted font-medium mt-1">{category.description}</p>
-                </div>
-              </div>
-            </div>
+            <h2 className="mt-4 text-2xl font-extrabold">{category.name}</h2>
 
-            <div className="mt-6 grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
+            <div className="mt-5 space-y-3 pb-24">
               {items.map(item => (
-                <ProductCard
-                  key={item.id}
-                  item={item}
-                  categoryId={categoryId}
-                  onAdd={handleAdd}
-                />
+                <ProductRow key={item.id} item={item} onAdd={onAdd} />
               ))}
             </div>
           </div>
@@ -583,125 +397,72 @@
       );
     };
 
-    const EXTRA_ITEMS = [
-      { id:'extra-granola', name:'Domowa granola', price: 19 },
-      { id:'extra-lemoniada',name:'Domowa lemoniada', price: 12 },
-      { id:'extra-deser', name:'Deser czekoladowy', price: 19 },
-    ];
-
     const Koszyk = () => {
-      const { cart, remove, clear, total, incQty, decQty, setQty, lineTotal, add } = useCart();
+      const { cart, remove, clear, total, incQty, decQty, setQty, lineTotal } = useCart();
       const goToCheckout = () => window.location.hash = '#/zamowienie';
 
       return (
-        <section className="py-10">
+        <section className="py-8 md:py-10">
           <div className="max-w-6xl mx-auto px-4">
             <div className="flex items-center justify-between gap-3">
-              <a href="#/" className="inline-flex items-center gap-2 text-sm font-extrabold link-yellow">
-                <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć
+              <a className="btnO px-4 py-2 inline-flex items-center gap-2" href="#/">
+                <i data-lucide="arrow-left" className="w-4 h-4"></i> Menu
               </a>
-              <span className="text-xs font-extrabold px-3 py-1 rounded-full pill-yellow">
-                {cart.reduce((s,i)=>s+(i.qty||1),0)} szt.
-              </span>
+              {cart.length > 0 && (
+                <button onClick={clear} className="btnO px-4 py-2">Wyczyść</button>
+              )}
             </div>
 
-            <h2 className="mt-4 text-2xl font-extrabold">
-              <span className="underline-yellow">Koszyk</span>
-            </h2>
+            <h2 className="mt-4 text-2xl font-extrabold">Koszyk</h2>
 
             {cart.length === 0 ? (
-              <div className="mt-4 rounded-2xl flat-card p-6">
-                <p className="text-brand-muted font-medium">Twój koszyk jest pusty.</p>
-                <a href="#kategorie" className="btn-yellow inline-flex mt-4 items-center gap-2 px-5 py-3 rounded-xl font-extrabold">
-                  <i data-lucide="shopping-bag" className="w-5 h-5"></i> Wróć do menu
-                </a>
+              <div className="mt-4 card p-6">
+                <div className="text-brand-muted font-medium">Koszyk jest pusty.</div>
               </div>
             ) : (
               <>
-                <div className="mt-6 grid md:grid-cols-3 gap-6 items-start">
-                  <div className="md:col-span-2 space-y-4">
-                    {cart.map(item => (
-                      <div key={item.id} className="rounded-2xl flat-card p-4">
-                        <div className="flex flex-col md:flex-row md:items-center gap-4 justify-between">
-                          <div className="min-w-0 flex-1">
-                            <div className="font-extrabold break-words">{item.name}</div>
-                            <div className="text-xs text-brand-muted mt-1 font-medium">
-                              ID: <span className="px-2 py-0.5 rounded-md pill-yellow font-mono">{item.productId || 'brak'}</span>
-                            </div>
+                <div className="mt-5 space-y-3">
+                  {cart.map(item => (
+                    <div key={item.id} className="card p-4">
+                      <div className="flex flex-col md:flex-row md:items-center gap-4 justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-extrabold break-words">{item.name}</div>
+                          <div className="text-xs text-brand-muted mt-1 font-mono">{item.productId}</div>
+                        </div>
+
+                        <div className="flex items-center justify-between md:justify-end gap-4">
+                          <div className="flex items-center gap-2">
+                            <button onClick={()=> decQty(item.id)} className="btnO w-10 h-10">−</button>
+                            <input
+                              value={item.qty||1}
+                              onChange={(e)=> setQty(item.id, parseInt(e.target.value||'1',10))}
+                              className="w-16 text-center card focusY font-extrabold py-2"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                            />
+                            <button onClick={()=> incQty(item.id)} className="btnY w-10 h-10">+</button>
                           </div>
 
-                          <div className="flex flex-col sm:flex-row gap-3 items-stretch md:items-center w-full md:w-auto justify-between md:justify-end">
-                            <div className="flex items-center gap-2">
-                              <button onClick={()=> decQty(item.id)}
-                                      className="w-9 h-9 rounded-xl flat-card font-extrabold"
-                                      style={{borderColor:"rgba(255,193,7,.45)"}}>−</button>
-                              <input
-                                value={item.qty||1}
-                                onChange={(e)=> setQty(item.id, parseInt(e.target.value||'1',10))}
-                                className="w-16 text-center rounded-xl flat-card font-extrabold focus-yellow"
-                                style={{borderColor:"rgba(255,193,7,.45)", padding:"8px 10px"}}
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                              />
-                              <button onClick={()=> incQty(item.id)}
-                                      className="w-9 h-9 rounded-xl font-extrabold btn-yellow">+</button>
-                            </div>
-
-                            <div className="text-right self-center">
-                              <div className="font-extrabold whitespace-nowrap">{currency(lineTotal(item))}</div>
-                              <div className="text-xs text-brand-muted whitespace-nowrap font-medium">{currency(item.price)} / szt.</div>
-                            </div>
-
-                            <button onClick={()=> remove(item.id)} className="text-red-600 hover:underline self-center text-sm font-extrabold">
+                          <div className="text-right">
+                            <div className="font-extrabold">{currency(lineTotal(item))}</div>
+                            <button onClick={()=> remove(item.id)} className="text-red-600 font-extrabold text-sm hover:underline">
                               Usuń
                             </button>
                           </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-
-                  <aside className="rounded-2xl flat-card p-5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-extrabold">Suma</span>
-                      <span className="font-extrabold text-xl">{currency(total)}</span>
                     </div>
-                    <div className="mt-4 grid gap-2">
-                      <button onClick={goToCheckout} className="btn-yellow w-full rounded-xl px-4 py-3 font-extrabold">
-                        Przejdź do zamówienia
-                      </button>
-                      <button onClick={clear}
-                              className="w-full rounded-xl px-4 py-3 font-extrabold flat-card btn-outline"
-                              style={{borderColor:"rgba(255,193,7,.45)"}}>
-                        Wyczyść koszyk
-                      </button>
-                    </div>
-                  </aside>
+                  ))}
                 </div>
 
-                <div className="mt-10">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-lg font-extrabold">
-                      <span className="underline-yellow">Dodaj coś jeszcze</span>
-                    </h3>
-                    <span className="text-xs font-extrabold px-3 py-1 rounded-full pill-yellow">1 klik</span>
+                <div className="mt-6 card p-5">
+                  <div className="flex items-center justify-between">
+                    <div className="font-extrabold">Suma</div>
+                    <div className="font-extrabold text-xl">{currency(total)}</div>
                   </div>
-
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    {EXTRA_ITEMS.map(extra => (
-                      <button key={extra.id}
-                        onClick={() => add({ type:'extra', productId: extra.id, name: extra.name, price: extra.price })}
-                        className="rounded-full px-4 py-2 font-extrabold flat-card btn-outline"
-                        style={{borderColor:"rgba(255,193,7,.45)"}}
-                      >
-                        <span className="inline-flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full btn-yellow grid place-items-center">+</span>
-                          {extra.name}
-                          <span className="pill-yellow px-2 py-1 rounded-full text-xs">{currency(extra.price)}</span>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+                  <button onClick={goToCheckout} className="btnY w-full mt-4 px-5 py-3">
+                    Zamów
+                  </button>
                 </div>
               </>
             )}
@@ -711,7 +472,7 @@
     };
 
     const Zamowienie = () => {
-      const { cart, total, lineTotal } = useCart();
+      const { cart, total } = useCart();
       const [form, setForm] = useState({
         imieNazwisko:'', telefon:'', email:'', miasto:'', kod:'', ulica:'', nrBud:'', pietro:'', lokal:'', uwagi:'', faktura:false, nip:'', firma:''
       });
@@ -773,50 +534,41 @@
             type={type}
             value={value}
             onChange={onChange}
-            className="mt-1 w-full rounded-xl flat-card focus-yellow font-semibold px-4 py-3"
-            style={{borderColor:"rgba(255,193,7,.45)"}}
+            className="mt-1 w-full card focusY font-semibold px-4 py-3"
           />
         </div>
       );
 
       return (
-        <section className="py-10">
+        <section className="py-8 md:py-10">
           <div className="max-w-6xl mx-auto px-4">
             <div className="flex items-center justify-between gap-3">
-              <a href="#/koszyk" className="inline-flex items-center gap-2 text-sm font-extrabold link-yellow">
-                <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do koszyka
+              <a className="btnO px-4 py-2 inline-flex items-center gap-2" href="#/koszyk">
+                <i data-lucide="arrow-left" className="w-4 h-4"></i> Koszyk
               </a>
-              <span className="text-xs font-extrabold px-3 py-1 rounded-full pill-yellow">
-                do zapłaty: {currency(total)}
-              </span>
+              <div className="pillPrice">{currency(total)}</div>
             </div>
 
-            <h2 className="mt-4 text-2xl font-extrabold">
-              <span className="underline-yellow">Zamówienie</span>
-            </h2>
+            <h2 className="mt-4 text-2xl font-extrabold">Dane do zamówienia</h2>
 
-            <div className="mt-6 grid lg:grid-cols-3 gap-6 items-start">
-              <div className="lg:col-span-2 rounded-2xl flat-card p-5">
+            <div className="mt-5 grid lg:grid-cols-3 gap-6 items-start pb-24">
+              <div className="lg:col-span-2 card p-5">
                 <div className="grid md:grid-cols-2 gap-4">
                   <Input label="Imię i nazwisko" required value={form.imieNazwisko} onChange={e=>handle('imieNazwisko', e.target.value)} />
-                  <Input label="Nr telefonu" required value={form.telefon} onChange={e=>handle('telefon', e.target.value)} />
-                  <Input label="Adres email" value={form.email} onChange={e=>handle('email', e.target.value)} type="email" />
+                  <Input label="Telefon" required value={form.telefon} onChange={e=>handle('telefon', e.target.value)} />
+                  <Input label="Email" value={form.email} onChange={e=>handle('email', e.target.value)} type="email" />
                   <Input label="Miasto" required value={form.miasto} onChange={e=>handle('miasto', e.target.value)} />
                   <Input label="Kod pocztowy" value={form.kod} onChange={e=>handle('kod', e.target.value)} />
                   <Input label="Ulica" required value={form.ulica} onChange={e=>handle('ulica', e.target.value)} />
                   <Input label="Nr budynku" value={form.nrBud} onChange={e=>handle('nrBud', e.target.value)} />
                   <Input label="Piętro" value={form.pietro} onChange={e=>handle('pietro', e.target.value)} />
                   <Input label="Nr lokalu" value={form.lokal} onChange={e=>handle('lokal', e.target.value)} />
-
                   <div className="md:col-span-2">
-                    <label className="text-xs uppercase tracking-widest font-extrabold text-brand-muted">
-                      Uwagi do zamówienia
-                    </label>
+                    <label className="text-xs uppercase tracking-widest font-extrabold text-brand-muted">Uwagi</label>
                     <textarea
                       value={form.uwagi}
                       onChange={e=>handle('uwagi', e.target.value)}
-                      className="mt-1 w-full rounded-xl flat-card focus-yellow font-semibold px-4 py-3 min-h-[110px]"
-                      style={{borderColor:"rgba(255,193,7,.45)"}}
+                      className="mt-1 w-full card focusY font-semibold px-4 py-3 min-h-[110px]"
                     ></textarea>
                   </div>
                 </div>
@@ -824,7 +576,7 @@
                 <div className="mt-4 pt-4 border-t border-brand-line">
                   <label className="flex items-center gap-2 text-sm font-extrabold">
                     <input type="checkbox" checked={form.faktura} onChange={e=>handle('faktura', e.target.checked)} />
-                    Chcę dane do faktury
+                    Faktura
                   </label>
 
                   {form.faktura && (
@@ -836,33 +588,12 @@
                 </div>
               </div>
 
-              <aside className="rounded-2xl flat-card p-5">
-                <div className="font-extrabold">Podsumowanie</div>
-                <div className="mt-3 space-y-3 max-h-64 overflow-auto pr-2">
-                  {cart.map(i => (
-                    <div key={i.id} className="rounded-xl p-3"
-                         style={{border:"1px dashed rgba(255,193,7,.55)", background:"rgba(255,193,7,.10)"}}>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-extrabold">{i.name} × {i.qty||1}</span>
-                        <span className="font-extrabold">{currency(lineTotal(i))}</span>
-                      </div>
-                      <div className="text-[11px] mt-1 font-mono text-brand-muted">{i.productId}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex items-center justify-between mt-4 text-lg">
-                  <span className="font-extrabold">Do zapłaty</span>
-                  <span className="font-extrabold">{currency(total)}</span>
-                </div>
-
-                <button onClick={submit} className="btn-yellow w-full mt-4 rounded-xl px-4 py-3 font-extrabold">
-                  Płatność online (PayU)
+              <aside className="card p-5">
+                <div className="font-extrabold">Do zapłaty</div>
+                <div className="mt-2 text-2xl font-extrabold">{currency(total)}</div>
+                <button onClick={submit} className="btnY w-full mt-4 px-5 py-3">
+                  PayU
                 </button>
-
-                <div className="text-xs text-brand-muted mt-3 font-medium">
-                  Debug: F12 → Console → <span className="font-mono">PAYU ERROR DETAILS</span>
-                </div>
               </aside>
             </div>
           </div>
@@ -870,150 +601,9 @@
       );
     };
 
-    const AuthModal = ({ open, onClose }) => {
-      const [mode, setMode] = useState('login');
-      const [form, setForm] = useState({ email: '', password: '', confirm: '' });
-      if (!open) return null;
-
-      const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
-
-      const handleSubmit = (e) => {
-        e.preventDefault();
-        if (mode === 'register' && form.password !== form.confirm) {
-          alert('Hasła nie są takie same.');
-          return;
-        }
-        alert(`(${mode === 'login' ? 'Logowanie' : 'Rejestracja'}) to na razie makieta UI :)`);
-        onClose();
-      };
-
-      return (
-        <div className="fixed inset-0 z-[90] bg-black/40 flex items-center justify-center px-4" onClick={onClose} role="dialog" aria-modal="true">
-          <div className="relative w-full max-w-md rounded-2xl flat-card p-6" onClick={(e) => e.stopPropagation()}>
-            <button type="button" onClick={onClose}
-              className="absolute top-3 right-3 w-10 h-10 rounded-xl btn-yellow font-extrabold">
-              ×
-            </button>
-
-            <div className="mb-4">
-              <div className="text-xs uppercase tracking-widest text-brand-muted font-extrabold">
-                {mode === 'login' ? 'Logowanie' : 'Rejestracja'}
-              </div>
-              <h3 className="text-xl font-extrabold mt-1">
-                {mode === 'login' ? 'Zaloguj się do eatmi' : 'Załóż konto w eatmi'}
-              </h3>
-              <p className="text-xs text-brand-muted mt-1 font-medium">
-                Makieta UI — backend logowania dodamy później.
-              </p>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div>
-                <label className="text-xs uppercase tracking-widest text-brand-muted font-extrabold">Adres e-mail</label>
-                <input type="email" required value={form.email}
-                  onChange={(e) => handleChange('email', e.target.value)}
-                  className="mt-1 w-full rounded-xl flat-card focus-yellow font-semibold px-4 py-3"
-                  style={{borderColor:"rgba(255,193,7,.45)"}} />
-              </div>
-
-              <div>
-                <label className="text-xs uppercase tracking-widest text-brand-muted font-extrabold">Hasło</label>
-                <input type="password" required value={form.password}
-                  onChange={(e) => handleChange('password', e.target.value)}
-                  className="mt-1 w-full rounded-xl flat-card focus-yellow font-semibold px-4 py-3"
-                  style={{borderColor:"rgba(255,193,7,.45)"}} />
-              </div>
-
-              {mode === 'register' && (
-                <div>
-                  <label className="text-xs uppercase tracking-widest text-brand-muted font-extrabold">Powtórz hasło</label>
-                  <input type="password" required value={form.confirm}
-                    onChange={(e) => handleChange('confirm', e.target.value)}
-                    className="mt-1 w-full rounded-xl flat-card focus-yellow font-semibold px-4 py-3"
-                    style={{borderColor:"rgba(255,193,7,.45)"}} />
-                </div>
-              )}
-
-              <button type="submit" className="btn-yellow w-full rounded-xl px-4 py-3 font-extrabold">
-                {mode === 'login' ? 'Zaloguj się' : 'Zarejestruj się'}
-              </button>
-            </form>
-
-            <div className="mt-4 text-xs text-brand-muted text-center font-medium">
-              {mode === 'login' ? (
-                <>Nie masz konta?{' '}
-                  <button type="button" onClick={() => { setMode('register'); setForm({ email:'', password:'', confirm:'' }) }}
-                    className="font-extrabold link-yellow">
-                    Zarejestruj się
-                  </button>
-                </>
-              ) : (
-                <>Masz konto?{' '}
-                  <button type="button" onClick={() => { setMode('login'); setForm({ email:'', password:'', confirm:'' }) }}
-                    className="font-extrabold link-yellow">
-                    Zaloguj się
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    };
-
-    const Home = () => (
-      <>
-        <Hero />
-
-        <section id="kategorie" className="py-10 md:py-14">
-          <div className="max-w-6xl mx-auto px-4">
-            <SectionTitle
-              eyebrow="Menu"
-              title="Wybierz kategorię"
-              subtitle="Białe tło + żółte akcenty, całość flat i czytelna."
-            />
-            <div className="mt-6 grid md:grid-cols-3 gap-5">
-              {PRODUCT_CATEGORIES.map(cat => <CategoryCard key={cat.id} category={cat} />)}
-            </div>
-          </div>
-        </section>
-
-        <section id="kontakt" className="py-10 md:py-14">
-          <div className="max-w-6xl mx-auto px-4">
-            <SectionTitle title="Kontakt" subtitle="Masz pytania? Napisz do nas." />
-            <form className="max-w-xl mt-6 rounded-2xl flat-card p-6">
-              <div className="grid md:grid-cols-2 gap-4">
-                <input className="rounded-xl flat-card focus-yellow font-semibold px-4 py-3"
-                       style={{borderColor:"rgba(255,193,7,.45)"}} placeholder="Imię" />
-                <input className="rounded-xl flat-card focus-yellow font-semibold px-4 py-3"
-                       style={{borderColor:"rgba(255,193,7,.45)"}} placeholder="Email" />
-              </div>
-              <textarea className="mt-4 rounded-xl flat-card focus-yellow font-semibold px-4 py-3 w-full min-h-[120px]"
-                        style={{borderColor:"rgba(255,193,7,.45)"}} placeholder="Wiadomość"></textarea>
-              <button type="button" className="btn-yellow mt-4 rounded-xl px-5 py-3 font-extrabold">
-                Wyślij
-              </button>
-            </form>
-          </div>
-        </section>
-      </>
-    );
-
-    const FloatingNav = () => (
-      <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(720px,92%)] bg-white rounded-2xl"
-           style={{border:"1px solid rgba(255,193,7,.55)"}}>
-        <ul className="grid grid-cols-4">
-          <li><a href="#kategorie" className="flex flex-col items-center py-3 text-sm font-extrabold">
-            <i data-lucide="shopping-bag" className="w-5 h-5 text-amber-700"></i>Menu</a></li>
-          <li><a href="#/kategoria/boxy-sniadaniowe" className="flex flex-col items-center py-3 text-sm font-extrabold">
-            <i data-lucide="package-open" className="w-5 h-5 text-amber-700"></i>Boxy</a></li>
-          <li><a href="#/kategoria/lunche" className="flex flex-col items-center py-3 text-sm font-extrabold">
-            <i data-lucide="utensils-crossed" className="w-5 h-5 text-amber-700"></i>Lunche</a></li>
-          <li><a href="#/koszyk" className="flex flex-col items-center py-3 text-sm font-extrabold">
-            <i data-lucide="shopping-cart" className="w-5 h-5 text-amber-700"></i>Koszyk</a></li>
-        </ul>
-      </nav>
-    );
+    /* =======================
+       ROUTER
+    ======================= */
 
     const Router = () => {
       const [route, setRoute] = useState(window.location.hash || '#/');
@@ -1035,26 +625,18 @@
       return <Home />;
     };
 
-    const App = () => {
-      const [authOpen, setAuthOpen] = useState(false);
-      useEffect(() => { window.lucide?.createIcons?.(); }, [authOpen]);
-
-      return (
-        <ToastProvider>
-          <CartProvider>
-            <Header onOpenAuth={() => setAuthOpen(true)} />
-            <Router />
-            <FloatingNav />
-            <footer className="py-14 text-center text-sm text-brand-muted font-medium">
-              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full pill-yellow font-extrabold">
-                © {new Date().getFullYear()} eatmi.pl
-              </span>
-            </footer>
-            <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
-          </CartProvider>
-        </ToastProvider>
-      );
-    };
+    const App = () => (
+      <ToastProvider>
+        <CartProvider>
+          <Header />
+          <Router />
+          <BottomBar />
+          <footer className="py-10 text-center text-xs text-brand-muted font-medium">
+            © {new Date().getFullYear()} eatmi.pl
+          </footer>
+        </CartProvider>
+      </ToastProvider>
+    );
 
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
