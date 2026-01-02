@@ -44,7 +44,6 @@
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Minimal styles (optional, but nice) -->
   <style>
     .liquid { background: rgba(255,255,255,.75); backdrop-filter: blur(12px); }
     .logo-glow { box-shadow: 0 12px 30px rgba(255,193,7,.18); }
@@ -53,7 +52,6 @@
     @keyframes toastIn { from { transform: translateY(8px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
     @keyframes toastBar { from { transform: scaleX(1) } to { transform: scaleX(0) } }
 
-    /* ŻÓŁTY FOCUS RING (globalny helper) */
     .input-focus { outline: none; }
     .input-focus:focus { box-shadow: 0 0 0 3px rgba(255,193,7,.35); border-color: rgba(255,193,7,.75); }
   </style>
@@ -70,7 +68,6 @@
 </head>
 
 <body class="bg-brand-light text-gray-900">
-  <!-- ROOT is required -->
   <div id="root"></div>
 
   <script type="text/babel">
@@ -246,7 +243,7 @@
 
     const CartProvider = ({children}) => {
       const [cart, setCart] = useLocalStorage('eatmi-cart', []);
-      const toast = useToast(); // always exists because ToastProvider wraps CartProvider below
+      const toast = useToast();
       const show = toast?.show;
 
       const add = (entry) => {
@@ -282,8 +279,7 @@
       return (
         <a
           href="#/koszyk"
-          className="relative inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition
-                     hover:ring-2 hover:ring-brand-yellow/50"
+          className="relative inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition hover:ring-2 hover:ring-brand-yellow/50"
         >
           <i data-lucide="shopping-cart" className="w-5 h-5"></i>
           <span className="text-sm font-semibold">{currency(total)}</span>
@@ -310,8 +306,7 @@
             <button
               type="button"
               onClick={onOpenAuth}
-              className="hidden md:inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition text-sm font-semibold text-gray-800
-                         hover:ring-2 hover:ring-brand-yellow/50">
+              className="hidden md:inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition text-sm font-semibold text-gray-800 hover:ring-2 hover:ring-brand-yellow/50">
               <i data-lucide="user" className="w-4 h-4"></i>
               <span>Konto</span>
             </button>
@@ -319,8 +314,7 @@
             <button
               type="button"
               onClick={onOpenAuth}
-              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white shadow-soft
-                         hover:ring-2 hover:ring-brand-yellow/50"
+              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white shadow-soft hover:ring-2 hover:ring-brand-yellow/50"
               aria-label="Moje konto">
               <i data-lucide="user" className="w-5 h-5"></i>
             </button>
@@ -351,7 +345,6 @@
               Jak w kiosku — wybierasz kategorię, klikasz pozycje i finalizujesz zamówienie.
             </p>
 
-            <!-- FIX: oba przyciski żółte -->
             <div className="mt-6 flex flex-wrap gap-3">
               <a
                 href="#kategorie"
@@ -369,8 +362,6 @@
                 Zobacz boxy śniadaniowe
               </a>
             </div>
-
-            <!-- USUNIĘTO: żółte chipsy kategorii pod przyciskami -->
           </div>
         </div>
       </section>
@@ -390,8 +381,7 @@
         <button
           type="button"
           onClick={handleClick}
-          className="group relative bg-white border border-gray-200 rounded-2xl p-5 text-left shadow-soft hover:shadow-md hover:-translate-y-1 transition w-full overflow-hidden
-                     hover:ring-2 hover:ring-brand-yellow/60"
+          className="group relative bg-white border border-gray-200 rounded-2xl p-5 text-left shadow-soft hover:shadow-md hover:-translate-y-1 transition w-full overflow-hidden hover:ring-2 hover:ring-brand-yellow/60"
         >
           <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 opacity-80"></div>
 
@@ -417,7 +407,6 @@
       );
     };
 
-    /* ====== KIOSK HELPERS ====== */
     const splitSubtitle = (text='') =>
       text.split('•').map(s => s.trim()).filter(Boolean);
 
@@ -430,7 +419,6 @@
       return badges;
     };
 
-    /* ====== PRODUCT CARD ====== */
     const ProductCard = ({ item, categoryId, onAdd }) => {
       const bullets = splitSubtitle(item.subtitle || '');
       const badges = getBadges(categoryId, item.name);
@@ -487,8 +475,7 @@
             <button
               type="button"
               onClick={() => onAdd(item)}
-              className="inline-flex items-center justify-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-4 py-2.5 rounded-2xl shadow-soft hover:scale-[1.03] active:scale-[0.98] transition
-                         hover:ring-2 hover:ring-brand-yellow/40"
+              className="inline-flex items-center justify-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-4 py-2.5 rounded-2xl shadow-soft hover:scale-[1.03] active:scale-[0.98] transition hover:ring-2 hover:ring-brand-yellow/40"
             >
               <i data-lucide="plus" className="w-4 h-4"></i> Dodaj
             </button>
@@ -650,8 +637,7 @@
                           name: extra.name,
                           price: extra.price
                         })}
-                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-gray-200 shadow-soft text-sm hover:shadow-md hover:-translate-y-0.5 transition
-                                   hover:ring-2 hover:ring-brand-yellow/30">
+                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-gray-200 shadow-soft text-sm hover:shadow-md hover:-translate-y-0.5 transition hover:ring-2 hover:ring-brand-yellow/30">
                         <span className="text-base font-extrabold text-brand-yellow">+</span>
                         <span>{extra.name}</span>
                         <span className="font-extrabold text-gray-900">{currency(extra.price)}</span>
@@ -737,83 +723,53 @@
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Imię i nazwisko *</label>
-                    <input
-                      value={form.imieNazwisko}
-                      onChange={e=>handle('imieNazwisko', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"
-                    />
+                    <input value={form.imieNazwisko} onChange={e=>handle('imieNazwisko', e.target.value)}
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
                   </div>
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Nr telefonu *</label>
-                    <input
-                      value={form.telefon}
-                      onChange={e=>handle('telefon', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"
-                    />
+                    <input value={form.telefon} onChange={e=>handle('telefon', e.target.value)}
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
                   </div>
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Adres email</label>
-                    <input
-                      value={form.email}
-                      onChange={e=>handle('email', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"
-                    />
+                    <input value={form.email} onChange={e=>handle('email', e.target.value)}
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
                   </div>
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Miasto *</label>
-                    <input
-                      value={form.miasto}
-                      onChange={e=>handle('miasto', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"
-                    />
+                    <input value={form.miasto} onChange={e=>handle('miasto', e.target.value)}
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
                   </div>
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Kod pocztowy</label>
-                    <input
-                      value={form.kod}
-                      onChange={e=>handle('kod', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"
-                    />
+                    <input value={form.kod} onChange={e=>handle('kod', e.target.value)}
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
                   </div>
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Ulica *</label>
-                    <input
-                      value={form.ulica}
-                      onChange={e=>handle('ulica', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"
-                    />
+                    <input value={form.ulica} onChange={e=>handle('ulica', e.target.value)}
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
                   </div>
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Nr budynku</label>
-                    <input
-                      value={form.nrBud}
-                      onChange={e=>handle('nrBud', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"
-                    />
+                    <input value={form.nrBud} onChange={e=>handle('nrBud', e.target.value)}
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
                   </div>
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Piętro</label>
-                    <input
-                      value={form.pietro}
-                      onChange={e=>handle('pietro', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"
-                    />
+                    <input value={form.pietro} onChange={e=>handle('pietro', e.target.value)}
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
                   </div>
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Nr lokalu</label>
-                    <input
-                      value={form.lokal}
-                      onChange={e=>handle('lokal', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"
-                    />
+                    <input value={form.lokal} onChange={e=>handle('lokal', e.target.value)}
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
                   </div>
                   <div className="md:col-span-2">
                     <label className="text-xs uppercase tracking-wider text-gray-500">Uwagi do zamówienia</label>
-                    <textarea
-                      value={form.uwagi}
-                      onChange={e=>handle('uwagi', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 min-h-[100px] bg-white"
-                    ></textarea>
+                    <textarea value={form.uwagi} onChange={e=>handle('uwagi', e.target.value)}
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 min-h-[100px] bg-white"></textarea>
                   </div>
                 </div>
 
@@ -826,19 +782,13 @@
                     <div className="grid md:grid-cols-2 gap-4 mt-3">
                       <div>
                         <label className="text-xs uppercase tracking-wider text-gray-500">NIP</label>
-                        <input
-                          value={form.nip}
-                          onChange={e=>handle('nip', e.target.value)}
-                          className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"
-                        />
+                        <input value={form.nip} onChange={e=>handle('nip', e.target.value)}
+                          className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
                       </div>
                       <div>
                         <label className="text-xs uppercase tracking-wider text-gray-500">Nazwa firmy</label>
-                        <input
-                          value={form.firma}
-                          onChange={e=>handle('firma', e.target.value)}
-                          className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"
-                        />
+                        <input value={form.firma} onChange={e=>handle('firma', e.target.value)}
+                          className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
                       </div>
                     </div>
                   )}
@@ -864,10 +814,8 @@
                   <span className="font-bold">Do zapłaty</span>
                   <span className="font-extrabold">{currency(total)}</span>
                 </div>
-                <button
-                  onClick={submit}
-                  className="w-full mt-4 bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/40"
-                >
+                <button onClick={submit}
+                  className="w-full mt-4 bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/40">
                   Płatność online (PayU)
                 </button>
                 <div className="text-xs text-gray-500 mt-3">
@@ -921,39 +869,27 @@
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
                 <label className="text-xs uppercase tracking-wider text-gray-500">Adres e-mail</label>
-                <input
-                  type="email"
-                  required
-                  value={form.email}
+                <input type="email" required value={form.email}
                   onChange={(e) => handleChange('email', e.target.value)}
                   placeholder="np. jan.kowalski@example.com"
-                  className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"
-                />
+                  className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
               </div>
 
               <div>
                 <label className="text-xs uppercase tracking-wider text-gray-500">Hasło</label>
-                <input
-                  type="password"
-                  required
-                  value={form.password}
+                <input type="password" required value={form.password}
                   onChange={(e) => handleChange('password', e.target.value)}
                   placeholder="Wpisz hasło"
-                  className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"
-                />
+                  className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
               </div>
 
               {mode === 'register' && (
                 <div>
                   <label className="text-xs uppercase tracking-wider text-gray-500">Powtórz hasło</label>
-                  <input
-                    type="password"
-                    required
-                    value={form.confirm}
+                  <input type="password" required value={form.confirm}
                     onChange={(e) => handleChange('confirm', e.target.value)}
                     placeholder="Powtórz hasło"
-                    className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"
-                  />
+                    className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
                 </div>
               )}
 
@@ -991,9 +927,6 @@
         <section id="kategorie" className="py-12 md:py-20 bg-gradient-to-b from-white to-brand-light">
           <div className="max-w-6xl mx-auto px-4">
             <SectionTitle eyebrow="Menu" title="Wybierz kategorię" subtitle="Najpierw wybierz kategorię, potem dodawaj pozycje do koszyka — w kilka kliknięć!" />
-
-            {/* USUNIĘTO: chipsy w sekcji "Wybierz kategorię" */}
-
             <div className="mt-8 grid md:grid-cols-3 gap-6">
               {PRODUCT_CATEGORIES.map(cat => <CategoryCard key={cat.id} category={cat} />)}
             </div>
