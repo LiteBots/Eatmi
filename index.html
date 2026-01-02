@@ -54,6 +54,17 @@
 
     .input-focus { outline: none; }
     .input-focus:focus { box-shadow: 0 0 0 3px rgba(255,193,7,.35); border-color: rgba(255,193,7,.75); }
+
+    /* ✅ WYMUSZENIE ŻÓŁTEGO DLA CTA W HERO (żeby nigdy nie było białe) */
+    .btn-yellow{
+      background:#FFC107 !important;
+      color:#111827 !important;
+      border-color: rgba(0,0,0,.08) !important;
+    }
+    .btn-yellow:hover{
+      filter: brightness(.98);
+      box-shadow: 0 0 0 3px rgba(255,193,7,.30);
+    }
   </style>
 
   <!-- React 18 + ReactDOM 18 -->
@@ -112,7 +123,7 @@
     const SANDWICHES = [
       { id:'k-jajecznica-bekon', name:'Maślane pieczywo z jajecznicą, bekonem i majonezem sriracha', price: 17 },
       { id:'k-club-kurczak', name:'Club sandwich z grillowanym kurczakiem, chrupiący bekon, majonez, sałata i pomidor', price: 17 },
-      { id:'k-club-vege', name:'Vege club sandwich z camembert, palonym awokado, majonez, sałatą i pomidorem', price: 17 },
+      { id:'k-club-vege', name:'Vege club sandwich z camembert, palonym awokado, majonezem, sałatą i pomidorem', price: 17 },
       { id:'k-jajecznica-avo', name:'Maślane pieczywo z jajecznicą, awokado i majonezem sriracha', price: 17 },
       { id:'k-buritto-chorizo', name:'Buritto z jajecznicą z mozzarellą, chorizo i majonezem sriracha', price: 19 },
       { id:'k-rostbef', name:'Maślane pieczywo z rostbefem, jajkiem poche, rukolą, sosem musztardowo-chrzanowym i oliwą truflową', price: 21 },
@@ -345,10 +356,11 @@
               Jak w kiosku — wybierasz kategorię, klikasz pozycje i finalizujesz zamówienie.
             </p>
 
+            <!-- ✅ TU JEST NAPRAWA: btn-yellow WYMUSZA ŻÓŁTE -->
             <div className="mt-6 flex flex-wrap gap-3">
               <a
                 href="#kategorie"
-                className="inline-flex items-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition hover:ring-2 hover:ring-brand-yellow/40"
+                className="btn-yellow inline-flex items-center gap-2 font-extrabold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition"
               >
                 <i data-lucide="shopping-bag" className="w-5 h-5"></i>
                 Przeglądaj menu
@@ -356,7 +368,7 @@
 
               <a
                 href="#/kategoria/boxy-sniadaniowe"
-                className="inline-flex items-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition hover:ring-2 hover:ring-brand-yellow/40"
+                className="btn-yellow inline-flex items-center gap-2 font-extrabold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition"
               >
                 <i data-lucide="package-open" className="w-5 h-5"></i>
                 Zobacz boxy śniadaniowe
