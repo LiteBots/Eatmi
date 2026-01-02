@@ -8,6 +8,7 @@
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="manifest" href="/manifest.webmanifest">
 
+  <!-- Tailwind config MUST be before tailwindcdn script -->
   <script>
     tailwind = window.tailwind || {};
     tailwind.config = {
@@ -16,68 +17,72 @@
           colors: {
             brand: {
               yellow: '#FFC107',
-              yellow2: '#FFB300',
-              ink: '#0F172A',
-              muted: '#475569',
-              line: '#E2E8F0'
+              dark: '#111827',
+              light: '#F9FAFB'
+            },
+            kiosk: {
+              bg: '#0B0F1A',
+              card: '#0F1629',
+              card2: '#111B34',
+              green: '#22C55E',
+              red: '#EF4444',
+              blue: '#3B82F6',
+              violet: '#8B5CF6',
+              orange: '#F59E0B',
+              gray: '#94A3B8'
             }
-          }
+          },
+          boxShadow: {
+            soft: '0 10px 30px rgba(0,0,0,.08)',
+            glass: '0 8px 25px rgba(0,0,0,.12)',
+            kiosk: '0 14px 50px rgba(0,0,0,.35)'
+          },
+          borderRadius: { xl2: '1.25rem' }
         }
       }
     };
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
 
+  <!-- Minimal styles (optional, but nice) -->
+  <style>
+    .liquid { background: rgba(255,255,255,.75); backdrop-filter: blur(12px); }
+    .logo-glow { box-shadow: 0 12px 30px rgba(255,193,7,.18); }
+    .toast-enter { animation: toastIn .18s ease-out; }
+    .toast-bar { animation: toastBar 2.4s linear; transform-origin: left; }
+    @keyframes toastIn { from { transform: translateY(8px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+    @keyframes toastBar { from { transform: scaleX(1) } to { transform: scaleX(0) } }
+  </style>
+
   <!-- React 18 + ReactDOM 18 -->
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
 
-  <!-- Babel for JSX -->
+  <!-- Babel for inline JSX -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <!-- Lucide icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
-
-  <style>
-    :root{
-      --y:#FFC107; --y2:#FFB300;
-      --ink:#0F172A; --muted:#475569; --line:#E2E8F0;
-    }
-    html,body{ background:#fff; color:var(--ink); }
-
-    /* Flat, prosto */
-    .card{ background:#fff; border:1px solid var(--line); border-radius:16px; }
-    .card:hover{ border-color: rgba(255,193,7,.65); }
-    .focusY:focus{ outline:none; box-shadow:0 0 0 3px rgba(255,193,7,.28); border-color: rgba(255,193,7,.75); }
-
-    .btnY{ background:var(--y); color:#111827; font-weight:800; border-radius:14px; }
-    .btnY:hover{ background:var(--y2); }
-    .btnO{ background:#fff; border:1px solid rgba(255,193,7,.55); font-weight:800; border-radius:14px; }
-    .btnO:hover{ border-color: rgba(255,193,7,.85); }
-
-    .pillPrice{ background:rgba(255,193,7,.18); border:1px solid rgba(255,193,7,.55); border-radius:999px; padding:.35rem .7rem; font-weight:900; }
-    .toastIn{ animation: toastIn .16s ease-out; }
-    @keyframes toastIn{ from{ transform:translateY(8px); opacity:0 } to{ transform:translateY(0); opacity:1 } }
-  </style>
 </head>
 
-<body>
+<body class="bg-brand-light text-gray-900">
+  <!-- ROOT is required -->
   <div id="root"></div>
 
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
 
     /* =======================
-       MENU
+       TWOJE PRAWDZIWE MENU
     ======================= */
 
     const PRODUCT_CATEGORIES = [
-      { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open' },
-      { id: 'lunche', name: 'Lunche', icon: 'utensils-crossed' },
-      { id: 'kanapki', name: 'Kanapki', icon: 'sandwich' },
-      { id: 'zdrowe', name: 'Zdrowe', icon: 'leaf' },
-      { id: 'slodkie', name: 'Słodkie', icon: 'ice-cream' },
-      { id: 'napoje', name: 'Napoje', icon: 'cup-soda' },
+      { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open', description: 'Małe, średnie i duże zestawy. Także VEGE.' },
+      { id: 'lunche', name: 'Lunche', icon: 'utensils-crossed', description: 'Lunch tygodnia, miesiąca i vege (12:00–16:00).' },
+      { id: 'kanapki', name: 'Kanapki', icon: 'sandwich', description: 'Kanapki i buritto na maślanym pieczywie.' },
+      { id: 'zdrowe', name: 'Zdrowe', icon: 'leaf', description: 'Granola i sałatki w wersjach fit.' },
+      { id: 'slodkie', name: 'Słodkie', icon: 'ice-cream', description: 'Desery, pancakes, tost francuski i smoothie.' },
+      { id: 'napoje', name: 'Napoje', icon: 'cup-soda', description: 'Kawy, herbaty, lemoniada i sok.' },
     ];
 
     const BREAKFAST_BOXES = [
@@ -150,7 +155,7 @@
     };
 
     /* =======================
-       HELPERS / STATE
+       APPKA
     ======================= */
 
     const useLocalStorage = (key, initial) => {
@@ -164,37 +169,52 @@
     const currency = (n) =>
       new Intl.NumberFormat('pl-PL', { style:'currency', currency:'PLN' }).format(n);
 
-    const splitSubtitle = (text='') =>
-      text.split('•').map(s => s.trim()).filter(Boolean);
-
-    /* =======================
-       TOAST
-    ======================= */
-
     const ToastContext = React.createContext();
     const useToast = () => React.useContext(ToastContext);
 
     const ToastProvider = ({children}) => {
       const [toast, setToast] = useState(null);
-      const tRef = React.useRef(null);
+      const timeoutRef = React.useRef(null);
 
       const show = (message) => {
         setToast(message);
-        if (tRef.current) clearTimeout(tRef.current);
-        tRef.current = setTimeout(() => setToast(null), 1700);
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => setToast(null), 2500);
+      };
+
+      const close = () => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        setToast(null);
       };
 
       return (
         <ToastContext.Provider value={{ show }}>
           {children}
           {toast && (
-            <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[80]">
-              <div className="toastIn card px-4 py-3 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full grid place-items-center font-black"
-                     style={{background:"rgba(255,193,7,.22)", border:"1px solid rgba(255,193,7,.55)"}}>
+            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[80] pointer-events-none">
+              <div className="relative pointer-events-auto toast-enter bg-white/95 border border-emerald-200 shadow-glass rounded-2xl px-4 py-3 min-w-[260px] max-w-[90vw] flex items-start gap-3">
+                <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-lg">
                   ✓
                 </div>
-                <div className="text-sm font-extrabold">{toast}</div>
+                <div className="flex-1">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-600">
+                    Dodano do koszyka
+                  </div>
+                  <div className="text-sm text-gray-900 mt-0.5">
+                    {toast}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={close}
+                  className="ml-2 text-gray-400 hover:text-gray-600 text-xl leading-none"
+                  aria-label="Zamknij powiadomienie"
+                >
+                  ×
+                </button>
+                <div className="absolute left-4 right-4 -bottom-1.5 h-1 rounded-full overflow-hidden bg-emerald-50">
+                  <div className="toast-bar h-full bg-emerald-400"></div>
+                </div>
               </div>
             </div>
           )}
@@ -202,16 +222,28 @@
       );
     };
 
-    /* =======================
-       CART
-    ======================= */
+    const Logo = () => (
+      <a href="#/" className="flex items-center gap-3 group">
+        <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center border border-gray-100 overflow-hidden shadow-soft logo-glow">
+          <img
+            src="https://i.imgur.com/f9TN0Gh.png"
+            alt="eatmi.pl — logo"
+            loading="lazy"
+            className="w-9 h-9 object-contain transition-transform duration-500 group-hover:-rotate-6 group-hover:scale-110"
+          />
+        </div>
+        <span className="font-extrabold tracking-tight">
+          eatmi<span className="text-brand-yellow">.pl</span>
+        </span>
+      </a>
+    );
 
     const CartContext = React.createContext();
-    const useCart = () => React.useContext(CartContext);
 
     const CartProvider = ({children}) => {
       const [cart, setCart] = useLocalStorage('eatmi-cart', []);
-      const toast = useToast();
+      const toast = useToast(); // always exists because ToastProvider wraps CartProvider below
+      const show = toast?.show;
 
       const add = (entry) => {
         const newItem = {
@@ -220,17 +252,17 @@
           ...entry
         };
         setCart(prev => [...prev, newItem]);
-        toast?.show?.(entry.name);
+        if (show) show(`Dodano: ${entry.name}`);
       };
 
-      const remove = (id) => setCart(prev => prev.filter(i => i.id !== id));
+      const remove  = (id) => setCart(prev => prev.filter(i => i.id !== id));
       const setQty  = (id, qty) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: Math.max(1, qty|0)} : i));
       const incQty  = (id) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: (i.qty||1)+1} : i));
       const decQty  = (id) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: Math.max(1, (i.qty||1)-1)} : i));
-      const clear = () => setCart([]);
+      const clear   = () => setCart([]);
 
       const lineTotal = (i) => (i.price || 0) * (i.qty || 1);
-      const total = useMemo(() => cart.reduce((s,i)=> s + lineTotal(i), 0), [cart]);
+      const total  = useMemo(() => cart.reduce((s,i)=> s + lineTotal(i), 0), [cart]);
 
       return (
         <CartContext.Provider value={{cart, add, remove, setQty, incQty, decQty, clear, lineTotal, total}}>
@@ -239,115 +271,188 @@
       );
     };
 
-    /* =======================
-       UI: HEADER + NAV
-    ======================= */
-
-    const Logo = () => (
-      <a href="#/" className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-2xl grid place-items-center"
-             style={{background:"rgba(255,193,7,.18)", border:"1px solid rgba(255,193,7,.55)"}}>
-          <img src="https://i.imgur.com/f9TN0Gh.png" alt="eatmi.pl" className="w-9 h-9 object-contain" />
-        </div>
-        <span className="font-extrabold tracking-tight">
-          eatmi<span className="text-brand-yellow">.pl</span>
-        </span>
-      </a>
-    );
+    const useCart = () => React.useContext(CartContext);
 
     const CartButton = () => {
       const { cart, total } = useCart();
-      const count = cart.reduce((s,i)=>s+(i.qty||1),0);
       return (
-        <a href="#/koszyk" className="btnO px-4 py-2 inline-flex items-center gap-2">
+        <a href="#/koszyk" className="relative inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition">
           <i data-lucide="shopping-cart" className="w-5 h-5"></i>
-          <span className="font-extrabold">{currency(total)}</span>
-          <span className="pillPrice text-xs">{count}</span>
+          <span className="text-sm font-semibold">{currency(total)}</span>
+          <span className="absolute -top-2 -right-2 bg-brand-yellow text-gray-900 text-xs font-bold w-6 h-6 rounded-full grid place-items-center">
+            {cart.reduce((s,i)=>s+(i.qty||1),0)}
+          </span>
         </a>
       );
     };
 
-    const Header = () => (
-      <header className="sticky top-0 z-40 bg-white border-b border-brand-line">
+    const Header = ({ onOpenAuth }) => (
+      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <Logo />
-          <CartButton />
+          <nav className="hidden md:flex items-center gap-6 text-sm">
+            <a href="#kategorie" className="hover:text-gray-900 text-gray-600">Menu</a>
+            <a href="#/kategoria/boxy-sniadaniowe" className="hover:text-gray-900 text-gray-600">Boxy</a>
+            <a href="#/kategoria/lunche" className="hover:text-gray-900 text-gray-600">Lunche</a>
+            <a href="#/kategoria/kanapki" className="hover:text-gray-900 text-gray-600">Kanapki</a>
+            <a href="#/kategoria/napoje" className="hover:text-gray-900 text-gray-600">Napoje</a>
+          </nav>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onOpenAuth}
+              className="hidden md:inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition text-sm font-semibold text-gray-800">
+              <i data-lucide="user" className="w-4 h-4"></i>
+              <span>Konto</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onOpenAuth}
+              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white shadow-soft"
+              aria-label="Moje konto">
+              <i data-lucide="user" className="w-5 h-5"></i>
+            </button>
+
+            <CartButton />
+          </div>
         </div>
       </header>
     );
 
-    const BottomBar = () => {
-      const { total, cart } = useCart();
-      if (!cart.length) return null;
-      return (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-brand-line z-40">
-          <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-            <div className="font-extrabold">{currency(total)}</div>
-            <a href="#/koszyk" className="btnY px-5 py-3">
-              Koszyk
-            </a>
-          </div>
-        </div>
-      );
-    };
+    const Hero = () => (
+      <section className="relative overflow-hidden">
+        <div className="max-w-6xl mx-auto px-4 py-12 md:py-20">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 mb-3 px-4 py-2 rounded-full bg-white/80 border border-gray-200 shadow-soft">
+              <span className="text-xl">👋</span>
+              <span className="text-sm md:text-base font-semibold text-gray-900">
+                Cześć, na co masz dziś ochotę?
+              </span>
+            </div>
 
-    /* =======================
-       PAGES
-    ======================= */
-
-    const Home = () => (
-      <section className="py-8 md:py-10">
-        <div className="max-w-6xl mx-auto px-4">
-          <h1 className="text-2xl md:text-3xl font-extrabold">
-            Zamów online
-          </h1>
-
-          <div className="mt-5 grid md:grid-cols-3 gap-4">
-            {PRODUCT_CATEGORIES.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => window.location.hash = `#/kategoria/${cat.id}`}
-                className="card p-5 text-left"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="font-extrabold text-lg">{cat.name}</div>
-                  <div className="w-11 h-11 rounded-xl grid place-items-center"
-                       style={{background:"rgba(255,193,7,.18)", border:"1px solid rgba(255,193,7,.55)"}}>
-                    <i data-lucide={cat.icon} className="w-6 h-6"></i>
-                  </div>
-                </div>
-              </button>
-            ))}
+            <h1 className="text-4xl md:text-5xl font-extrabold leading-tight">
+              Wybierz kategorię i{" "}
+              <span className="text-brand-yellow">zamów online</span>
+            </h1>
+            <p className="mt-4 text-gray-600 max-w-prose">
+              Boxy śniadaniowe, lunche, kanapki, zdrowe, słodkie i napoje.
+              Jak w kiosku — wybierasz kategorię, klikasz pozycje i finalizujesz zamówienie.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <a href="#kategorie" className="inline-flex items-center gap-2 bg-brand-yellow text-gray-900 font-semibold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition">
+                <i data-lucide="shopping-bag" className="w-5 h-5"></i>
+                Przeglądaj menu
+              </a>
+              <a href="#/kategoria/boxy-sniadaniowe" className="inline-flex items-center gap-2 border border-gray-300 bg-white text-gray-900 font-semibold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition">
+                <i data-lucide="package-open" className="w-5 h-5"></i>
+                Zobacz boxy śniadaniowe
+              </a>
+            </div>
           </div>
         </div>
       </section>
     );
 
-    const ProductRow = ({ item, onAdd }) => {
-      const bullets = splitSubtitle(item.subtitle || '');
+    const SectionTitle = ({eyebrow, title, subtitle}) => (
+      <div className="text-center max-w-2xl mx-auto">
+        {eyebrow && <div className="text-xs uppercase tracking-widest text-gray-500">{eyebrow}</div>}
+        <h2 className="text-3xl md:text-4xl font-extrabold mt-1">{title}</h2>
+        {subtitle && <p className="text-gray-600 mt-2">{subtitle}</p>}
+      </div>
+    );
+
+    const CategoryCard = ({ category }) => {
+      const handleClick = () => { window.location.hash = `#/kategoria/${category.id}`; };
       return (
-        <div className="card p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="font-extrabold">{item.name}</div>
-              {bullets.length > 0 && (
-                <div className="mt-2 text-sm text-brand-muted font-medium space-y-1">
-                  {bullets.slice(0, 3).map((b, i) => (
-                    <div key={i} className="flex gap-2">
-                      <span className="mt-[7px] w-2 h-2 rounded-full bg-brand-yellow shrink-0"></span>
-                      <span>{b}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+        <button type="button" onClick={handleClick}
+          className="group bg-white border border-gray-200 rounded-2xl p-5 text-left shadow-soft hover:shadow-md hover:-translate-y-1 transition w-full">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-gray-500">
+                <span className="w-2 h-2 rounded-full bg-brand-yellow"></span>
+                Kategoria
+              </div>
+              <h3 className="mt-1 text-lg font-extrabold">{category.name}</h3>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center">
+              <i data-lucide={category.icon} className="w-5 h-5 text-gray-900"></i>
+            </div>
+          </div>
+          <p className="mt-3 text-sm text-gray-600">{category.description}</p>
+          <div className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-gray-900 group-hover:gap-3 transition">
+            Otwórz kategorię <i data-lucide="arrow-right" className="w-4 h-4"></i>
+          </div>
+        </button>
+      );
+    };
+
+    /* ====== KIOSK HELPERS ====== */
+    const splitSubtitle = (text='') =>
+      text.split('•').map(s => s.trim()).filter(Boolean);
+
+    const getBadges = (categoryId, name) => {
+      const badges = [];
+      const upper = (name||'').toUpperCase();
+      if (categoryId === 'boxy-sniadaniowe') badges.push({ label: 'BOX', color: 'bg-kiosk-blue/15 text-kiosk-blue border-kiosk-blue/30' });
+      if (categoryId === 'lunche') badges.push({ label: 'LUNCH 12–16', color: 'bg-kiosk-orange/15 text-kiosk-orange border-kiosk-orange/30' });
+      if (upper.includes('VEGE')) badges.push({ label: 'VEGE', color: 'bg-kiosk-green/15 text-kiosk-green border-kiosk-green/30' });
+      return badges;
+    };
+
+    /* ====== PRODUCT CARD ====== */
+    const ProductCard = ({ item, categoryId, onAdd }) => {
+      const bullets = splitSubtitle(item.subtitle || '');
+      const badges = getBadges(categoryId, item.name);
+
+      return (
+        <div className="relative bg-white border border-gray-200 rounded-3xl p-5 md:p-6 shadow-soft hover:shadow-kiosk transition group overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 opacity-70"></div>
+
+          {badges.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {badges.map((b, i) => (
+                <span key={i}
+                  className={`text-[10px] font-extrabold tracking-widest uppercase border px-2.5 py-1 rounded-full ${b.color}`}>
+                  {b.label}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <h3 className="text-lg md:text-xl font-extrabold text-gray-900 leading-snug">
+            {item.name}
+          </h3>
+
+          {bullets.length > 0 && (
+            <ul className="mt-3 space-y-1.5 text-sm text-gray-700">
+              {bullets.map((b, idx) => (
+                <li key={idx} className="flex gap-2">
+                  <span className="mt-[6px] w-1.5 h-1.5 rounded-full bg-gray-900/60 shrink-0"></span>
+                  <span>{b}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="mt-5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className="px-3 py-1.5 rounded-xl bg-gray-900 text-white font-extrabold text-base md:text-lg shadow">
+                {currency(item.price)}
+              </div>
+              <div className="text-xs text-gray-500 font-semibold uppercase tracking-wider">
+                / szt.
+              </div>
             </div>
 
-            <div className="text-right shrink-0">
-              <div className="pillPrice">{currency(item.price)}</div>
-              <button onClick={() => onAdd(item)} className="btnY mt-3 px-4 py-2">
-                Dodaj
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => onAdd(item)}
+              className="inline-flex items-center justify-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-4 py-2.5 rounded-2xl shadow-soft hover:scale-[1.03] active:scale-[0.98] transition"
+            >
+              <i data-lucide="plus" className="w-4 h-4"></i> Dodaj
+            </button>
           </div>
         </div>
       );
@@ -360,15 +465,19 @@
 
       if (!category) {
         return (
-          <section className="py-8">
+          <section className="py-10">
             <div className="max-w-6xl mx-auto px-4">
-              <a className="btnO px-4 py-2 inline-block" href="#/">Wróć</a>
+              <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-600">
+                <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć
+              </a>
+              <h2 className="text-2xl font-extrabold mt-3">Kategoria nie istnieje</h2>
+              <p className="mt-2 text-gray-600">Wróć do menu i wybierz jedną z dostępnych kategorii.</p>
             </div>
           </section>
         );
       }
 
-      const onAdd = (item) => add({
+      const handleAdd = (item) => add({
         type: 'product',
         productId: item.id,
         name: item.name,
@@ -378,18 +487,28 @@
       return (
         <section className="py-8 md:py-10">
           <div className="max-w-6xl mx-auto px-4">
-            <div className="flex items-center justify-between gap-3">
-              <a className="btnO px-4 py-2 inline-flex items-center gap-2" href="#/">
-                <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć
-              </a>
-              <a className="btnY px-4 py-2" href="#/koszyk">Koszyk</a>
+            <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-600">
+              <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do menu
+            </a>
+
+            <div className="mt-4 flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 grid place-items-center">
+                <i data-lucide={category.icon} className="w-6 h-6 text-gray-900"></i>
+              </div>
+              <div>
+                <h2 className="text-2xl md:text-3xl font-extrabold">{category.name}</h2>
+                <p className="text-sm text-gray-600 mt-1">{category.description}</p>
+              </div>
             </div>
 
-            <h2 className="mt-4 text-2xl font-extrabold">{category.name}</h2>
-
-            <div className="mt-5 space-y-3 pb-24">
+            <div className="mt-6 grid sm:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
               {items.map(item => (
-                <ProductRow key={item.id} item={item} onAdd={onAdd} />
+                <ProductCard
+                  key={item.id}
+                  item={item}
+                  categoryId={categoryId}
+                  onAdd={handleAdd}
+                />
               ))}
             </div>
           </div>
@@ -397,72 +516,105 @@
       );
     };
 
+    const EXTRA_ITEMS = [
+      { id:'extra-granola', name:'Domowa granola', price: 19 },
+      { id:'extra-lemoniada',name:'Domowa lemoniada', price: 12 },
+      { id:'extra-deser', name:'Deser czekoladowy', price: 19 },
+    ];
+
     const Koszyk = () => {
-      const { cart, remove, clear, total, incQty, decQty, setQty, lineTotal } = useCart();
+      const { cart, remove, clear, total, incQty, decQty, setQty, lineTotal, add } = useCart();
       const goToCheckout = () => window.location.hash = '#/zamowienie';
 
       return (
-        <section className="py-8 md:py-10">
+        <section className="py-10">
           <div className="max-w-6xl mx-auto px-4">
-            <div className="flex items-center justify-between gap-3">
-              <a className="btnO px-4 py-2 inline-flex items-center gap-2" href="#/">
-                <i data-lucide="arrow-left" className="w-4 h-4"></i> Menu
-              </a>
-              {cart.length > 0 && (
-                <button onClick={clear} className="btnO px-4 py-2">Wyczyść</button>
-              )}
-            </div>
-
-            <h2 className="mt-4 text-2xl font-extrabold">Koszyk</h2>
+            <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-600">
+              <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć
+            </a>
+            <h2 className="text-2xl font-extrabold mt-3">Koszyk</h2>
 
             {cart.length === 0 ? (
-              <div className="mt-4 card p-6">
-                <div className="text-brand-muted font-medium">Koszyk jest pusty.</div>
-              </div>
+              <p className="text-gray-600 mt-2">Twój koszyk jest pusty.</p>
             ) : (
               <>
-                <div className="mt-5 space-y-3">
-                  {cart.map(item => (
-                    <div key={item.id} className="card p-4">
-                      <div className="flex flex-col md:flex-row md:items-center gap-4 justify-between">
+                <div className="mt-6 grid md:grid-cols-3 gap-6 items-start">
+                  <div className="md:col-span-2 space-y-4">
+                    {cart.map(item => (
+                      <div key={item.id}
+                        className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col md:flex-row gap-4 md:items-center justify-between w-full">
                         <div className="min-w-0 flex-1">
-                          <div className="font-extrabold break-words">{item.name}</div>
-                          <div className="text-xs text-brand-muted mt-1 font-mono">{item.productId}</div>
+                          <div className="font-bold break-words">{item.name}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            ID produktu: <span className="font-mono">{item.productId || 'brak'}</span>
+                          </div>
                         </div>
 
-                        <div className="flex items-center justify-between md:justify-end gap-4">
-                          <div className="flex items-center gap-2">
-                            <button onClick={()=> decQty(item.id)} className="btnO w-10 h-10">−</button>
+                        <div className="flex flex-col sm:flex-row md:flex-row gap-3 md:gap-4 items-stretch md:items-center w-full md:w-auto justify-between md:justify-end">
+                          <div className="flex items-center gap-2 self-start">
+                            <button onClick={()=> decQty(item.id)} className="w-8 h-8 rounded-lg border border-gray-200 grid place-items-center">−</button>
                             <input
                               value={item.qty||1}
                               onChange={(e)=> setQty(item.id, parseInt(e.target.value||'1',10))}
-                              className="w-16 text-center card focusY font-extrabold py-2"
+                              className="w-14 text-center border border-gray-200 rounded-lg py-1"
                               inputMode="numeric"
                               pattern="[0-9]*"
                             />
-                            <button onClick={()=> incQty(item.id)} className="btnY w-10 h-10">+</button>
+                            <button onClick={()=> incQty(item.id)} className="w-8 h-8 rounded-lg border border-gray-200 grid place-items-center">+</button>
                           </div>
 
-                          <div className="text-right">
-                            <div className="font-extrabold">{currency(lineTotal(item))}</div>
-                            <button onClick={()=> remove(item.id)} className="text-red-600 font-extrabold text-sm hover:underline">
-                              Usuń
-                            </button>
+                          <div className="text-right self-center">
+                            <div className="font-extrabold whitespace-nowrap">{currency(lineTotal(item))}</div>
+                            <div className="text-xs text-gray-500 whitespace-nowrap">({currency(item.price)} / szt.)</div>
                           </div>
+
+                          <button onClick={()=> remove(item.id)} className="text-red-600 hover:underline self-center text-sm">Usuń</button>
                         </div>
                       </div>
+                    ))}
+                  </div>
+
+                  <aside className="bg-white border border-gray-200 rounded-2xl p-5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">Suma</span>
+                      <span className="font-extrabold">{currency(total)}</span>
                     </div>
-                  ))}
+                    <div className="mt-4 grid gap-2">
+                      <button onClick={goToCheckout} className="w-full bg-brand-yellow text-gray-900 font-semibold rounded-xl px-4 py-3">
+                        Przejdź do zamówienia
+                      </button>
+                      <button onClick={clear} className="w-full bg-gray-100 text-gray-700 rounded-xl px-4 py-3">
+                        Wyczyść koszyk
+                      </button>
+                    </div>
+                  </aside>
                 </div>
 
-                <div className="mt-6 card p-5">
-                  <div className="flex items-center justify-between">
-                    <div className="font-extrabold">Suma</div>
-                    <div className="font-extrabold text-xl">{currency(total)}</div>
+                <div className="mt-10 border-t border-gray-200 pt-6">
+                  <h3 className="text-lg font-bold flex items-center gap-2">
+                    <span>Może dorzucisz coś jeszcze?</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-900 text-white">1 klik i dodane</span>
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Słodki dodatek lub napój często robi różnicę — szczególnie przy większych zamówieniach.
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    {EXTRA_ITEMS.map(extra => (
+                      <button key={extra.id}
+                        onClick={() => add({
+                          type:'extra',
+                          productId: extra.id,
+                          name: extra.name,
+                          price: extra.price
+                        })}
+                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-gray-200 shadow-soft text-sm hover:shadow-md hover:-translate-y-0.5 transition">
+                        <span className="text-base">+</span>
+                        <span>{extra.name}</span>
+                        <span className="font-semibold text-gray-900">{currency(extra.price)}</span>
+                      </button>
+                    ))}
                   </div>
-                  <button onClick={goToCheckout} className="btnY w-full mt-4 px-5 py-3">
-                    Zamów
-                  </button>
                 </div>
               </>
             )}
@@ -472,10 +624,11 @@
     };
 
     const Zamowienie = () => {
-      const { cart, total } = useCart();
+      const { cart, total, lineTotal } = useCart();
       const [form, setForm] = useState({
         imieNazwisko:'', telefon:'', email:'', miasto:'', kod:'', ulica:'', nrBud:'', pietro:'', lokal:'', uwagi:'', faktura:false, nip:'', firma:''
       });
+
       const handle = (k,v)=> setForm(s=> ({...s,[k]:v}));
 
       const submit = async () => {
@@ -487,6 +640,7 @@
           alert('Koszyk jest pusty.');
           return;
         }
+
         const missing = cart.find(i => !i.productId);
         if (missing) {
           alert("W koszyku jest pozycja bez productId. Dodaj produkt ponownie.");
@@ -513,11 +667,13 @@
             console.log("PAYU ERROR DETAILS:", data);
             return;
           }
+
           if (!data.redirectUri) {
             alert("Brak redirectUri. Zobacz konsolę (PAYU RESPONSE).");
             console.log("PAYU RESPONSE:", data);
             return;
           }
+
           window.location.href = data.redirectUri;
         } catch (e) {
           alert("Błąd połączenia z serwerem.");
@@ -525,75 +681,117 @@
         }
       };
 
-      const Input = ({label, required, value, onChange, type="text"}) => (
-        <div>
-          <label className="text-xs uppercase tracking-widest font-extrabold text-brand-muted">
-            {label}{required ? " *" : ""}
-          </label>
-          <input
-            type={type}
-            value={value}
-            onChange={onChange}
-            className="mt-1 w-full card focusY font-semibold px-4 py-3"
-          />
-        </div>
-      );
-
       return (
-        <section className="py-8 md:py-10">
+        <section className="py-10">
           <div className="max-w-6xl mx-auto px-4">
-            <div className="flex items-center justify-between gap-3">
-              <a className="btnO px-4 py-2 inline-flex items-center gap-2" href="#/koszyk">
-                <i data-lucide="arrow-left" className="w-4 h-4"></i> Koszyk
-              </a>
-              <div className="pillPrice">{currency(total)}</div>
-            </div>
+            <a href="#/koszyk" className="inline-flex items-center gap-2 text-sm text-gray-600">
+              <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do koszyka
+            </a>
+            <h2 className="text-2xl font-extrabold mt-3">Zamówienie</h2>
 
-            <h2 className="mt-4 text-2xl font-extrabold">Dane do zamówienia</h2>
-
-            <div className="mt-5 grid lg:grid-cols-3 gap-6 items-start pb-24">
-              <div className="lg:col-span-2 card p-5">
+            <div className="mt-6 grid lg:grid-cols-3 gap-6 items-start">
+              <div className="lg:col-span-2 bg-white border border-gray-200 rounded-2xl p-5">
                 <div className="grid md:grid-cols-2 gap-4">
-                  <Input label="Imię i nazwisko" required value={form.imieNazwisko} onChange={e=>handle('imieNazwisko', e.target.value)} />
-                  <Input label="Telefon" required value={form.telefon} onChange={e=>handle('telefon', e.target.value)} />
-                  <Input label="Email" value={form.email} onChange={e=>handle('email', e.target.value)} type="email" />
-                  <Input label="Miasto" required value={form.miasto} onChange={e=>handle('miasto', e.target.value)} />
-                  <Input label="Kod pocztowy" value={form.kod} onChange={e=>handle('kod', e.target.value)} />
-                  <Input label="Ulica" required value={form.ulica} onChange={e=>handle('ulica', e.target.value)} />
-                  <Input label="Nr budynku" value={form.nrBud} onChange={e=>handle('nrBud', e.target.value)} />
-                  <Input label="Piętro" value={form.pietro} onChange={e=>handle('pietro', e.target.value)} />
-                  <Input label="Nr lokalu" value={form.lokal} onChange={e=>handle('lokal', e.target.value)} />
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Imię i nazwisko *</label>
+                    <input value={form.imieNazwisko} onChange={e=>handle('imieNazwisko', e.target.value)}
+                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Nr telefonu *</label>
+                    <input value={form.telefon} onChange={e=>handle('telefon', e.target.value)}
+                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Adres email</label>
+                    <input value={form.email} onChange={e=>handle('email', e.target.value)}
+                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Miasto *</label>
+                    <input value={form.miasto} onChange={e=>handle('miasto', e.target.value)}
+                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Kod pocztowy</label>
+                    <input value={form.kod} onChange={e=>handle('kod', e.target.value)}
+                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Ulica *</label>
+                    <input value={form.ulica} onChange={e=>handle('ulica', e.target.value)}
+                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Nr budynku</label>
+                    <input value={form.nrBud} onChange={e=>handle('nrBud', e.target.value)}
+                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Piętro</label>
+                    <input value={form.pietro} onChange={e=>handle('pietro', e.target.value)}
+                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Nr lokalu</label>
+                    <input value={form.lokal} onChange={e=>handle('lokal', e.target.value)}
+                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  </div>
                   <div className="md:col-span-2">
-                    <label className="text-xs uppercase tracking-widest font-extrabold text-brand-muted">Uwagi</label>
-                    <textarea
-                      value={form.uwagi}
-                      onChange={e=>handle('uwagi', e.target.value)}
-                      className="mt-1 w-full card focusY font-semibold px-4 py-3 min-h-[110px]"
-                    ></textarea>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Uwagi do zamówienia</label>
+                    <textarea value={form.uwagi} onChange={e=>handle('uwagi', e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 min-h-[100px]"></textarea>
                   </div>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-brand-line">
-                  <label className="flex items-center gap-2 text-sm font-extrabold">
+                <div className="mt-4">
+                  <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" checked={form.faktura} onChange={e=>handle('faktura', e.target.checked)} />
-                    Faktura
+                    Chcę dane do faktury
                   </label>
-
                   {form.faktura && (
                     <div className="grid md:grid-cols-2 gap-4 mt-3">
-                      <Input label="NIP" value={form.nip} onChange={e=>handle('nip', e.target.value)} />
-                      <Input label="Nazwa firmy" value={form.firma} onChange={e=>handle('firma', e.target.value)} />
+                      <div>
+                        <label className="text-xs uppercase tracking-wider text-gray-500">NIP</label>
+                        <input value={form.nip} onChange={e=>handle('nip', e.target.value)}
+                          className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                      </div>
+                      <div>
+                        <label className="text-xs uppercase tracking-wider text-gray-500">Nazwa firmy</label>
+                        <input value={form.firma} onChange={e=>handle('firma', e.target.value)}
+                          className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
 
-              <aside className="card p-5">
-                <div className="font-extrabold">Do zapłaty</div>
-                <div className="mt-2 text-2xl font-extrabold">{currency(total)}</div>
-                <button onClick={submit} className="btnY w-full mt-4 px-5 py-3">
-                  PayU
+              <aside className="bg-white border border-gray-200 rounded-2xl p-5">
+                <div className="font-semibold">Podsumowanie</div>
+                <div className="mt-3 space-y-3 max-h-64 overflow-auto pr-2">
+                  {cart.map(i => (
+                    <div key={i.id} className="text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{i.name} × {i.qty||1}</span>
+                        <span className="font-bold">{currency(lineTotal(i))}</span>
+                      </div>
+                      <div className="text-[11px] text-gray-500 mt-0.5 font-mono">
+                        {i.productId}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between mt-4 text-lg">
+                  <span className="font-bold">Do zapłaty</span>
+                  <span className="font-extrabold">{currency(total)}</span>
+                </div>
+                <button onClick={submit}
+                  className="w-full mt-4 bg-brand-yellow text-gray-900 font-semibold rounded-xl px-4 py-3">
+                  Płatność online (PayU)
                 </button>
+                <div className="text-xs text-gray-500 mt-3">
+                  Jeśli coś nie działa, sprawdź konsolę (F12) → log: <span className="font-mono">PAYU ERROR DETAILS</span>.
+                </div>
               </aside>
             </div>
           </div>
@@ -601,9 +799,137 @@
       );
     };
 
-    /* =======================
-       ROUTER
-    ======================= */
+    const AuthModal = ({ open, onClose }) => {
+      const [mode, setMode] = useState('login');
+      const [form, setForm] = useState({ email: '', password: '', confirm: '' });
+      if (!open) return null;
+
+      const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (mode === 'register' && form.password !== form.confirm) {
+          alert('Hasła nie są takie same.');
+          return;
+        }
+        alert(`(${mode === 'login' ? 'Logowanie' : 'Rejestracja'}) to na razie makieta UI :)`);
+        onClose();
+      };
+
+      return (
+        <div className="fixed inset-0 z-[90] bg-black/60 flex items-center justify-center px-4" onClick={onClose} role="dialog" aria-modal="true">
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-glass border border-gray-200 p-6" onClick={(e) => e.stopPropagation()}>
+            <button type="button" onClick={onClose} className="absolute top-3 right-3 p-2 rounded-full bg-white border border-gray-200 shadow-soft hover:bg-gray-50" aria-label="Zamknij okno logowania">
+              <i data-lucide="x" className="w-4 h-4"></i>
+            </button>
+
+            <div className="mb-4">
+              <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">
+                {mode === 'login' ? 'Logowanie' : 'Rejestracja'}
+              </div>
+              <h3 className="text-xl font-extrabold mt-1">
+                {mode === 'login' ? 'Zaloguj się do eatmi' : 'Załóż konto w eatmi'}
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                {mode === 'login'
+                  ? 'Zamawiaj szybciej i śledź historię zamówień (makieta).'
+                  : 'Utwórz konto, aby w przyszłości zapisywać dane dostawy (makieta).'}
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div>
+                <label className="text-xs uppercase tracking-wider text-gray-500">Adres e-mail</label>
+                <input type="email" required value={form.email}
+                  onChange={(e) => handleChange('email', e.target.value)}
+                  placeholder="np. jan.kowalski@example.com"
+                  className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+              </div>
+
+              <div>
+                <label className="text-xs uppercase tracking-wider text-gray-500">Hasło</label>
+                <input type="password" required value={form.password}
+                  onChange={(e) => handleChange('password', e.target.value)}
+                  placeholder="Wpisz hasło"
+                  className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+              </div>
+
+              {mode === 'register' && (
+                <div>
+                  <label className="text-xs uppercase tracking-wider text-gray-500">Powtórz hasło</label>
+                  <input type="password" required value={form.confirm}
+                    onChange={(e) => handleChange('confirm', e.target.value)}
+                    placeholder="Powtórz hasło"
+                    className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                </div>
+              )}
+
+              <button type="submit" className="w-full mt-1 bg-gray-900 text-white font-semibold rounded-xl px-4 py-3 text-sm hover:bg-black">
+                {mode === 'login' ? 'Zaloguj się' : 'Zarejestruj się'}
+              </button>
+            </form>
+
+            <div className="mt-4 text-xs text-gray-600 text-center">
+              {mode === 'login' ? (
+                <>Nie masz konta?{' '}
+                  <button type="button" onClick={() => { setMode('register'); setForm({ email:'', password:'', confirm:'' }) }}
+                    className="font-semibold text-gray-900 underline underline-offset-2">
+                    Zarejestruj się
+                  </button>
+                </>
+              ) : (
+                <>Masz konto?{' '}
+                  <button type="button" onClick={() => { setMode('login'); setForm({ email:'', password:'', confirm:'' }) }}
+                    className="font-semibold text-gray-900 underline underline-offset-2">
+                    Zaloguj się
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const Home = () => (
+      <>
+        <Hero />
+
+        <section id="kategorie" className="py-12 md:py-20 bg-gradient-to-b from-white to-brand-light">
+          <div className="max-w-6xl mx-auto px-4">
+            <SectionTitle eyebrow="Menu" title="Wybierz kategorię" subtitle="Najpierw wybierz kategorię, potem dodawaj pozycje do koszyka — w kilka kliknięć!" />
+            <div className="mt-8 grid md:grid-cols-3 gap-6">
+              {PRODUCT_CATEGORIES.map(cat => <CategoryCard key={cat.id} category={cat} />)}
+            </div>
+          </div>
+        </section>
+
+        <section id="kontakt" className="py-12 bg-white">
+          <div className="max-w-6xl mx-auto px-4">
+            <SectionTitle title="Kontakt" subtitle="Masz pytania? Napisz do nas." />
+            <form className="max-w-xl mx-auto mt-8 bg-white border border-gray-200 rounded-2xl p-6 shadow-soft">
+              <div className="grid md:grid-cols-2 gap-4">
+                <input className="input w-full border border-gray-200 rounded-xl px-4 py-3" placeholder="Imię" />
+                <input className="input w-full border border-gray-200 rounded-xl px-4 py-3" placeholder="Email" />
+              </div>
+              <textarea className="input w-full border border-gray-200 rounded-xl px-4 py-3 mt-4" rows="4" placeholder="Wiadomość"></textarea>
+              <button type="button" className="mt-4 bg-gray-900 text-white rounded-xl px-5 py-3 font-semibold">Wyślij</button>
+            </form>
+          </div>
+        </section>
+      </>
+    );
+
+    const FloatingNav = () => (
+      <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(720px,92%)] liquid border border-white/50 rounded-2xl shadow-glass">
+        <ul className="grid grid-cols-4">
+          <li><a href="#kategorie" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="shopping-bag" className="w-5 h-5"></i>Menu</a></li>
+          <li><a href="#/kategoria/boxy-sniadaniowe" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="package-open" className="w-5 h-5"></i>Boxy</a></li>
+          <li><a href="#/kategoria/lunche" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="utensils-crossed" className="w-5 h-5"></i>Lunche</a></li>
+          <li><a href="#/koszyk" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="shopping-cart" className="w-5 h-5"></i>Koszyk</a></li>
+        </ul>
+      </nav>
+    );
 
     const Router = () => {
       const [route, setRoute] = useState(window.location.hash || '#/');
@@ -625,18 +951,25 @@
       return <Home />;
     };
 
-    const App = () => (
-      <ToastProvider>
-        <CartProvider>
-          <Header />
-          <Router />
-          <BottomBar />
-          <footer className="py-10 text-center text-xs text-brand-muted font-medium">
-            © {new Date().getFullYear()} eatmi.pl
-          </footer>
-        </CartProvider>
-      </ToastProvider>
-    );
+    const App = () => {
+      const [authOpen, setAuthOpen] = useState(false);
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [authOpen]);
+
+      return (
+        <ToastProvider>
+          <CartProvider>
+            <Header onOpenAuth={() => setAuthOpen(true)} />
+            <Router />
+            <FloatingNav />
+            <footer className="py-16 text-center text-sm text-gray-500">
+              © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
+            </footer>
+            <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+          </CartProvider>
+        </ToastProvider>
+      );
+    };
 
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
