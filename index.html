@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="manifest" href="/manifest.webmanifest">
 
-  <!-- Tailwind config MUST be before tailwindcdn script -->
+  <!-- Tailwind config BEFORE tailwindcdn -->
   <script>
     tailwind = window.tailwind || {};
     tailwind.config = {
@@ -35,7 +35,8 @@
           boxShadow: {
             soft: '0 10px 30px rgba(0,0,0,.08)',
             glass: '0 8px 25px rgba(0,0,0,.12)',
-            kiosk: '0 14px 50px rgba(0,0,0,.35)'
+            kiosk: '0 14px 50px rgba(0,0,0,.35)',
+            yellow: '0 18px 60px rgba(255,193,7,.22)'
           },
           borderRadius: { xl2: '1.25rem' }
         }
@@ -43,16 +44,6 @@
     };
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Minimal styles (optional, but nice) -->
-  <style>
-    .liquid { background: rgba(255,255,255,.75); backdrop-filter: blur(12px); }
-    .logo-glow { box-shadow: 0 12px 30px rgba(255,193,7,.18); }
-    .toast-enter { animation: toastIn .18s ease-out; }
-    .toast-bar { animation: toastBar 2.4s linear; transform-origin: left; }
-    @keyframes toastIn { from { transform: translateY(8px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
-    @keyframes toastBar { from { transform: scaleX(1) } to { transform: scaleX(0) } }
-  </style>
 
   <!-- React 18 + ReactDOM 18 -->
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
@@ -63,17 +54,52 @@
 
   <!-- Lucide icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    :root {
+      --y: #FFC107;
+      --yd: rgba(255,193,7,.18);
+      --yd2: rgba(255,193,7,.10);
+    }
+
+    /* Yellow-rich background */
+    body {
+      background:
+        radial-gradient(900px 420px at 12% 0%, rgba(255,193,7,.22), transparent 60%),
+        radial-gradient(900px 420px at 92% 10%, rgba(255,193,7,.12), transparent 55%),
+        radial-gradient(700px 380px at 70% 95%, rgba(255,193,7,.10), transparent 55%),
+        linear-gradient(180deg, #ffffff 0%, #fff9e6 100%);
+    }
+
+    .liquid { background: rgba(255,255,255,.78); backdrop-filter: blur(14px); }
+    .logo-glow { box-shadow: 0 12px 34px rgba(255,193,7,.22); }
+    .toast-enter { animation: toastIn .18s ease-out; }
+    .toast-bar { animation: toastBar 2.4s linear; transform-origin: left; }
+
+    /* Yellow hover glow for cards/buttons */
+    .y-glow:hover { box-shadow: 0 18px 60px rgba(255,193,7,.22); transform: translateY(-2px); }
+
+    /* Hero blobs */
+    .blob {
+      filter: blur(38px);
+      opacity: .65;
+      transform: translateZ(0);
+    }
+
+    /* Toast animations */
+    @keyframes toastIn { from { transform: translateY(8px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+    @keyframes toastBar { from { transform: scaleX(1) } to { transform: scaleX(0) } }
+  </style>
 </head>
 
-<body class="bg-brand-light text-gray-900">
-  <!-- ROOT is required -->
+<body class="text-gray-900">
   <div id="root"></div>
 
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
 
     /* =======================
-       TWOJE PRAWDZIWE MENU
+       MENU
     ======================= */
 
     const PRODUCT_CATEGORIES = [
@@ -155,7 +181,7 @@
     };
 
     /* =======================
-       APPKA
+       HELPERS / STATE
     ======================= */
 
     const useLocalStorage = (key, initial) => {
@@ -192,12 +218,12 @@
           {children}
           {toast && (
             <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[80] pointer-events-none">
-              <div className="relative pointer-events-auto toast-enter bg-white/95 border border-emerald-200 shadow-glass rounded-2xl px-4 py-3 min-w-[260px] max-w-[90vw] flex items-start gap-3">
-                <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-lg">
+              <div className="relative pointer-events-auto toast-enter bg-white/95 border border-amber-200 shadow-glass rounded-2xl px-4 py-3 min-w-[260px] max-w-[90vw] flex items-start gap-3">
+                <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 text-lg">
                   ✓
                 </div>
                 <div className="flex-1">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-600">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-700">
                     Dodano do koszyka
                   </div>
                   <div className="text-sm text-gray-900 mt-0.5">
@@ -207,13 +233,13 @@
                 <button
                   type="button"
                   onClick={close}
-                  className="ml-2 text-gray-400 hover:text-gray-600 text-xl leading-none"
+                  className="ml-2 text-gray-400 hover:text-gray-700 text-xl leading-none"
                   aria-label="Zamknij powiadomienie"
                 >
                   ×
                 </button>
-                <div className="absolute left-4 right-4 -bottom-1.5 h-1 rounded-full overflow-hidden bg-emerald-50">
-                  <div className="toast-bar h-full bg-emerald-400"></div>
+                <div className="absolute left-4 right-4 -bottom-1.5 h-1 rounded-full overflow-hidden bg-amber-50">
+                  <div className="toast-bar h-full bg-brand-yellow"></div>
                 </div>
               </div>
             </div>
@@ -224,7 +250,7 @@
 
     const Logo = () => (
       <a href="#/" className="flex items-center gap-3 group">
-        <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center border border-gray-100 overflow-hidden shadow-soft logo-glow">
+        <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center border border-amber-200 overflow-hidden shadow-yellow logo-glow">
           <img
             src="https://i.imgur.com/f9TN0Gh.png"
             alt="eatmi.pl — logo"
@@ -242,7 +268,7 @@
 
     const CartProvider = ({children}) => {
       const [cart, setCart] = useLocalStorage('eatmi-cart', []);
-      const toast = useToast(); // always exists because ToastProvider wraps CartProvider below
+      const toast = useToast();
       const show = toast?.show;
 
       const add = (entry) => {
@@ -276,10 +302,13 @@
     const CartButton = () => {
       const { cart, total } = useCart();
       return (
-        <a href="#/koszyk" className="relative inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition">
-          <i data-lucide="shopping-cart" className="w-5 h-5"></i>
-          <span className="text-sm font-semibold">{currency(total)}</span>
-          <span className="absolute -top-2 -right-2 bg-brand-yellow text-gray-900 text-xs font-bold w-6 h-6 rounded-full grid place-items-center">
+        <a
+          href="#/koszyk"
+          className="relative inline-flex items-center gap-2 border border-amber-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-yellow transition"
+        >
+          <i data-lucide="shopping-cart" className="w-5 h-5 text-gray-900"></i>
+          <span className="text-sm font-extrabold">{currency(total)}</span>
+          <span className="absolute -top-2 -right-2 bg-brand-yellow text-gray-900 text-xs font-extrabold w-6 h-6 rounded-full grid place-items-center shadow-soft border border-amber-300">
             {cart.reduce((s,i)=>s+(i.qty||1),0)}
           </span>
         </a>
@@ -287,22 +316,23 @@
     };
 
     const Header = ({ onOpenAuth }) => (
-      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur border-b border-gray-200">
+      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur border-b border-amber-200">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <Logo />
           <nav className="hidden md:flex items-center gap-6 text-sm">
-            <a href="#kategorie" className="hover:text-gray-900 text-gray-600">Menu</a>
-            <a href="#/kategoria/boxy-sniadaniowe" className="hover:text-gray-900 text-gray-600">Boxy</a>
-            <a href="#/kategoria/lunche" className="hover:text-gray-900 text-gray-600">Lunche</a>
-            <a href="#/kategoria/kanapki" className="hover:text-gray-900 text-gray-600">Kanapki</a>
-            <a href="#/kategoria/napoje" className="hover:text-gray-900 text-gray-600">Napoje</a>
+            <a href="#kategorie" className="hover:text-gray-900 text-gray-700 font-semibold">Menu</a>
+            <a href="#/kategoria/boxy-sniadaniowe" className="hover:text-gray-900 text-gray-700 font-semibold">Boxy</a>
+            <a href="#/kategoria/lunche" className="hover:text-gray-900 text-gray-700 font-semibold">Lunche</a>
+            <a href="#/kategoria/kanapki" className="hover:text-gray-900 text-gray-700 font-semibold">Kanapki</a>
+            <a href="#/kategoria/napoje" className="hover:text-gray-900 text-gray-700 font-semibold">Napoje</a>
           </nav>
 
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={onOpenAuth}
-              className="hidden md:inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition text-sm font-semibold text-gray-800">
+              className="hidden md:inline-flex items-center gap-2 border border-amber-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-yellow transition text-sm font-extrabold text-gray-900"
+            >
               <i data-lucide="user" className="w-4 h-4"></i>
               <span>Konto</span>
             </button>
@@ -310,8 +340,9 @@
             <button
               type="button"
               onClick={onOpenAuth}
-              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white shadow-soft"
-              aria-label="Moje konto">
+              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl border border-amber-200 bg-white shadow-soft hover:shadow-yellow transition"
+              aria-label="Moje konto"
+            >
               <i data-lucide="user" className="w-5 h-5"></i>
             </button>
 
@@ -323,98 +354,153 @@
 
     const Hero = () => (
       <section className="relative overflow-hidden">
-        <div className="max-w-6xl mx-auto px-4 py-12 md:py-20">
+        {/* blobs */}
+        <div className="pointer-events-none absolute -top-10 -left-20 w-[420px] h-[420px] rounded-full bg-brand-yellow blob"></div>
+        <div className="pointer-events-none absolute top-10 -right-28 w-[460px] h-[460px] rounded-full bg-amber-200 blob"></div>
+
+        <div className="max-w-6xl mx-auto px-4 py-12 md:py-20 relative">
           <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 mb-3 px-4 py-2 rounded-full bg-white/80 border border-gray-200 shadow-soft">
+            <div className="inline-flex items-center gap-2 mb-3 px-4 py-2 rounded-full bg-white/85 border border-amber-200 shadow-soft">
               <span className="text-xl">👋</span>
-              <span className="text-sm md:text-base font-semibold text-gray-900">
+              <span className="text-sm md:text-base font-extrabold text-gray-900">
                 Cześć, na co masz dziś ochotę?
+              </span>
+              <span className="ml-2 text-[11px] font-extrabold px-2 py-1 rounded-full bg-brand-yellow text-gray-900 shadow-soft">
+                NOWOŚĆ
               </span>
             </div>
 
             <h1 className="text-4xl md:text-5xl font-extrabold leading-tight">
               Wybierz kategorię i{" "}
-              <span className="text-brand-yellow">zamów online</span>
+              <span className="text-brand-yellow drop-shadow-sm">zamów online</span>
             </h1>
-            <p className="mt-4 text-gray-600 max-w-prose">
+
+            <p className="mt-4 text-gray-700 max-w-prose font-medium">
               Boxy śniadaniowe, lunche, kanapki, zdrowe, słodkie i napoje.
               Jak w kiosku — wybierasz kategorię, klikasz pozycje i finalizujesz zamówienie.
             </p>
+
             <div className="mt-6 flex flex-wrap gap-3">
-              <a href="#kategorie" className="inline-flex items-center gap-2 bg-brand-yellow text-gray-900 font-semibold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition">
+              <a
+                href="#kategorie"
+                className="inline-flex items-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-6 py-3 rounded-xl2 shadow-yellow hover:scale-[1.02] transition border border-amber-300"
+              >
                 <i data-lucide="shopping-bag" className="w-5 h-5"></i>
                 Przeglądaj menu
               </a>
-              <a href="#/kategoria/boxy-sniadaniowe" className="inline-flex items-center gap-2 border border-gray-300 bg-white text-gray-900 font-semibold px-6 py-3 rounded-xl2 shadow-soft hover:scale-[1.02] transition">
-                <i data-lucide="package-open" className="w-5 h-5"></i>
+
+              <a
+                href="#/kategoria/boxy-sniadaniowe"
+                className="inline-flex items-center gap-2 border border-amber-200 bg-white text-gray-900 font-extrabold px-6 py-3 rounded-xl2 shadow-soft hover:shadow-yellow hover:scale-[1.02] transition"
+              >
+                <i data-lucide="package-open" className="w-5 h-5 text-amber-600"></i>
                 Zobacz boxy śniadaniowe
               </a>
             </div>
+
+            {/* yellow highlights row */}
+            <div className="mt-8 grid sm:grid-cols-3 gap-3">
+              {[
+                { t: 'Szybkie zamówienie', d: '3 kliknięcia do koszyka', icon: 'zap' },
+                { t: 'Płatność PayU', d: 'Redirect po /api/payu/order', icon: 'credit-card' },
+                { t: 'Kiosk UI', d: 'Wyraźne kafle i CTA', icon: 'layout-grid' },
+              ].map((x, idx) => (
+                <div key={idx} className="bg-white/90 border border-amber-200 rounded-2xl p-4 shadow-soft y-glow transition">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-brand-yellow/30 border border-amber-200 grid place-items-center">
+                      <i data-lucide={x.icon} className="w-5 h-5 text-gray-900"></i>
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-gray-900 leading-tight">{x.t}</div>
+                      <div className="text-xs text-gray-700 font-semibold">{x.d}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
           </div>
         </div>
+
+        {/* yellow separator */}
+        <div className="h-2 bg-gradient-to-r from-amber-200 via-brand-yellow to-amber-200 opacity-80"></div>
       </section>
     );
 
     const SectionTitle = ({eyebrow, title, subtitle}) => (
       <div className="text-center max-w-2xl mx-auto">
-        {eyebrow && <div className="text-xs uppercase tracking-widest text-gray-500">{eyebrow}</div>}
-        <h2 className="text-3xl md:text-4xl font-extrabold mt-1">{title}</h2>
-        {subtitle && <p className="text-gray-600 mt-2">{subtitle}</p>}
+        {eyebrow && (
+          <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-gray-800 font-extrabold">
+            <span className="w-2.5 h-2.5 rounded-full bg-brand-yellow shadow-soft border border-amber-300"></span>
+            {eyebrow}
+            <span className="w-2.5 h-2.5 rounded-full bg-brand-yellow shadow-soft border border-amber-300"></span>
+          </div>
+        )}
+        <h2 className="text-3xl md:text-4xl font-extrabold mt-2">
+          {title} <span className="text-brand-yellow">★</span>
+        </h2>
+        {subtitle && <p className="text-gray-700 mt-2 font-medium">{subtitle}</p>}
       </div>
     );
 
     const CategoryCard = ({ category }) => {
       const handleClick = () => { window.location.hash = `#/kategoria/${category.id}`; };
       return (
-        <button type="button" onClick={handleClick}
-          className="group bg-white border border-gray-200 rounded-2xl p-5 text-left shadow-soft hover:shadow-md hover:-translate-y-1 transition w-full">
+        <button
+          type="button"
+          onClick={handleClick}
+          className="group bg-white/95 border-2 border-amber-200 rounded-2xl p-5 text-left shadow-soft hover:shadow-yellow transition w-full y-glow"
+        >
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-gray-500">
-                <span className="w-2 h-2 rounded-full bg-brand-yellow"></span>
+              <div className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-gray-800 font-extrabold">
+                <span className="w-2.5 h-2.5 rounded-full bg-brand-yellow shadow-soft"></span>
                 Kategoria
               </div>
               <h3 className="mt-1 text-lg font-extrabold">{category.name}</h3>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center">
-              <i data-lucide={category.icon} className="w-5 h-5 text-gray-900"></i>
+            <div className="w-11 h-11 rounded-2xl bg-brand-yellow/25 border border-amber-200 grid place-items-center">
+              <i data-lucide={category.icon} className="w-6 h-6 text-gray-900"></i>
             </div>
           </div>
-          <p className="mt-3 text-sm text-gray-600">{category.description}</p>
-          <div className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-gray-900 group-hover:gap-3 transition">
-            Otwórz kategorię <i data-lucide="arrow-right" className="w-4 h-4"></i>
+          <p className="mt-3 text-sm text-gray-700 font-medium">{category.description}</p>
+          <div className="mt-4 inline-flex items-center gap-2 text-sm font-extrabold text-gray-900 group-hover:gap-3 transition">
+            Otwórz kategorię <i data-lucide="arrow-right" className="w-4 h-4 text-amber-600"></i>
           </div>
         </button>
       );
     };
 
-    /* ====== KIOSK HELPERS ====== */
     const splitSubtitle = (text='') =>
       text.split('•').map(s => s.trim()).filter(Boolean);
 
     const getBadges = (categoryId, name) => {
       const badges = [];
       const upper = (name||'').toUpperCase();
-      if (categoryId === 'boxy-sniadaniowe') badges.push({ label: 'BOX', color: 'bg-kiosk-blue/15 text-kiosk-blue border-kiosk-blue/30' });
-      if (categoryId === 'lunche') badges.push({ label: 'LUNCH 12–16', color: 'bg-kiosk-orange/15 text-kiosk-orange border-kiosk-orange/30' });
-      if (upper.includes('VEGE')) badges.push({ label: 'VEGE', color: 'bg-kiosk-green/15 text-kiosk-green border-kiosk-green/30' });
+      if (categoryId === 'boxy-sniadaniowe') badges.push({ label: 'BOX', color: 'bg-amber-50 text-amber-700 border-amber-200' });
+      if (categoryId === 'lunche') badges.push({ label: 'LUNCH 12–16', color: 'bg-amber-50 text-amber-700 border-amber-200' });
+      if (upper.includes('VEGE')) badges.push({ label: 'VEGE', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' });
       return badges;
     };
 
-    /* ====== PRODUCT CARD ====== */
     const ProductCard = ({ item, categoryId, onAdd }) => {
       const bullets = splitSubtitle(item.subtitle || '');
       const badges = getBadges(categoryId, item.name);
 
       return (
-        <div className="relative bg-white border border-gray-200 rounded-3xl p-5 md:p-6 shadow-soft hover:shadow-kiosk transition group overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 opacity-70"></div>
+        <div className="relative bg-white/95 border-2 border-amber-200 rounded-3xl p-5 md:p-6 shadow-soft hover:shadow-yellow transition group overflow-hidden y-glow">
+          <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-brand-yellow via-amber-200 to-brand-yellow opacity-90"></div>
+
+          {/* corner accent */}
+          <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-brand-yellow/25 blur-2xl"></div>
 
           {badges.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-3">
               {badges.map((b, i) => (
-                <span key={i}
-                  className={`text-[10px] font-extrabold tracking-widest uppercase border px-2.5 py-1 rounded-full ${b.color}`}>
+                <span
+                  key={i}
+                  className={`text-[10px] font-extrabold tracking-widest uppercase border px-2.5 py-1 rounded-full ${b.color}`}
+                >
                   {b.label}
                 </span>
               ))}
@@ -426,11 +512,11 @@
           </h3>
 
           {bullets.length > 0 && (
-            <ul className="mt-3 space-y-1.5 text-sm text-gray-700">
+            <ul className="mt-3 space-y-1.5 text-sm text-gray-800">
               {bullets.map((b, idx) => (
                 <li key={idx} className="flex gap-2">
-                  <span className="mt-[6px] w-1.5 h-1.5 rounded-full bg-gray-900/60 shrink-0"></span>
-                  <span>{b}</span>
+                  <span className="mt-[6px] w-2 h-2 rounded-full bg-brand-yellow shrink-0 border border-amber-300"></span>
+                  <span className="font-medium">{b}</span>
                 </li>
               ))}
             </ul>
@@ -441,7 +527,7 @@
               <div className="px-3 py-1.5 rounded-xl bg-gray-900 text-white font-extrabold text-base md:text-lg shadow">
                 {currency(item.price)}
               </div>
-              <div className="text-xs text-gray-500 font-semibold uppercase tracking-wider">
+              <div className="text-xs text-gray-700 font-extrabold uppercase tracking-wider bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
                 / szt.
               </div>
             </div>
@@ -449,7 +535,7 @@
             <button
               type="button"
               onClick={() => onAdd(item)}
-              className="inline-flex items-center justify-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-4 py-2.5 rounded-2xl shadow-soft hover:scale-[1.03] active:scale-[0.98] transition"
+              className="inline-flex items-center justify-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-4 py-2.5 rounded-2xl shadow-yellow hover:scale-[1.03] active:scale-[0.98] transition border border-amber-300"
             >
               <i data-lucide="plus" className="w-4 h-4"></i> Dodaj
             </button>
@@ -467,11 +553,11 @@
         return (
           <section className="py-10">
             <div className="max-w-6xl mx-auto px-4">
-              <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-600">
-                <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć
+              <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-800 font-extrabold">
+                <i data-lucide="arrow-left" className="w-4 h-4 text-amber-600"></i> Wróć
               </a>
               <h2 className="text-2xl font-extrabold mt-3">Kategoria nie istnieje</h2>
-              <p className="mt-2 text-gray-600">Wróć do menu i wybierz jedną z dostępnych kategorii.</p>
+              <p className="mt-2 text-gray-700 font-medium">Wróć do menu i wybierz jedną z dostępnych kategorii.</p>
             </div>
           </section>
         );
@@ -487,17 +573,23 @@
       return (
         <section className="py-8 md:py-10">
           <div className="max-w-6xl mx-auto px-4">
-            <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-600">
-              <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do menu
+            <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-800 font-extrabold">
+              <i data-lucide="arrow-left" className="w-4 h-4 text-amber-600"></i> Wróć do menu
             </a>
 
-            <div className="mt-4 flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 grid place-items-center">
+            <div className="mt-4 flex items-center gap-3 bg-white/90 border-2 border-amber-200 rounded-2xl p-4 shadow-soft">
+              <div className="w-11 h-11 rounded-2xl bg-brand-yellow/25 border border-amber-200 grid place-items-center">
                 <i data-lucide={category.icon} className="w-6 h-6 text-gray-900"></i>
               </div>
               <div>
                 <h2 className="text-2xl md:text-3xl font-extrabold">{category.name}</h2>
-                <p className="text-sm text-gray-600 mt-1">{category.description}</p>
+                <p className="text-sm text-gray-700 mt-1 font-medium">{category.description}</p>
+              </div>
+
+              <div className="ml-auto hidden md:flex items-center gap-2">
+                <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-amber-50 border border-amber-200">
+                  kliknij produkt → Dodaj
+                </span>
               </div>
             </div>
 
@@ -529,89 +621,109 @@
       return (
         <section className="py-10">
           <div className="max-w-6xl mx-auto px-4">
-            <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-600">
-              <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć
+            <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-800 font-extrabold">
+              <i data-lucide="arrow-left" className="w-4 h-4 text-amber-600"></i> Wróć
             </a>
-            <h2 className="text-2xl font-extrabold mt-3">Koszyk</h2>
+
+            <div className="mt-3 flex items-end justify-between gap-3">
+              <h2 className="text-2xl font-extrabold">Koszyk</h2>
+              <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-brand-yellow/25 border border-amber-200">
+                {cart.reduce((s,i)=>s+(i.qty||1),0)} szt.
+              </span>
+            </div>
 
             {cart.length === 0 ? (
-              <p className="text-gray-600 mt-2">Twój koszyk jest pusty.</p>
+              <div className="mt-4 bg-white/90 border-2 border-amber-200 rounded-2xl p-6 shadow-soft">
+                <p className="text-gray-800 font-medium">Twój koszyk jest pusty.</p>
+                <a href="#kategorie" className="inline-flex mt-4 items-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-5 py-3 rounded-xl2 shadow-yellow border border-amber-300">
+                  <i data-lucide="shopping-bag" className="w-5 h-5"></i> Wróć do menu
+                </a>
+              </div>
             ) : (
               <>
                 <div className="mt-6 grid md:grid-cols-3 gap-6 items-start">
                   <div className="md:col-span-2 space-y-4">
                     {cart.map(item => (
-                      <div key={item.id}
-                        className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col md:flex-row gap-4 md:items-center justify-between w-full">
-                        <div className="min-w-0 flex-1">
-                          <div className="font-bold break-words">{item.name}</div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            ID produktu: <span className="font-mono">{item.productId || 'brak'}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row md:flex-row gap-3 md:gap-4 items-stretch md:items-center w-full md:w-auto justify-between md:justify-end">
-                          <div className="flex items-center gap-2 self-start">
-                            <button onClick={()=> decQty(item.id)} className="w-8 h-8 rounded-lg border border-gray-200 grid place-items-center">−</button>
-                            <input
-                              value={item.qty||1}
-                              onChange={(e)=> setQty(item.id, parseInt(e.target.value||'1',10))}
-                              className="w-14 text-center border border-gray-200 rounded-lg py-1"
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                            />
-                            <button onClick={()=> incQty(item.id)} className="w-8 h-8 rounded-lg border border-gray-200 grid place-items-center">+</button>
+                      <div
+                        key={item.id}
+                        className="bg-white/95 border-2 border-amber-200 rounded-2xl p-4 shadow-soft y-glow transition"
+                      >
+                        <div className="flex flex-col md:flex-row gap-4 md:items-center justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-extrabold break-words">{item.name}</div>
+                            <div className="text-xs text-gray-700 mt-1 font-medium">
+                              ID produktu: <span className="font-mono bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">{item.productId || 'brak'}</span>
+                            </div>
                           </div>
 
-                          <div className="text-right self-center">
-                            <div className="font-extrabold whitespace-nowrap">{currency(lineTotal(item))}</div>
-                            <div className="text-xs text-gray-500 whitespace-nowrap">({currency(item.price)} / szt.)</div>
-                          </div>
+                          <div className="flex flex-col sm:flex-row gap-3 items-stretch md:items-center w-full md:w-auto justify-between md:justify-end">
+                            <div className="flex items-center gap-2 self-start">
+                              <button onClick={()=> decQty(item.id)} className="w-9 h-9 rounded-xl border-2 border-amber-200 bg-white grid place-items-center font-extrabold hover:bg-amber-50">−</button>
+                              <input
+                                value={item.qty||1}
+                                onChange={(e)=> setQty(item.id, parseInt(e.target.value||'1',10))}
+                                className="w-16 text-center border-2 border-amber-200 rounded-xl py-2 font-extrabold"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                              />
+                              <button onClick={()=> incQty(item.id)} className="w-9 h-9 rounded-xl border-2 border-amber-200 bg-brand-yellow grid place-items-center font-extrabold hover:brightness-95">+</button>
+                            </div>
 
-                          <button onClick={()=> remove(item.id)} className="text-red-600 hover:underline self-center text-sm">Usuń</button>
+                            <div className="text-right self-center">
+                              <div className="font-extrabold whitespace-nowrap">{currency(lineTotal(item))}</div>
+                              <div className="text-xs text-gray-700 whitespace-nowrap font-medium">({currency(item.price)} / szt.)</div>
+                            </div>
+
+                            <button onClick={()=> remove(item.id)} className="text-red-600 hover:underline self-center text-sm font-extrabold">Usuń</button>
+                          </div>
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  <aside className="bg-white border border-gray-200 rounded-2xl p-5">
+                  <aside className="bg-white/95 border-2 border-amber-200 rounded-2xl p-5 shadow-soft">
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold">Suma</span>
-                      <span className="font-extrabold">{currency(total)}</span>
+                      <span className="font-extrabold">Suma</span>
+                      <span className="font-extrabold text-xl">{currency(total)}</span>
                     </div>
                     <div className="mt-4 grid gap-2">
-                      <button onClick={goToCheckout} className="w-full bg-brand-yellow text-gray-900 font-semibold rounded-xl px-4 py-3">
+                      <button onClick={goToCheckout} className="w-full bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 shadow-yellow border border-amber-300">
                         Przejdź do zamówienia
                       </button>
-                      <button onClick={clear} className="w-full bg-gray-100 text-gray-700 rounded-xl px-4 py-3">
+                      <button onClick={clear} className="w-full bg-white text-gray-900 border-2 border-amber-200 rounded-xl px-4 py-3 font-extrabold hover:bg-amber-50">
                         Wyczyść koszyk
                       </button>
+                    </div>
+                    <div className="mt-4 text-xs text-gray-700 font-medium">
+                      Tip: żółte przyciski = akcje główne 😉
                     </div>
                   </aside>
                 </div>
 
-                <div className="mt-10 border-t border-gray-200 pt-6">
-                  <h3 className="text-lg font-bold flex items-center gap-2">
+                <div className="mt-10 border-t-2 border-amber-200 pt-6">
+                  <h3 className="text-lg font-extrabold flex items-center gap-2">
                     <span>Może dorzucisz coś jeszcze?</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-900 text-white">1 klik i dodane</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-brand-yellow text-gray-900 border border-amber-300 font-extrabold">1 klik</span>
                   </h3>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="text-sm text-gray-800 mt-1 font-medium">
                     Słodki dodatek lub napój często robi różnicę — szczególnie przy większych zamówieniach.
                   </p>
 
                   <div className="mt-4 flex flex-wrap gap-3">
                     {EXTRA_ITEMS.map(extra => (
-                      <button key={extra.id}
+                      <button
+                        key={extra.id}
                         onClick={() => add({
                           type:'extra',
                           productId: extra.id,
                           name: extra.name,
                           price: extra.price
                         })}
-                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-gray-200 shadow-soft text-sm hover:shadow-md hover:-translate-y-0.5 transition">
-                        <span className="text-base">+</span>
+                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/95 border-2 border-amber-200 shadow-soft text-sm hover:shadow-yellow hover:-translate-y-0.5 transition font-extrabold"
+                      >
+                        <span className="w-6 h-6 rounded-full bg-brand-yellow grid place-items-center border border-amber-300">+</span>
                         <span>{extra.name}</span>
-                        <span className="font-semibold text-gray-900">{currency(extra.price)}</span>
+                        <span className="text-gray-900">{currency(extra.price)}</span>
                       </button>
                     ))}
                   </div>
@@ -681,116 +793,102 @@
         }
       };
 
+      const Input = ({label, required, value, onChange, type="text", placeholder}) => (
+        <div>
+          <label className="text-xs uppercase tracking-wider text-gray-800 font-extrabold">
+            {label}{required ? ' *' : ''}
+          </label>
+          <input
+            type={type}
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder || ''}
+            className="mt-1 w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white/95 font-semibold"
+          />
+        </div>
+      );
+
       return (
         <section className="py-10">
           <div className="max-w-6xl mx-auto px-4">
-            <a href="#/koszyk" className="inline-flex items-center gap-2 text-sm text-gray-600">
-              <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do koszyka
+            <a href="#/koszyk" className="inline-flex items-center gap-2 text-sm text-gray-800 font-extrabold">
+              <i data-lucide="arrow-left" className="w-4 h-4 text-amber-600"></i> Wróć do koszyka
             </a>
-            <h2 className="text-2xl font-extrabold mt-3">Zamówienie</h2>
+
+            <div className="mt-3 flex items-end justify-between gap-3">
+              <h2 className="text-2xl font-extrabold">Zamówienie</h2>
+              <span className="text-xs font-extrabold px-3 py-1 rounded-full bg-brand-yellow/25 border border-amber-200">
+                do zapłaty: {currency(total)}
+              </span>
+            </div>
 
             <div className="mt-6 grid lg:grid-cols-3 gap-6 items-start">
-              <div className="lg:col-span-2 bg-white border border-gray-200 rounded-2xl p-5">
+              <div className="lg:col-span-2 bg-white/95 border-2 border-amber-200 rounded-2xl p-5 shadow-soft">
                 <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Imię i nazwisko *</label>
-                    <input value={form.imieNazwisko} onChange={e=>handle('imieNazwisko', e.target.value)}
-                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                  </div>
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Nr telefonu *</label>
-                    <input value={form.telefon} onChange={e=>handle('telefon', e.target.value)}
-                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                  </div>
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Adres email</label>
-                    <input value={form.email} onChange={e=>handle('email', e.target.value)}
-                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                  </div>
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Miasto *</label>
-                    <input value={form.miasto} onChange={e=>handle('miasto', e.target.value)}
-                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                  </div>
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Kod pocztowy</label>
-                    <input value={form.kod} onChange={e=>handle('kod', e.target.value)}
-                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                  </div>
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Ulica *</label>
-                    <input value={form.ulica} onChange={e=>handle('ulica', e.target.value)}
-                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                  </div>
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Nr budynku</label>
-                    <input value={form.nrBud} onChange={e=>handle('nrBud', e.target.value)}
-                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                  </div>
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Piętro</label>
-                    <input value={form.pietro} onChange={e=>handle('pietro', e.target.value)}
-                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                  </div>
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Nr lokalu</label>
-                    <input value={form.lokal} onChange={e=>handle('lokal', e.target.value)}
-                      className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                  </div>
+                  <Input label="Imię i nazwisko" required value={form.imieNazwisko} onChange={e=>handle('imieNazwisko', e.target.value)} />
+                  <Input label="Nr telefonu" required value={form.telefon} onChange={e=>handle('telefon', e.target.value)} />
+                  <Input label="Adres email" value={form.email} onChange={e=>handle('email', e.target.value)} type="email" />
+                  <Input label="Miasto" required value={form.miasto} onChange={e=>handle('miasto', e.target.value)} />
+                  <Input label="Kod pocztowy" value={form.kod} onChange={e=>handle('kod', e.target.value)} />
+                  <Input label="Ulica" required value={form.ulica} onChange={e=>handle('ulica', e.target.value)} />
+                  <Input label="Nr budynku" value={form.nrBud} onChange={e=>handle('nrBud', e.target.value)} />
+                  <Input label="Piętro" value={form.pietro} onChange={e=>handle('pietro', e.target.value)} />
+                  <Input label="Nr lokalu" value={form.lokal} onChange={e=>handle('lokal', e.target.value)} />
+
                   <div className="md:col-span-2">
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Uwagi do zamówienia</label>
-                    <textarea value={form.uwagi} onChange={e=>handle('uwagi', e.target.value)}
-                      className="w-full border border-gray-200 rounded-xl px-4 py-3 min-h-[100px]"></textarea>
+                    <label className="text-xs uppercase tracking-wider text-gray-800 font-extrabold">Uwagi do zamówienia</label>
+                    <textarea
+                      value={form.uwagi}
+                      onChange={e=>handle('uwagi', e.target.value)}
+                      className="mt-1 w-full border-2 border-amber-200 rounded-xl px-4 py-3 min-h-[110px] bg-white/95 font-semibold focus:outline-none focus:ring-2 focus:ring-brand-yellow"
+                    ></textarea>
                   </div>
                 </div>
 
-                <div className="mt-4">
-                  <label className="flex items-center gap-2 text-sm">
+                <div className="mt-4 border-t-2 border-amber-200 pt-4">
+                  <label className="flex items-center gap-2 text-sm font-extrabold">
                     <input type="checkbox" checked={form.faktura} onChange={e=>handle('faktura', e.target.checked)} />
                     Chcę dane do faktury
                   </label>
                   {form.faktura && (
                     <div className="grid md:grid-cols-2 gap-4 mt-3">
-                      <div>
-                        <label className="text-xs uppercase tracking-wider text-gray-500">NIP</label>
-                        <input value={form.nip} onChange={e=>handle('nip', e.target.value)}
-                          className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                      </div>
-                      <div>
-                        <label className="text-xs uppercase tracking-wider text-gray-500">Nazwa firmy</label>
-                        <input value={form.firma} onChange={e=>handle('firma', e.target.value)}
-                          className="input w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
-                      </div>
+                      <Input label="NIP" value={form.nip} onChange={e=>handle('nip', e.target.value)} />
+                      <Input label="Nazwa firmy" value={form.firma} onChange={e=>handle('firma', e.target.value)} />
                     </div>
                   )}
                 </div>
               </div>
 
-              <aside className="bg-white border border-gray-200 rounded-2xl p-5">
-                <div className="font-semibold">Podsumowanie</div>
+              <aside className="bg-white/95 border-2 border-amber-200 rounded-2xl p-5 shadow-soft">
+                <div className="font-extrabold">Podsumowanie</div>
                 <div className="mt-3 space-y-3 max-h-64 overflow-auto pr-2">
                   {cart.map(i => (
-                    <div key={i.id} className="text-sm">
+                    <div key={i.id} className="text-sm border border-amber-200 rounded-xl p-3 bg-amber-50/40">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium">{i.name} × {i.qty||1}</span>
-                        <span className="font-bold">{currency(lineTotal(i))}</span>
+                        <span className="font-extrabold">{i.name} × {i.qty||1}</span>
+                        <span className="font-extrabold">{currency(lineTotal(i))}</span>
                       </div>
-                      <div className="text-[11px] text-gray-500 mt-0.5 font-mono">
+                      <div className="text-[11px] text-gray-700 mt-1 font-mono">
                         {i.productId}
                       </div>
                     </div>
                   ))}
                 </div>
+
                 <div className="flex items-center justify-between mt-4 text-lg">
-                  <span className="font-bold">Do zapłaty</span>
+                  <span className="font-extrabold">Do zapłaty</span>
                   <span className="font-extrabold">{currency(total)}</span>
                 </div>
-                <button onClick={submit}
-                  className="w-full mt-4 bg-brand-yellow text-gray-900 font-semibold rounded-xl px-4 py-3">
+
+                <button
+                  onClick={submit}
+                  className="w-full mt-4 bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 shadow-yellow border border-amber-300 hover:brightness-95"
+                >
                   Płatność online (PayU)
                 </button>
-                <div className="text-xs text-gray-500 mt-3">
-                  Jeśli coś nie działa, sprawdź konsolę (F12) → log: <span className="font-mono">PAYU ERROR DETAILS</span>.
+
+                <div className="text-xs text-gray-700 mt-3 font-medium">
+                  Jeśli coś nie działa: F12 → Console → <span className="font-mono">PAYU ERROR DETAILS</span>.
                 </div>
               </aside>
             </div>
@@ -818,19 +916,19 @@
 
       return (
         <div className="fixed inset-0 z-[90] bg-black/60 flex items-center justify-center px-4" onClick={onClose} role="dialog" aria-modal="true">
-          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-glass border border-gray-200 p-6" onClick={(e) => e.stopPropagation()}>
-            <button type="button" onClick={onClose} className="absolute top-3 right-3 p-2 rounded-full bg-white border border-gray-200 shadow-soft hover:bg-gray-50" aria-label="Zamknij okno logowania">
-              <i data-lucide="x" className="w-4 h-4"></i>
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-glass border-2 border-amber-200 p-6" onClick={(e) => e.stopPropagation()}>
+            <button type="button" onClick={onClose} className="absolute top-3 right-3 p-2 rounded-full bg-brand-yellow border border-amber-300 shadow-soft hover:brightness-95" aria-label="Zamknij okno logowania">
+              <i data-lucide="x" className="w-4 h-4 text-gray-900"></i>
             </button>
 
             <div className="mb-4">
-              <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">
+              <div className="text-xs uppercase tracking-[0.16em] text-gray-800 font-extrabold">
                 {mode === 'login' ? 'Logowanie' : 'Rejestracja'}
               </div>
               <h3 className="text-xl font-extrabold mt-1">
                 {mode === 'login' ? 'Zaloguj się do eatmi' : 'Załóż konto w eatmi'}
               </h3>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-gray-700 mt-1 font-medium">
                 {mode === 'login'
                   ? 'Zamawiaj szybciej i śledź historię zamówień (makieta).'
                   : 'Utwórz konto, aby w przyszłości zapisywać dane dostawy (makieta).'}
@@ -839,48 +937,48 @@
 
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
-                <label className="text-xs uppercase tracking-wider text-gray-500">Adres e-mail</label>
+                <label className="text-xs uppercase tracking-wider text-gray-800 font-extrabold">Adres e-mail</label>
                 <input type="email" required value={form.email}
                   onChange={(e) => handleChange('email', e.target.value)}
                   placeholder="np. jan.kowalski@example.com"
-                  className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  className="mt-1 w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white/95 font-semibold"/>
               </div>
 
               <div>
-                <label className="text-xs uppercase tracking-wider text-gray-500">Hasło</label>
+                <label className="text-xs uppercase tracking-wider text-gray-800 font-extrabold">Hasło</label>
                 <input type="password" required value={form.password}
                   onChange={(e) => handleChange('password', e.target.value)}
                   placeholder="Wpisz hasło"
-                  className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                  className="mt-1 w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white/95 font-semibold"/>
               </div>
 
               {mode === 'register' && (
                 <div>
-                  <label className="text-xs uppercase tracking-wider text-gray-500">Powtórz hasło</label>
+                  <label className="text-xs uppercase tracking-wider text-gray-800 font-extrabold">Powtórz hasło</label>
                   <input type="password" required value={form.confirm}
                     onChange={(e) => handleChange('confirm', e.target.value)}
                     placeholder="Powtórz hasło"
-                    className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white"/>
+                    className="mt-1 w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white/95 font-semibold"/>
                 </div>
               )}
 
-              <button type="submit" className="w-full mt-1 bg-gray-900 text-white font-semibold rounded-xl px-4 py-3 text-sm hover:bg-black">
+              <button type="submit" className="w-full mt-1 bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 text-sm shadow-yellow border border-amber-300 hover:brightness-95">
                 {mode === 'login' ? 'Zaloguj się' : 'Zarejestruj się'}
               </button>
             </form>
 
-            <div className="mt-4 text-xs text-gray-600 text-center">
+            <div className="mt-4 text-xs text-gray-800 text-center font-medium">
               {mode === 'login' ? (
                 <>Nie masz konta?{' '}
                   <button type="button" onClick={() => { setMode('register'); setForm({ email:'', password:'', confirm:'' }) }}
-                    className="font-semibold text-gray-900 underline underline-offset-2">
+                    className="font-extrabold text-gray-900 underline underline-offset-2">
                     Zarejestruj się
                   </button>
                 </>
               ) : (
                 <>Masz konto?{' '}
                   <button type="button" onClick={() => { setMode('login'); setForm({ email:'', password:'', confirm:'' }) }}
-                    className="font-semibold text-gray-900 underline underline-offset-2">
+                    className="font-extrabold text-gray-900 underline underline-offset-2">
                     Zaloguj się
                   </button>
                 </>
@@ -895,25 +993,33 @@
       <>
         <Hero />
 
-        <section id="kategorie" className="py-12 md:py-20 bg-gradient-to-b from-white to-brand-light">
+        <section id="kategorie" className="py-12 md:py-20">
           <div className="max-w-6xl mx-auto px-4">
-            <SectionTitle eyebrow="Menu" title="Wybierz kategorię" subtitle="Najpierw wybierz kategorię, potem dodawaj pozycje do koszyka — w kilka kliknięć!" />
+            <SectionTitle
+              eyebrow="Menu"
+              title="Wybierz kategorię"
+              subtitle="Najpierw wybierz kategorię, potem dodawaj pozycje do koszyka — w kilka kliknięć!"
+            />
             <div className="mt-8 grid md:grid-cols-3 gap-6">
               {PRODUCT_CATEGORIES.map(cat => <CategoryCard key={cat.id} category={cat} />)}
             </div>
           </div>
+
+          <div className="mt-14 h-2 bg-gradient-to-r from-transparent via-brand-yellow to-transparent opacity-70"></div>
         </section>
 
-        <section id="kontakt" className="py-12 bg-white">
+        <section id="kontakt" className="py-12">
           <div className="max-w-6xl mx-auto px-4">
             <SectionTitle title="Kontakt" subtitle="Masz pytania? Napisz do nas." />
-            <form className="max-w-xl mx-auto mt-8 bg-white border border-gray-200 rounded-2xl p-6 shadow-soft">
+            <form className="max-w-xl mx-auto mt-8 bg-white/95 border-2 border-amber-200 rounded-2xl p-6 shadow-soft y-glow transition">
               <div className="grid md:grid-cols-2 gap-4">
-                <input className="input w-full border border-gray-200 rounded-xl px-4 py-3" placeholder="Imię" />
-                <input className="input w-full border border-gray-200 rounded-xl px-4 py-3" placeholder="Email" />
+                <input className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 font-semibold focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white/95" placeholder="Imię" />
+                <input className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 font-semibold focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white/95" placeholder="Email" />
               </div>
-              <textarea className="input w-full border border-gray-200 rounded-xl px-4 py-3 mt-4" rows="4" placeholder="Wiadomość"></textarea>
-              <button type="button" className="mt-4 bg-gray-900 text-white rounded-xl px-5 py-3 font-semibold">Wyślij</button>
+              <textarea className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 mt-4 font-semibold focus:outline-none focus:ring-2 focus:ring-brand-yellow bg-white/95" rows="4" placeholder="Wiadomość"></textarea>
+              <button type="button" className="mt-4 bg-brand-yellow text-gray-900 rounded-xl px-5 py-3 font-extrabold shadow-yellow border border-amber-300 hover:brightness-95">
+                Wyślij
+              </button>
             </form>
           </div>
         </section>
@@ -921,12 +1027,28 @@
     );
 
     const FloatingNav = () => (
-      <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(720px,92%)] liquid border border-white/50 rounded-2xl shadow-glass">
+      <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(720px,92%)] liquid border-2 border-amber-200 rounded-2xl shadow-glass">
         <ul className="grid grid-cols-4">
-          <li><a href="#kategorie" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="shopping-bag" className="w-5 h-5"></i>Menu</a></li>
-          <li><a href="#/kategoria/boxy-sniadaniowe" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="package-open" className="w-5 h-5"></i>Boxy</a></li>
-          <li><a href="#/kategoria/lunche" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="utensils-crossed" className="w-5 h-5"></i>Lunche</a></li>
-          <li><a href="#/koszyk" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="shopping-cart" className="w-5 h-5"></i>Koszyk</a></li>
+          <li>
+            <a href="#kategorie" className="flex flex-col items-center py-3 text-sm font-extrabold text-gray-900">
+              <i data-lucide="shopping-bag" className="w-5 h-5 text-amber-600"></i>Menu
+            </a>
+          </li>
+          <li>
+            <a href="#/kategoria/boxy-sniadaniowe" className="flex flex-col items-center py-3 text-sm font-extrabold text-gray-900">
+              <i data-lucide="package-open" className="w-5 h-5 text-amber-600"></i>Boxy
+            </a>
+          </li>
+          <li>
+            <a href="#/kategoria/lunche" className="flex flex-col items-center py-3 text-sm font-extrabold text-gray-900">
+              <i data-lucide="utensils-crossed" className="w-5 h-5 text-amber-600"></i>Lunche
+            </a>
+          </li>
+          <li>
+            <a href="#/koszyk" className="flex flex-col items-center py-3 text-sm font-extrabold text-gray-900">
+              <i data-lucide="shopping-cart" className="w-5 h-5 text-amber-600"></i>Koszyk
+            </a>
+          </li>
         </ul>
       </nav>
     );
@@ -953,7 +1075,6 @@
 
     const App = () => {
       const [authOpen, setAuthOpen] = useState(false);
-
       useEffect(() => { window.lucide?.createIcons?.(); }, [authOpen]);
 
       return (
@@ -962,8 +1083,12 @@
             <Header onOpenAuth={() => setAuthOpen(true)} />
             <Router />
             <FloatingNav />
-            <footer className="py-16 text-center text-sm text-gray-500">
-              © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
+            <footer className="py-16 text-center text-sm text-gray-800 font-semibold">
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/90 border-2 border-amber-200 shadow-soft">
+                © {new Date().getFullYear()} <span className="font-extrabold">eatmi.pl</span>
+                <span className="w-2 h-2 rounded-full bg-brand-yellow border border-amber-300"></span>
+                Wszystkie prawa zastrzeżone
+              </span>
             </footer>
             <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
           </CartProvider>
