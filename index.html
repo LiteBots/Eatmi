@@ -2,11 +2,20 @@
 <html lang="pl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- PWA / app-like mobile -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#FFC107" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="eatmi" />
+
   <title>eatmi.pl — Zamów online</title>
   <meta name="description" content="eatmi.pl — Boxy śniadaniowe, lunche, kanapki, zdrowe, słodkie i napoje." />
+
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
 
   <!-- Tailwind config MUST be before tailwindcdn script -->
   <script>
@@ -45,6 +54,16 @@
   <script src="https://cdn.tailwindcss.com"></script>
 
   <style>
+    :root{
+      --tabbar-h: 72px;
+      --cta-h: 56px;
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-t: env(safe-area-inset-top, 0px);
+    }
+
+    html, body { height: 100%; }
+    body { overscroll-behavior-y: none; }
+
     .liquid { background: rgba(255,255,255,.75); backdrop-filter: blur(12px); }
     .logo-glow { box-shadow: 0 12px 30px rgba(255,193,7,.18); }
     .toast-enter { animation: toastIn .18s ease-out; }
@@ -55,7 +74,7 @@
     .input-focus { outline: none; }
     .input-focus:focus { box-shadow: 0 0 0 3px rgba(255,193,7,.35); border-color: rgba(255,193,7,.75); }
 
-    /* Wymuszenie żółtego dla 2 CTA w HERO (żeby nic nie nadpisało tła) */
+    /* Wymuszenie żółtego dla 2 CTA w HERO */
     .btn-yellow{
       background:#FFC107 !important;
       color:#111827 !important;
@@ -71,6 +90,16 @@
       filter: blur(10px);
       transform: translateZ(0);
     }
+
+    /* App-like: treść nie może chować się pod tabbarem (i CTA) */
+    .app-content-pad {
+      padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + 18px);
+    }
+    .app-content-pad.has-cta {
+      padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--cta-h) + 22px);
+    }
+
+    .no-overscroll { overscroll-behavior: none; }
   </style>
 
   <!-- React 18 + ReactDOM 18 -->
@@ -91,7 +120,7 @@
     const { useState, useEffect, useMemo } = React;
 
     /* =======================
-       TWOJE PRAWDZIWE MENU
+       MENU
     ======================= */
 
     const PRODUCT_CATEGORIES = [
@@ -173,7 +202,7 @@
     };
 
     /* =======================
-       APPKA
+       UTIL
     ======================= */
 
     const useLocalStorage = (key, initial) => {
@@ -186,6 +215,25 @@
 
     const currency = (n) =>
       new Intl.NumberFormat('pl-PL', { style:'currency', currency:'PLN' }).format(n);
+
+    const haptics = () => {
+      try { if (navigator.vibrate) navigator.vibrate(10); } catch {}
+    };
+
+    // MOBILE DETECTION: CTA ma być tylko na telefonie
+    const useIsMobile = (breakpoint = 768) => {
+      const [isMobile, setIsMobile] = useState(() => window.innerWidth < breakpoint);
+      useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth < breakpoint);
+        window.addEventListener("resize", onResize, { passive: true });
+        return () => window.removeEventListener("resize", onResize);
+      }, [breakpoint]);
+      return isMobile;
+    };
+
+    /* =======================
+       TOAST
+    ======================= */
 
     const ToastContext = React.createContext();
     const useToast = () => React.useContext(ToastContext);
@@ -209,18 +257,14 @@
         <ToastContext.Provider value={{ show }}>
           {children}
           {toast && (
-            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[80] pointer-events-none">
+            <div className="fixed bottom-[calc(var(--tabbar-h)+var(--safe-b)+18px)] left-1/2 -translate-x-1/2 z-[80] pointer-events-none">
               <div className="relative pointer-events-auto toast-enter bg-white/95 border border-emerald-200 shadow-glass rounded-2xl px-4 py-3 min-w-[260px] max-w-[90vw] flex items-start gap-3">
-                <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-lg">
-                  ✓
-                </div>
+                <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-lg">✓</div>
                 <div className="flex-1">
                   <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-600">
                     Dodano do koszyka
                   </div>
-                  <div className="text-sm text-gray-900 mt-0.5">
-                    {toast}
-                  </div>
+                  <div className="text-sm text-gray-900 mt-0.5">{toast}</div>
                 </div>
                 <button
                   type="button"
@@ -240,6 +284,50 @@
       );
     };
 
+    /* =======================
+       CART
+    ======================= */
+
+    const CartContext = React.createContext();
+    const useCart = () => React.useContext(CartContext);
+
+    const CartProvider = ({children}) => {
+      const [cart, setCart] = useLocalStorage('eatmi-cart', []);
+      const toast = useToast();
+      const show = toast?.show;
+
+      const add = (entry) => {
+        const newItem = {
+          id: (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
+          qty: 1,
+          ...entry
+        };
+        setCart(prev => [...prev, newItem]);
+        if (show) show(`Dodano: ${entry.name}`);
+        haptics();
+      };
+
+      const remove  = (id) => setCart(prev => prev.filter(i => i.id !== id));
+      const setQty  = (id, qty) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: Math.max(1, qty|0)} : i));
+      const incQty  = (id) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: (i.qty||1)+1} : i));
+      const decQty  = (id) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: Math.max(1, (i.qty||1)-1)} : i));
+      const clear   = () => setCart([]);
+
+      const lineTotal = (i) => (i.price || 0) * (i.qty || 1);
+      const total  = useMemo(() => cart.reduce((s,i)=> s + lineTotal(i), 0), [cart]);
+      const count  = useMemo(() => cart.reduce((s,i)=> s + (i.qty||1), 0), [cart]);
+
+      return (
+        <CartContext.Provider value={{cart, add, remove, setQty, incQty, decQty, clear, lineTotal, total, count}}>
+          {children}
+        </CartContext.Provider>
+      );
+    };
+
+    /* =======================
+       HEADER / LOGO / CART BTN
+    ======================= */
+
     const Logo = () => (
       <a href="#/" className="flex items-center gap-3 group">
         <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center border border-gray-100 overflow-hidden shadow-soft logo-glow">
@@ -256,68 +344,35 @@
       </a>
     );
 
-    const CartContext = React.createContext();
-
-    const CartProvider = ({children}) => {
-      const [cart, setCart] = useLocalStorage('eatmi-cart', []);
-      const toast = useToast();
-      const show = toast?.show;
-
-      const add = (entry) => {
-        const newItem = {
-          id: (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
-          qty: 1,
-          ...entry
-        };
-        setCart(prev => [...prev, newItem]);
-        if (show) show(`Dodano: ${entry.name}`);
-      };
-
-      const remove  = (id) => setCart(prev => prev.filter(i => i.id !== id));
-      const setQty  = (id, qty) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: Math.max(1, qty|0)} : i));
-      const incQty  = (id) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: (i.qty||1)+1} : i));
-      const decQty  = (id) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: Math.max(1, (i.qty||1)-1)} : i));
-      const clear   = () => setCart([]);
-
-      const lineTotal = (i) => (i.price || 0) * (i.qty || 1);
-      const total  = useMemo(() => cart.reduce((s,i)=> s + lineTotal(i), 0), [cart]);
-
-      return (
-        <CartContext.Provider value={{cart, add, remove, setQty, incQty, decQty, clear, lineTotal, total}}>
-          {children}
-        </CartContext.Provider>
-      );
-    };
-
-    const useCart = () => React.useContext(CartContext);
-
     const CartButton = () => {
-      const { cart, total } = useCart();
+      const { total, count } = useCart();
       return (
         <a
           href="#/koszyk"
-          className="relative inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition hover:ring-2 hover:ring-brand-yellow/50"
+          className="relative inline-flex items-center justify-center gap-2 border border-gray-200 bg-white px-3 py-2 rounded-xl shadow-soft hover:shadow-md transition hover:ring-2 hover:ring-brand-yellow/50"
+          aria-label="Koszyk"
         >
           <i data-lucide="shopping-cart" className="w-5 h-5"></i>
-          <span className="text-sm font-semibold">{currency(total)}</span>
+          <span className="hidden sm:inline text-sm font-semibold">{currency(total)}</span>
           <span className="absolute -top-2 -right-2 bg-brand-yellow text-gray-900 text-xs font-extrabold w-6 h-6 rounded-full grid place-items-center ring-2 ring-white">
-            {cart.reduce((s,i)=>s+(i.qty||1),0)}
+            {count}
           </span>
         </a>
       );
     };
 
     const Header = ({ onOpenAuth }) => (
-      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur border-b border-gray-200">
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <Logo />
-          <nav className="hidden md:flex items-center gap-6 text-sm">
+
+          <div className="hidden md:flex items-center gap-6 text-sm">
             <a href="#kategorie" className="hover:text-gray-900 text-gray-600">Menu</a>
             <a href="#/kategoria/boxy-sniadaniowe" className="hover:text-gray-900 text-gray-600">Boxy</a>
             <a href="#/kategoria/lunche" className="hover:text-gray-900 text-gray-600">Lunche</a>
             <a href="#/kategoria/kanapki" className="hover:text-gray-900 text-gray-600">Kanapki</a>
             <a href="#/kategoria/napoje" className="hover:text-gray-900 text-gray-600">Napoje</a>
-          </nav>
+          </div>
 
           <div className="flex items-center gap-3">
             <button
@@ -336,15 +391,20 @@
               <i data-lucide="user" className="w-5 h-5"></i>
             </button>
 
+            {/* Koszyk zawsze w prawym górnym rogu */}
             <CartButton />
           </div>
         </div>
       </header>
     );
 
+    /* =======================
+       HERO / UI
+    ======================= */
+
     const Hero = () => (
       <section className="relative overflow-hidden">
-        <div className="max-w-6xl mx-auto px-4 py-12 md:py-20">
+        <div className="max-w-6xl mx-auto px-4 py-10 md:py-16">
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 mb-3 px-4 py-2 rounded-full bg-white/80 border border-gray-200 shadow-soft">
               <span className="text-xl">👋</span>
@@ -492,7 +552,7 @@
             <button
               type="button"
               onClick={() => onAdd(item)}
-              className="inline-flex items-center justify-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-4 py-2.5 rounded-2xl shadow-soft hover:scale-[1.03] active:scale-[0.98] transition hover:ring-2 hover:ring-brand-yellow/40"
+              className="inline-flex items-center justify-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-4 py-3 rounded-2xl shadow-soft hover:scale-[1.03] active:scale-[0.98] transition hover:ring-2 hover:ring-brand-yellow/40 min-h-[44px]"
             >
               <i data-lucide="plus" className="w-4 h-4"></i> Dodaj
             </button>
@@ -528,7 +588,7 @@
       });
 
       return (
-        <section className="py-8 md:py-10">
+        <section className="py-6 md:py-10">
           <div className="max-w-6xl mx-auto px-4">
             <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-600">
               <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do menu
@@ -544,7 +604,7 @@
               </div>
             </div>
 
-            <div className="mt-6 grid sm:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
+            <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3 md:gap-6">
               {items.map(item => (
                 <ProductCard
                   key={item.id}
@@ -559,6 +619,10 @@
       );
     };
 
+    /* =======================
+       KOSZYK / CHECKOUT
+    ======================= */
+
     const EXTRA_ITEMS = [
       { id:'extra-granola', name:'Domowa granola', price: 19 },
       { id:'extra-lemoniada',name:'Domowa lemoniada', price: 12 },
@@ -570,7 +634,7 @@
       const goToCheckout = () => window.location.hash = '#/zamowienie';
 
       return (
-        <section className="py-10">
+        <section className="py-8 md:py-10">
           <div className="max-w-6xl mx-auto px-4">
             <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-600">
               <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć
@@ -578,7 +642,13 @@
             <h2 className="text-2xl font-extrabold mt-3">Koszyk</h2>
 
             {cart.length === 0 ? (
-              <p className="text-gray-600 mt-2">Twój koszyk jest pusty.</p>
+              <div className="mt-4 bg-white border border-gray-200 rounded-2xl p-5">
+                <p className="text-gray-700 font-semibold">Twój koszyk jest pusty.</p>
+                <a href="#kategorie" className="inline-flex mt-3 items-center gap-2 bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/40 min-h-[44px]">
+                  <i data-lucide="shopping-bag" className="w-5 h-5"></i>
+                  Wybierz menu
+                </a>
+              </div>
             ) : (
               <>
                 <div className="mt-6 grid md:grid-cols-3 gap-6 items-start">
@@ -595,15 +665,15 @@
 
                         <div className="flex flex-col sm:flex-row md:flex-row gap-3 md:gap-4 items-stretch md:items-center w-full md:w-auto justify-between md:justify-end">
                           <div className="flex items-center gap-2 self-start">
-                            <button onClick={()=> decQty(item.id)} className="w-8 h-8 rounded-lg border border-gray-200 grid place-items-center hover:ring-2 hover:ring-brand-yellow/40">−</button>
+                            <button onClick={()=> decQty(item.id)} className="w-10 h-10 rounded-xl border border-gray-200 grid place-items-center hover:ring-2 hover:ring-brand-yellow/40">−</button>
                             <input
                               value={item.qty||1}
                               onChange={(e)=> setQty(item.id, parseInt(e.target.value||'1',10))}
-                              className="input-focus w-14 text-center border border-gray-200 rounded-lg py-1"
+                              className="input-focus w-16 text-center border border-gray-200 rounded-xl py-2"
                               inputMode="numeric"
                               pattern="[0-9]*"
                             />
-                            <button onClick={()=> incQty(item.id)} className="w-8 h-8 rounded-lg border border-gray-200 grid place-items-center hover:ring-2 hover:ring-brand-yellow/40">+</button>
+                            <button onClick={()=> incQty(item.id)} className="w-10 h-10 rounded-xl border border-gray-200 grid place-items-center hover:ring-2 hover:ring-brand-yellow/40">+</button>
                           </div>
 
                           <div className="text-right self-center">
@@ -617,7 +687,7 @@
                     ))}
                   </div>
 
-                  <aside className="bg-white border border-gray-200 rounded-2xl p-5">
+                  <aside className="bg-white border border-gray-200 rounded-2xl p-5 sticky top-[84px]">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold">Suma</span>
                       <span className="font-extrabold">{currency(total)}</span>
@@ -625,11 +695,11 @@
                     <div className="mt-4 grid gap-2">
                       <button
                         onClick={goToCheckout}
-                        className="w-full bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/40"
+                        className="w-full bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/40 min-h-[44px]"
                       >
                         Przejdź do zamówienia
                       </button>
-                      <button onClick={clear} className="w-full bg-gray-100 text-gray-700 rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/20">
+                      <button onClick={clear} className="w-full bg-gray-100 text-gray-700 rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/20 min-h-[44px]">
                         Wyczyść koszyk
                       </button>
                     </div>
@@ -654,7 +724,7 @@
                           name: extra.name,
                           price: extra.price
                         })}
-                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-gray-200 shadow-soft text-sm hover:shadow-md hover:-translate-y-0.5 transition hover:ring-2 hover:ring-brand-yellow/30">
+                        className="flex items-center gap-2 px-4 py-3 rounded-full bg-white border border-gray-200 shadow-soft text-sm hover:shadow-md hover:-translate-y-0.5 transition hover:ring-2 hover:ring-brand-yellow/30 min-h-[44px]">
                         <span className="text-base font-extrabold text-brand-yellow">+</span>
                         <span>{extra.name}</span>
                         <span className="font-extrabold text-gray-900">{currency(extra.price)}</span>
@@ -728,7 +798,7 @@
       };
 
       return (
-        <section className="py-10">
+        <section className="py-8 md:py-10">
           <div className="max-w-6xl mx-auto px-4">
             <a href="#/koszyk" className="inline-flex items-center gap-2 text-sm text-gray-600">
               <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do koszyka
@@ -741,52 +811,52 @@
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Imię i nazwisko *</label>
                     <input value={form.imieNazwisko} onChange={e=>handle('imieNazwisko', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
                   </div>
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Nr telefonu *</label>
                     <input value={form.telefon} onChange={e=>handle('telefon', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
                   </div>
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Adres email</label>
                     <input value={form.email} onChange={e=>handle('email', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
                   </div>
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Miasto *</label>
                     <input value={form.miasto} onChange={e=>handle('miasto', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
                   </div>
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Kod pocztowy</label>
                     <input value={form.kod} onChange={e=>handle('kod', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
                   </div>
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Ulica *</label>
                     <input value={form.ulica} onChange={e=>handle('ulica', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
                   </div>
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Nr budynku</label>
                     <input value={form.nrBud} onChange={e=>handle('nrBud', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
                   </div>
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Piętro</label>
                     <input value={form.pietro} onChange={e=>handle('pietro', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
                   </div>
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Nr lokalu</label>
                     <input value={form.lokal} onChange={e=>handle('lokal', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
                   </div>
                   <div className="md:col-span-2">
                     <label className="text-xs uppercase tracking-wider text-gray-500">Uwagi do zamówienia</label>
                     <textarea value={form.uwagi} onChange={e=>handle('uwagi', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 min-h-[100px] bg-white"></textarea>
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 min-h-[120px] bg-white"></textarea>
                   </div>
                 </div>
 
@@ -800,24 +870,24 @@
                       <div>
                         <label className="text-xs uppercase tracking-wider text-gray-500">NIP</label>
                         <input value={form.nip} onChange={e=>handle('nip', e.target.value)}
-                          className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
+                          className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
                       </div>
                       <div>
                         <label className="text-xs uppercase tracking-wider text-gray-500">Nazwa firmy</label>
                         <input value={form.firma} onChange={e=>handle('firma', e.target.value)}
-                          className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
+                          className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
                       </div>
                     </div>
                   )}
                 </div>
               </div>
 
-              <aside className="bg-white border border-gray-200 rounded-2xl p-5">
+              <aside className="bg-white border border-gray-200 rounded-2xl p-5 sticky top-[84px]">
                 <div className="font-semibold">Podsumowanie</div>
                 <div className="mt-3 space-y-3 max-h-64 overflow-auto pr-2">
                   {cart.map(i => (
                     <div key={i.id} className="text-sm">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-3">
                         <span className="font-medium">{i.name} × {i.qty||1}</span>
                         <span className="font-bold">{currency(lineTotal(i))}</span>
                       </div>
@@ -832,7 +902,7 @@
                   <span className="font-extrabold">{currency(total)}</span>
                 </div>
                 <button onClick={submit}
-                  className="w-full mt-4 bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/40">
+                  className="w-full mt-4 bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/40 min-h-[44px]">
                   Płatność online (PayU)
                 </button>
                 <div className="text-xs text-gray-500 mt-3">
@@ -844,6 +914,10 @@
         </section>
       );
     };
+
+    /* =======================
+       AUTH MODAL
+    ======================= */
 
     const AuthModal = ({ open, onClose }) => {
       const [mode, setMode] = useState('login');
@@ -889,7 +963,7 @@
                 <input type="email" required value={form.email}
                   onChange={(e) => handleChange('email', e.target.value)}
                   placeholder="np. jan.kowalski@example.com"
-                  className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
+                  className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
               </div>
 
               <div>
@@ -897,7 +971,7 @@
                 <input type="password" required value={form.password}
                   onChange={(e) => handleChange('password', e.target.value)}
                   placeholder="Wpisz hasło"
-                  className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
+                  className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
               </div>
 
               {mode === 'register' && (
@@ -906,11 +980,11 @@
                   <input type="password" required value={form.confirm}
                     onChange={(e) => handleChange('confirm', e.target.value)}
                     placeholder="Powtórz hasło"
-                    className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"/>
+                    className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
                 </div>
               )}
 
-              <button type="submit" className="w-full mt-1 bg-gray-900 text-white font-semibold rounded-xl px-4 py-3 text-sm hover:bg-black hover:ring-2 hover:ring-brand-yellow/30">
+              <button type="submit" className="w-full mt-1 bg-gray-900 text-white font-semibold rounded-xl px-4 py-3 text-sm hover:bg-black hover:ring-2 hover:ring-brand-yellow/30 min-h-[44px]">
                 {mode === 'login' ? 'Zaloguj się' : 'Zarejestruj się'}
               </button>
             </form>
@@ -937,6 +1011,10 @@
       );
     };
 
+    /* =======================
+       HOME
+    ======================= */
+
     const Home = () => (
       <>
         <Hero />
@@ -944,7 +1022,7 @@
         <section id="kategorie" className="py-12 md:py-20 bg-gradient-to-b from-white to-brand-light">
           <div className="max-w-6xl mx-auto px-4">
             <SectionTitle eyebrow="Menu" title="Wybierz kategorię" subtitle="Najpierw wybierz kategorię, potem dodawaj pozycje do koszyka — w kilka kliknięć!" />
-            <div className="mt-8 grid md:grid-cols-3 gap-6">
+            <div className="mt-8 grid gap-5 md:grid-cols-3 md:gap-6">
               {PRODUCT_CATEGORIES.map(cat => <CategoryCard key={cat.id} category={cat} />)}
             </div>
           </div>
@@ -955,11 +1033,11 @@
             <SectionTitle title="Kontakt" subtitle="Masz pytania? Napisz do nas." />
             <form className="max-w-xl mx-auto mt-8 bg-white border border-gray-200 rounded-2xl p-6 shadow-soft hover:ring-2 hover:ring-brand-yellow/20 transition">
               <div className="grid md:grid-cols-2 gap-4">
-                <input className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3" placeholder="Imię" />
-                <input className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3" placeholder="Email" />
+                <input className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 min-h-[44px]" placeholder="Imię" />
+                <input className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 min-h-[44px]" placeholder="Email" />
               </div>
               <textarea className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 mt-4" rows="4" placeholder="Wiadomość"></textarea>
-              <button type="button" className="mt-4 bg-brand-yellow text-gray-900 rounded-xl px-5 py-3 font-extrabold hover:ring-2 hover:ring-brand-yellow/40">
+              <button type="button" className="mt-4 bg-brand-yellow text-gray-900 rounded-xl px-5 py-3 font-extrabold hover:ring-2 hover:ring-brand-yellow/40 min-h-[44px]">
                 Wyślij
               </button>
             </form>
@@ -968,17 +1046,218 @@
       </>
     );
 
-    const FloatingNav = () => (
-      <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(720px,92%)] liquid border border-white/50 rounded-2xl shadow-glass">
-        <ul className="grid grid-cols-4">
-          <li><a href="#kategorie" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="shopping-bag" className="w-5 h-5"></i>Menu</a></li>
-          <li><a href="#/kategoria/boxy-sniadaniowe" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="package-open" className="w-5 h-5"></i>Boxy</a></li>
-          <li><a href="#/kategoria/lunche" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="utensils-crossed" className="w-5 h-5"></i>Lunche</a></li>
-          <li><a href="#/koszyk" className="flex flex-col items-center py-3 text-sm font-medium"><i data-lucide="shopping-cart" className="w-5 h-5"></i>Koszyk</a></li>
-        </ul>
-        <div className="h-1 w-full bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 rounded-b-2xl opacity-60"></div>
-      </nav>
+    /* =======================
+       APP NAV: TAB BAR + CATEGORY SHEET + FLOATING CTA (MOBILE ONLY)
+    ======================= */
+
+    const lockBodyScroll = (lock) => {
+      const body = document.body;
+      if (!body) return;
+      if (lock) {
+        body.dataset._scrollY = String(window.scrollY || 0);
+        body.style.position = "fixed";
+        body.style.top = `-${window.scrollY || 0}px`;
+        body.style.left = "0";
+        body.style.right = "0";
+        body.style.width = "100%";
+      } else {
+        const y = parseInt(body.dataset._scrollY || "0", 10) || 0;
+        body.style.position = "";
+        body.style.top = "";
+        body.style.left = "";
+        body.style.right = "";
+        body.style.width = "";
+        delete body.dataset._scrollY;
+        window.scrollTo(0, y);
+      }
+    };
+
+    const CategorySheet = ({ open, onClose }) => {
+      useEffect(() => {
+        if (open) lockBodyScroll(true);
+        return () => lockBodyScroll(false);
+      }, [open]);
+
+      useEffect(() => {
+        const onKey = (e) => {
+          if (!open) return;
+          if (e.key === "Escape") onClose?.();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+      }, [open, onClose]);
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [open]);
+
+      if (!open) return null;
+
+      const go = (id) => {
+        window.location.hash = `#/kategoria/${id}`;
+        onClose?.();
+      };
+
+      return (
+        <div className="fixed inset-0 z-[100]">
+          <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true"></div>
+
+          <div className="absolute inset-x-0 bottom-0">
+            <div
+              className="mx-auto w-full max-w-2xl bg-white rounded-t-3xl border border-gray-200 shadow-glass p-4"
+              style={{ paddingBottom: "calc(var(--safe-b) + 12px)" }}
+              role="dialog"
+              aria-modal="true"
+              onClick={(e)=>e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Zamów</div>
+                  <div className="text-xl font-extrabold mt-0.5">Wybierz kategorię</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-11 h-11 rounded-2xl border border-gray-200 bg-white shadow-soft grid place-items-center hover:ring-2 hover:ring-brand-yellow/40"
+                  aria-label="Zamknij"
+                >
+                  <i data-lucide="x" className="w-5 h-5"></i>
+                </button>
+              </div>
+
+              <div className="mt-4 grid gap-3">
+                {PRODUCT_CATEGORIES.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => go(c.id)}
+                    className="w-full flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-soft hover:ring-2 hover:ring-brand-yellow/40"
+                  >
+                    <div className="flex items-center gap-3 text-left">
+                      <span className="w-11 h-11 rounded-2xl bg-brand-yellow/20 ring-1 ring-brand-yellow/30 grid place-items-center">
+                        <i data-lucide={c.icon} className="w-5 h-5"></i>
+                      </span>
+                      <div className="min-w-0">
+                        <div className="font-extrabold">{c.name}</div>
+                        <div className="text-xs text-gray-600 mt-0.5 line-clamp-2">{c.description}</div>
+                      </div>
+                    </div>
+                    <i data-lucide="chevron-right" className="w-5 h-5 text-gray-400"></i>
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-4 text-xs text-gray-500">
+                Tip: możesz też przewijać stronę i klikać w kategorie na Home.
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const TabButton = ({ active, label, icon, onClick, badge }) => (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`flex flex-col items-center justify-center gap-1 py-2 px-3 rounded-2xl transition min-h-[52px] ${
+          active ? "bg-brand-yellow/20 ring-1 ring-brand-yellow/30" : "hover:bg-gray-100"
+        }`}
+        aria-label={label}
+      >
+        <span className="relative">
+          <i data-lucide={icon} className="w-6 h-6"></i>
+          {typeof badge === "number" && badge > 0 && (
+            <span className="absolute -top-2 -right-2 bg-brand-yellow text-gray-900 text-[10px] font-extrabold w-5 h-5 rounded-full grid place-items-center ring-2 ring-white">
+              {badge > 99 ? "99+" : badge}
+            </span>
+          )}
+        </span>
+        <span className={`text-[11px] font-extrabold ${active ? "text-gray-900" : "text-gray-600"}`}>
+          {label}
+        </span>
+      </button>
     );
+
+    const BottomTabBar = ({ route, onOpenOrder, onOpenAuth }) => {
+      const { count } = useCart();
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [route, count]);
+
+      const isHome = !route || route === "#/" || route === "#";
+      const isCart = route === "#/koszyk";
+      const isOrder = route?.startsWith("#/kategoria/") || route === "#/zamowienie";
+
+      return (
+        <div className="fixed inset-x-0 bottom-0 z-[70]">
+          <div
+            className="mx-auto w-full max-w-2xl px-3"
+            style={{ paddingBottom: "calc(var(--safe-b) + 10px)" }}
+          >
+            <div className="liquid border border-white/60 shadow-glass rounded-3xl px-2 py-2">
+              <div className="grid grid-cols-4 gap-2">
+                <TabButton
+                  active={isHome}
+                  label="Start"
+                  icon="home"
+                  onClick={() => { window.location.hash = "#/"; }}
+                />
+                <TabButton
+                  active={isOrder}
+                  label="Zamów"
+                  icon="shopping-bag"
+                  onClick={onOpenOrder}
+                />
+                <TabButton
+                  active={isCart}
+                  label="Koszyk"
+                  icon="shopping-cart"
+                  badge={count}
+                  onClick={() => { window.location.hash = "#/koszyk"; }}
+                />
+                <TabButton
+                  active={false}
+                  label="Konto"
+                  icon="user"
+                  onClick={onOpenAuth}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const FloatingCheckoutCTA = ({ visible }) => {
+      const { total, count } = useCart();
+      useEffect(() => { window.lucide?.createIcons?.(); }, [visible, total, count]);
+      if (!visible) return null;
+
+      return (
+        <div
+          className="fixed inset-x-0 z-[75] md:hidden"  /* dodatkowo: NIGDY na desktopie */
+          style={{ bottom: "calc(var(--tabbar-h) + var(--safe-b) + 10px)" }}
+        >
+          <div className="mx-auto w-full max-w-2xl px-3">
+            <button
+              type="button"
+              onClick={() => { window.location.hash = "#/koszyk"; }}
+              className="w-full bg-gray-900 text-white font-extrabold rounded-2xl px-4 py-4 shadow-glass hover:ring-2 hover:ring-brand-yellow/40 flex items-center justify-between gap-3 min-h-[56px]"
+            >
+              <span className="flex items-center gap-2">
+                <i data-lucide="receipt" className="w-5 h-5"></i>
+                Zobacz swoje zamówienie
+              </span>
+              <span className="text-sm font-extrabold">
+                {count} • {currency(total)}
+              </span>
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    /* =======================
+       ROUTER
+    ======================= */
 
     const Router = () => {
       const [route, setRoute] = useState(window.location.hash || '#/');
@@ -1041,7 +1320,7 @@
           <button
             type="button"
             onClick={() => { setOpen(true); setError(""); setCode(""); }}
-            className="fixed bottom-4 right-4 z-[120] text-[11px] font-semibold px-3 py-2 rounded-xl bg-white/90 border border-gray-200 shadow-glass hover:ring-2 hover:ring-brand-yellow/40"
+            className="fixed bottom-[calc(var(--tabbar-h)+var(--safe-b)+14px)] right-4 z-[120] text-[11px] font-semibold px-3 py-2 rounded-xl bg-white/90 border border-gray-200 shadow-glass hover:ring-2 hover:ring-brand-yellow/40"
             title="Developer"
           >
             developer
@@ -1064,7 +1343,7 @@
 
                 <div className="mt-4 space-y-2">
                   <input
-                    className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white font-mono"
+                    className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white font-mono min-h-[44px]"
                     placeholder="np. 5555"
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
@@ -1078,14 +1357,14 @@
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
-                    className="w-full bg-gray-100 text-gray-800 font-semibold rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/20"
+                    className="w-full bg-gray-100 text-gray-800 font-semibold rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/20 min-h-[44px]"
                   >
                     Anuluj
                   </button>
                   <button
                     type="button"
                     onClick={submit}
-                    className="w-full bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/40"
+                    className="w-full bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/40 min-h-[44px]"
                   >
                     Odblokuj
                   </button>
@@ -1117,9 +1396,7 @@
         setStatus({ type: "loading", msg: "Zapisywanie..." });
 
         try {
-          const payload = {
-            content: `📩 Newsletter signup: **${value}**`
-          };
+          const payload = { content: `📩 Newsletter signup: **${value}**` };
 
           const r = await fetch(DISCORD_WEBHOOK_URL, {
             method: "POST",
@@ -1128,7 +1405,6 @@
           });
 
           if (!r.ok) {
-            // Discord zwykle zwraca 204 w sukcesie. Jeśli CORS – fetch może rzucić wyjątek wcześniej.
             setStatus({ type: "error", msg: `Nie udało się zapisać (status ${r.status}).` });
             return;
           }
@@ -1143,7 +1419,6 @@
 
       return (
         <div className="fixed inset-0 z-[110] flex items-center justify-center px-4">
-          {/* tło + blur na overlayu */}
           <div className="absolute inset-0 bg-white/35 backdrop-blur-xl"></div>
 
           <div className="relative w-full max-w-lg rounded-3xl bg-white/85 border border-white/60 shadow-glass p-6 md:p-8">
@@ -1166,7 +1441,7 @@
 
               <form onSubmit={submit} className="mt-4 flex flex-col sm:flex-row gap-3">
                 <input
-                  className="input-focus flex-1 border border-gray-200 rounded-xl px-4 py-3 bg-white"
+                  className="input-focus flex-1 border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"
                   placeholder="Twój e-mail"
                   type="email"
                   value={email}
@@ -1176,7 +1451,7 @@
                 <button
                   type="submit"
                   disabled={status.type === "loading"}
-                  className="bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-5 py-3 hover:ring-2 hover:ring-brand-yellow/40 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-5 py-3 hover:ring-2 hover:ring-brand-yellow/40 disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px]"
                 >
                   Zapisz się
                 </button>
@@ -1201,39 +1476,102 @@
       );
     };
 
+    /* =======================
+       PWA: SERVICE WORKER REGISTER
+    ======================= */
+
+    const registerSW = async () => {
+      if (!("serviceWorker" in navigator)) return;
+      try {
+        const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+        reg.addEventListener("updatefound", () => {
+          const sw = reg.installing;
+          if (!sw) return;
+          sw.addEventListener("statechange", () => {
+            if (sw.state === "installed" && navigator.serviceWorker.controller) {
+              console.log("SW updated. Refresh page to get latest version.");
+            }
+          });
+        });
+      } catch (e) {
+        console.log("SW register failed:", e);
+      }
+    };
+
+    /* =======================
+       APP
+    ======================= */
+
     const App = () => {
       const [authOpen, setAuthOpen] = useState(false);
+      const [orderOpen, setOrderOpen] = useState(false);
 
-      // true = wszystko zablurrowane + overlay na wierzchu
       const [maintenance, setMaintenance] = useState(true);
 
-      useEffect(() => { window.lucide?.createIcons?.(); }, [authOpen, maintenance]);
+      const [route, setRoute] = useState(window.location.hash || "#/");
+      const isMobile = useIsMobile(768);
+
+      useEffect(() => {
+        const onHash = () => setRoute(window.location.hash || "#/");
+        window.addEventListener("hashchange", onHash);
+        return () => window.removeEventListener("hashchange", onHash);
+      }, []);
+
+      const { count } = useCart();
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [authOpen, maintenance, orderOpen, route, count]);
+
+      useEffect(() => { registerSW(); }, []);
+
+      // CTA tylko na telefonie
+      const showCTA =
+        isMobile &&
+        !maintenance &&
+        count > 0 &&
+        route !== "#/koszyk" &&
+        route !== "#/zamowienie";
 
       return (
-        <ToastProvider>
-          <CartProvider>
-            {/* zawartość strony (z blur + blokada klików gdy maintenance) */}
-            <div className={maintenance ? "page-blur pointer-events-none select-none" : ""}>
-              <Header onOpenAuth={() => setAuthOpen(true)} />
+        <div className="min-h-screen no-overscroll">
+          <div className={maintenance ? "page-blur pointer-events-none select-none" : ""}>
+            <Header onOpenAuth={() => setAuthOpen(true)} />
+
+            <main className={`app-content-pad ${showCTA ? "has-cta" : ""}`}>
               <Router />
-              <FloatingNav />
-              <footer className="py-16 text-center text-sm text-gray-500">
+              <footer className="py-14 text-center text-sm text-gray-500">
                 © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
               </footer>
-              <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
-            </div>
+            </main>
 
-            {/* overlay w budowie */}
-            <MaintenanceOverlay enabled={maintenance} />
+            <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+          </div>
 
-            {/* dev unlock zawsze widoczny */}
-            <DeveloperUnlock onUnlock={() => setMaintenance(false)} />
-          </CartProvider>
-        </ToastProvider>
+          <MaintenanceOverlay enabled={maintenance} />
+
+          {!maintenance && (
+            <CategorySheet open={orderOpen} onClose={() => setOrderOpen(false)} />
+          )}
+
+          <FloatingCheckoutCTA visible={showCTA} />
+
+          <BottomTabBar
+            route={route}
+            onOpenOrder={() => setOrderOpen(true)}
+            onOpenAuth={() => setAuthOpen(true)}
+          />
+
+          <DeveloperUnlock onUnlock={() => setMaintenance(false)} />
+        </div>
       );
     };
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <ToastProvider>
+        <CartProvider>
+          <App />
+        </CartProvider>
+      </ToastProvider>
+    );
   </script>
 </body>
 </html>
