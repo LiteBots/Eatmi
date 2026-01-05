@@ -1,0 +1,1755 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#FFC107" />
+
+  <title>eatmi.pl — Panel Administratora</title>
+  <meta name="description" content="Panel administratora — dashboard, zamówienia, użytkownicy, pasek info, push." />
+
+  <!-- Tailwind config BEFORE CDN -->
+  <script>
+    tailwind = window.tailwind || {};
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              yellow: '#FFC107',
+              dark: '#111827',
+              light: '#F9FAFB'
+            },
+            kiosk: {
+              bg: '#0B0F1A',
+              card: '#0F1629',
+              card2: '#111B34',
+              green: '#22C55E',
+              red: '#EF4444',
+              blue: '#3B82F6',
+              violet: '#8B5CF6',
+              orange: '#F59E0B',
+              gray: '#94A3B8'
+            }
+          },
+          boxShadow: {
+            soft: '0 10px 30px rgba(0,0,0,.08)',
+            glass: '0 8px 25px rgba(0,0,0,.12)',
+            kiosk: '0 14px 50px rgba(0,0,0,.35)'
+          },
+          borderRadius: { xl2: '1.25rem' }
+        }
+      }
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    :root{
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-t: env(safe-area-inset-top, 0px);
+      --sidebar-w: 280px;
+    }
+
+    html, body { height: 100%; }
+    body { overscroll-behavior: none; }
+
+    .liquid { background: rgba(255,255,255,.75); backdrop-filter: blur(12px); }
+    .logo-glow { box-shadow: 0 12px 30px rgba(255,193,7,.18); }
+
+    .toast-enter { animation: toastIn .18s ease-out; }
+    .toast-bar { animation: toastBar 2.4s linear; transform-origin: left; }
+    @keyframes toastIn { from { transform: translateY(8px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+    @keyframes toastBar { from { transform: scaleX(1) } to { transform: scaleX(0) } }
+
+    .input-focus { outline: none; }
+    .input-focus:focus { box-shadow: 0 0 0 3px rgba(255,193,7,.35); border-color: rgba(255,193,7,.75); }
+
+    .badge {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      padding: .35rem .6rem;
+      border-radius: 999px;
+      border: 1px solid rgba(0,0,0,.08);
+      background: rgba(255,255,255,.9);
+    }
+    .badge-ok { background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.25); color: rgb(21,128,61); }
+    .badge-warn { background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.25); color: rgb(161,98,7); }
+    .badge-bad { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.25); color: rgb(153,27,27); }
+    .badge-info { background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.25); color: rgb(30,64,175); }
+
+    .page-bg{
+      background:
+        radial-gradient(1000px 700px at 10% 10%, rgba(255,193,7,.18), transparent 60%),
+        radial-gradient(900px 650px at 85% 15%, rgba(59,130,246,.14), transparent 58%),
+        radial-gradient(900px 650px at 60% 90%, rgba(139,92,246,.12), transparent 60%),
+        linear-gradient(to bottom, #ffffff, #F9FAFB);
+    }
+
+    .sidebar-grad{
+      background:
+        radial-gradient(700px 500px at 40% 15%, rgba(255,193,7,.18), transparent 60%),
+        radial-gradient(700px 500px at 80% 85%, rgba(59,130,246,.12), transparent 60%),
+        rgba(255,255,255,.82);
+      backdrop-filter: blur(14px);
+    }
+
+    .topbar-grad{
+      background: rgba(255,255,255,.86);
+      backdrop-filter: blur(14px);
+    }
+
+    .skeleton {
+      background: linear-gradient(90deg, rgba(0,0,0,.06), rgba(0,0,0,.03), rgba(0,0,0,.06));
+      background-size: 200% 100%;
+      animation: sk 1.1s ease-in-out infinite;
+      border-radius: 999px;
+    }
+    @keyframes sk { 0%{background-position: 200% 0} 100%{background-position:-200% 0} }
+
+    /* Mobile drawer overlay */
+    .drawer-overlay{ background: rgba(0,0,0,.55); backdrop-filter: blur(2px); }
+  </style>
+
+  <!-- React 18 + ReactDOM 18 -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+  <!-- Babel for inline JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Lucide icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="page-bg text-gray-900">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useEffect, useMemo, useRef, useState } = React;
+
+    /* =======================
+       UTIL
+    ======================= */
+
+    const currency = (n) =>
+      new Intl.NumberFormat('pl-PL', { style:'currency', currency:'PLN' }).format(Number(n||0));
+
+    const formatDateTime = (iso) => {
+      try {
+        const d = new Date(iso);
+        return d.toLocaleString('pl-PL', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+      } catch { return iso; }
+    };
+
+    const isSameLocalDay = (a, b) => {
+      const da = new Date(a), db = new Date(b);
+      return da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth() && da.getDate() === db.getDate();
+    };
+
+    const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
+    const useLocalStorage = (key, initial) => {
+      const [state, setState] = useState(() => {
+        try { return JSON.parse(localStorage.getItem(key)) ?? initial; }
+        catch { return initial; }
+      });
+      useEffect(() => {
+        try { localStorage.setItem(key, JSON.stringify(state)); } catch {}
+      }, [key, state]);
+      return [state, setState];
+    };
+
+    const haptics = () => { try { navigator.vibrate?.(8); } catch {} };
+
+    const useIsMobile = (breakpoint = 1024) => {
+      const [isMobile, setIsMobile] = useState(() => window.innerWidth < breakpoint);
+      useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth < breakpoint);
+        window.addEventListener("resize", onResize, { passive:true });
+        return () => window.removeEventListener("resize", onResize);
+      }, [breakpoint]);
+      return isMobile;
+    };
+
+    const lockBodyScroll = (lock) => {
+      const body = document.body;
+      if (!body) return;
+      if (lock) {
+        body.dataset._scrollY = String(window.scrollY || 0);
+        body.style.position = "fixed";
+        body.style.top = `-${window.scrollY || 0}px`;
+        body.style.left = "0";
+        body.style.right = "0";
+        body.style.width = "100%";
+      } else {
+        const y = parseInt(body.dataset._scrollY || "0", 10) || 0;
+        body.style.position = "";
+        body.style.top = "";
+        body.style.left = "";
+        body.style.right = "";
+        body.style.width = "";
+        delete body.dataset._scrollY;
+        window.scrollTo(0, y);
+      }
+    };
+
+    /* =======================
+       TOAST
+    ======================= */
+
+    const ToastContext = React.createContext(null);
+    const useToast = () => React.useContext(ToastContext);
+
+    const ToastProvider = ({ children }) => {
+      const [toast, setToast] = useState(null);
+      const tRef = useRef(null);
+
+      const show = (message, type="ok") => {
+        setToast({ message, type });
+        if (tRef.current) clearTimeout(tRef.current);
+        tRef.current = setTimeout(() => setToast(null), 2500);
+      };
+
+      const close = () => {
+        if (tRef.current) clearTimeout(tRef.current);
+        setToast(null);
+      };
+
+      const tone = (type) => {
+        if (type === "error") return { bg: "border-red-200", dot:"bg-red-100 text-red-600", bar:"bg-red-400", label:"Błąd" };
+        if (type === "warn") return { bg: "border-amber-200", dot:"bg-amber-100 text-amber-700", bar:"bg-amber-400", label:"Uwaga" };
+        return { bg: "border-emerald-200", dot:"bg-emerald-100 text-emerald-600", bar:"bg-emerald-400", label:"OK" };
+      };
+
+      const t = toast ? tone(toast.type) : null;
+
+      return (
+        <ToastContext.Provider value={{ show }}>
+          {children}
+          {toast && (
+            <div className="fixed bottom-[calc(var(--safe-b)+18px)] left-1/2 -translate-x-1/2 z-[200] pointer-events-none">
+              <div className={`relative pointer-events-auto toast-enter bg-white/95 border ${t.bg} shadow-glass rounded-2xl px-4 py-3 min-w-[260px] max-w-[92vw] flex items-start gap-3`}>
+                <div className={`w-9 h-9 rounded-full ${t.dot} flex items-center justify-center text-lg font-extrabold`}>✓</div>
+                <div className="flex-1">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-700">
+                    {t.label}
+                  </div>
+                  <div className="text-sm text-gray-900 mt-0.5">{toast.message}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={close}
+                  className="ml-2 text-gray-400 hover:text-gray-600 text-xl leading-none"
+                  aria-label="Zamknij powiadomienie"
+                >
+                  ×
+                </button>
+                <div className="absolute left-4 right-4 -bottom-1.5 h-1 rounded-full overflow-hidden bg-gray-100">
+                  <div className={`toast-bar h-full ${t.bar}`}></div>
+                </div>
+              </div>
+            </div>
+          )}
+        </ToastContext.Provider>
+      );
+    };
+
+    /* =======================
+       MOCK DATA + STORAGE
+    ======================= */
+
+    const LS_KEYS = {
+      ORDERS: "eatmi-admin-orders",
+      USERS: "eatmi-admin-users",
+      INFOBAR: "eatmi-admin-infobar",
+      PUSH_LOG: "eatmi-admin-push-log",
+    };
+
+    const seedOrders = () => {
+      const now = new Date();
+      const mk = (overrides) => ({
+        id: "Z" + Math.floor(100000 + Math.random()*900000),
+        createdAt: new Date(now.getTime() - Math.random()*1000*60*60*72).toISOString(),
+        customer: {
+          name: ["Jan Kowalski","Anna Nowak","Kacper Zieliński","Ola Wiśniewska","Marek Lewandowski"][Math.floor(Math.random()*5)],
+          phone: "5" + Math.floor(100000000 + Math.random()*900000000),
+          city: ["Warszawa","Kraków","Wrocław","Gdańsk","Poznań"][Math.floor(Math.random()*5)],
+          email: "klient@example.com",
+        },
+        items: [
+          { name:"Lunch tygodnia", qty: 1 + Math.floor(Math.random()*2), price: 49 },
+          Math.random() > .55 ? { name:"Domowa lemoniada 250 ml", qty: 1, price: 12 } : null
+        ].filter(Boolean),
+        status: ["new","paid","preparing","done","cancelled"][Math.floor(Math.random()*5)],
+        payment: ["PayU","PayU","PayU","Gotówka"][Math.floor(Math.random()*4)],
+        note: Math.random() > .7 ? "Proszę bez cebuli." : "",
+        ...overrides
+      });
+
+      // pewna część dzisiejszych
+      const todayCount = 4;
+      const arr = Array.from({ length: 18 }, () => mk());
+      for (let i=0;i<todayCount;i++){
+        arr[i] = mk({ createdAt: new Date(now.getTime() - Math.random()*1000*60*60*4).toISOString(), status: ["new","paid","preparing"][Math.floor(Math.random()*3)] });
+      }
+      return arr.sort((a,b)=> new Date(b.createdAt)-new Date(a.createdAt));
+    };
+
+    const seedUsers = () => {
+      const mk = (i) => ({
+        id: "U" + (1000+i),
+        name: ["Jan","Anna","Kacper","Ola","Marek","Zuzanna","Piotr","Natalia"][i % 8] + " " + ["Kowalski","Nowak","Wiśniewski","Wójcik","Kozłowski","Zieliński"][i % 6],
+        email: `user${i+1}@example.com`,
+        phone: "5" + Math.floor(100000000 + Math.random()*900000000),
+        createdAt: new Date(Date.now() - (i*86400000*3)).toISOString(),
+        role: i === 0 ? "admin" : (Math.random()>.85 ? "staff" : "user"),
+        status: Math.random()>.08 ? "active" : "blocked",
+        ordersCount: Math.floor(Math.random()*18),
+      });
+      return Array.from({length: 22}, (_,i)=> mk(i));
+    };
+
+    const orderTotal = (o) => (o.items||[]).reduce((s,it)=> s + (Number(it.price||0) * Number(it.qty||1)), 0);
+
+    const normalizeStorage = () => {
+      try {
+        const o = JSON.parse(localStorage.getItem(LS_KEYS.ORDERS) || "null");
+        const u = JSON.parse(localStorage.getItem(LS_KEYS.USERS) || "null");
+        if (!Array.isArray(o) || !o.length) localStorage.setItem(LS_KEYS.ORDERS, JSON.stringify(seedOrders()));
+        if (!Array.isArray(u) || !u.length) localStorage.setItem(LS_KEYS.USERS, JSON.stringify(seedUsers()));
+        const info = JSON.parse(localStorage.getItem(LS_KEYS.INFOBAR) || "null");
+        if (!info || typeof info !== "object") {
+          localStorage.setItem(LS_KEYS.INFOBAR, JSON.stringify({
+            enabled: true,
+            tone: "info", // info | warn
+            text: "Dziś dostawy 12:00–16:00. Zamów do 11:30, aby zdążyć na lunch.",
+            ctaLabel: "Zobacz menu",
+            ctaUrl: "#/kategoria/lunche"
+          }));
+        }
+        const pl = JSON.parse(localStorage.getItem(LS_KEYS.PUSH_LOG) || "null");
+        if (!Array.isArray(pl)) localStorage.setItem(LS_KEYS.PUSH_LOG, JSON.stringify([]));
+      } catch {}
+    };
+
+    /* =======================
+       APP STATE (Context)
+    ======================= */
+
+    const AdminContext = React.createContext(null);
+    const useAdmin = () => React.useContext(AdminContext);
+
+    const AdminProvider = ({ children }) => {
+      const toast = useToast();
+
+      const [orders, setOrders] = useLocalStorage(LS_KEYS.ORDERS, []);
+      const [users, setUsers] = useLocalStorage(LS_KEYS.USERS, []);
+      const [infoBar, setInfoBar] = useLocalStorage(LS_KEYS.INFOBAR, null);
+      const [pushLog, setPushLog] = useLocalStorage(LS_KEYS.PUSH_LOG, []);
+
+      useEffect(() => {
+        normalizeStorage();
+        // po normalizacji wczytaj faktyczny stan
+        try {
+          setOrders(JSON.parse(localStorage.getItem(LS_KEYS.ORDERS) || "[]"));
+          setUsers(JSON.parse(localStorage.getItem(LS_KEYS.USERS) || "[]"));
+          setInfoBar(JSON.parse(localStorage.getItem(LS_KEYS.INFOBAR) || "null"));
+          setPushLog(JSON.parse(localStorage.getItem(LS_KEYS.PUSH_LOG) || "[]"));
+        } catch {}
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, []);
+
+      const refreshSeeds = () => {
+        localStorage.setItem(LS_KEYS.ORDERS, JSON.stringify(seedOrders()));
+        localStorage.setItem(LS_KEYS.USERS, JSON.stringify(seedUsers()));
+        try {
+          setOrders(JSON.parse(localStorage.getItem(LS_KEYS.ORDERS) || "[]"));
+          setUsers(JSON.parse(localStorage.getItem(LS_KEYS.USERS) || "[]"));
+        } catch {}
+        toast?.show?.("Dane demo odświeżone.", "ok");
+        haptics();
+      };
+
+      const updateOrderStatus = (orderId, status) => {
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+        toast?.show?.(`Zmieniono status: ${orderId}`, "ok");
+      };
+
+      const deleteOrder = (orderId) => {
+        setOrders(prev => prev.filter(o => o.id !== orderId));
+        toast?.show?.(`Usunięto zamówienie ${orderId}`, "warn");
+      };
+
+      const upsertUser = (user) => {
+        setUsers(prev => {
+          const exists = prev.some(u => u.id === user.id);
+          if (exists) return prev.map(u => u.id === user.id ? { ...u, ...user } : u);
+          return [{ ...user }, ...prev];
+        });
+        toast?.show?.("Zapisano użytkownika.", "ok");
+      };
+
+      const toggleUserBlock = (userId) => {
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: u.status === "blocked" ? "active" : "blocked" } : u));
+        toast?.show?.("Zmieniono status użytkownika.", "ok");
+      };
+
+      const saveInfoBar = async (next) => {
+        setInfoBar(next);
+        toast?.show?.("Zapisano pasek info (localStorage).", "ok");
+
+        // Opcjonalny backend (jeśli masz) – bezpiecznie, bo nie blokuje UI.
+        try {
+          await fetch("/api/admin/infobar", {
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify(next)
+          });
+        } catch {}
+      };
+
+      const sendPush = async (payload) => {
+        const entry = { id: "P" + Date.now(), createdAt: new Date().toISOString(), ...payload, status:"queued" };
+        setPushLog(prev => [entry, ...prev]);
+        toast?.show?.("Dodano push do kolejki (demo).", "ok");
+
+        try {
+          const r = await fetch("/api/admin/push", {
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify(payload)
+          });
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          // oznacz sukces (demo)
+          setPushLog(prev => prev.map(p => p.id === entry.id ? { ...p, status:"sent" } : p));
+          toast?.show?.("Wysłano push (backend OK).", "ok");
+        } catch (e) {
+          setPushLog(prev => prev.map(p => p.id === entry.id ? { ...p, status:"failed" } : p));
+          toast?.show?.("Nie udało się wysłać push (sprawdź backend).", "warn");
+        }
+      };
+
+      const value = {
+        orders, users, infoBar, pushLog,
+        refreshSeeds,
+        updateOrderStatus, deleteOrder,
+        upsertUser, toggleUserBlock,
+        saveInfoBar, sendPush,
+      };
+
+      return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;
+    };
+
+    /* =======================
+       ICONS
+    ======================= */
+
+    const Lucide = ({ name, className }) => <i data-lucide={name} className={className}></i>;
+
+    /* =======================
+       ROUTER
+    ======================= */
+
+    const ROUTES = {
+      DASH: "dashboard",
+      ORDERS: "orders",
+      USERS: "users",
+      INFOBAR: "infobar",
+      PUSH: "push",
+    };
+
+    const useRoute = () => {
+      const [route, setRoute] = useState(() => {
+        const h = (window.location.hash || "#/dashboard").replace("#/","");
+        return h || "dashboard";
+      });
+
+      useEffect(() => {
+        const onHash = () => {
+          const h = (window.location.hash || "#/dashboard").replace("#/","");
+          setRoute(h || "dashboard");
+        };
+        window.addEventListener("hashchange", onHash);
+        return () => window.removeEventListener("hashchange", onHash);
+      }, []);
+
+      return [route, (r) => window.location.hash = "#/" + r];
+    };
+
+    /* =======================
+       UI: BUTTONS / CARDS
+    ======================= */
+
+    const PrimaryButton = ({ children, onClick, icon, className="", disabled=false, type="button" }) => (
+      <button
+        type={type}
+        disabled={disabled}
+        onClick={onClick}
+        className={`inline-flex items-center justify-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-4 py-3 rounded-2xl shadow-soft hover:scale-[1.02] active:scale-[0.98] transition hover:ring-2 hover:ring-brand-yellow/40 disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
+      >
+        {icon && <Lucide name={icon} className="w-5 h-5" />}
+        {children}
+      </button>
+    );
+
+    const GhostButton = ({ children, onClick, icon, className="", type="button" }) => (
+      <button
+        type={type}
+        onClick={onClick}
+        className={`inline-flex items-center justify-center gap-2 border border-gray-200 bg-white px-4 py-3 rounded-2xl shadow-soft hover:shadow-md transition hover:ring-2 hover:ring-brand-yellow/30 font-semibold text-gray-800 ${className}`}
+      >
+        {icon && <Lucide name={icon} className="w-5 h-5" />}
+        {children}
+      </button>
+    );
+
+    const StatCard = ({ title, value, icon, hint, tone="default" }) => {
+      const toneStyles = {
+        default: "from-brand-yellow/35 to-white",
+        info: "from-blue-500/15 to-white",
+        ok: "from-emerald-500/15 to-white",
+        warn: "from-amber-500/15 to-white",
+        bad: "from-red-500/15 to-white",
+        violet: "from-violet-500/15 to-white",
+      };
+      return (
+        <div className="relative bg-white border border-gray-200 rounded-3xl p-5 shadow-soft hover:shadow-kiosk transition overflow-hidden">
+          <div className={`absolute inset-0 bg-gradient-to-br ${toneStyles[tone] || toneStyles.default} pointer-events-none`}></div>
+          <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 opacity-70"></div>
+
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">{title}</div>
+              <div className="text-3xl font-extrabold mt-2">{value}</div>
+              {hint && <div className="text-sm text-gray-600 mt-2">{hint}</div>}
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-brand-yellow/20 ring-1 ring-brand-yellow/30 grid place-items-center shrink-0">
+              <Lucide name={icon} className="w-6 h-6 text-gray-900" />
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const Pill = ({ children, tone="info" }) => {
+      const map = {
+        info: "badge badge-info",
+        ok: "badge badge-ok",
+        warn: "badge badge-warn",
+        bad: "badge badge-bad",
+      };
+      return <span className={map[tone] || map.info}>{children}</span>;
+    };
+
+    const StatusPill = ({ status }) => {
+      const map = {
+        new: { label:"Nowe", tone:"info" },
+        paid: { label:"Opłacone", tone:"ok" },
+        preparing: { label:"W realizacji", tone:"warn" },
+        done: { label:"Zrealizowane", tone:"ok" },
+        cancelled: { label:"Anulowane", tone:"bad" },
+      };
+      const s = map[status] || { label: status || "—", tone:"info" };
+      return <Pill tone={s.tone}>{s.label}</Pill>;
+    };
+
+    const Modal = ({ open, onClose, title, children, footer }) => {
+      useEffect(() => {
+        if (open) lockBodyScroll(true);
+        return () => lockBodyScroll(false);
+      }, [open]);
+
+      useEffect(() => {
+        const onKey = (e) => {
+          if (!open) return;
+          if (e.key === "Escape") onClose?.();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+      }, [open, onClose]);
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [open]);
+
+      if (!open) return null;
+
+      return (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center px-4">
+          <div className="absolute inset-0 drawer-overlay" onClick={onClose} aria-hidden="true"></div>
+          <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-glass border border-gray-200 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Szczegóły</div>
+                <div className="text-xl font-extrabold mt-1 truncate">{title}</div>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-11 h-11 rounded-2xl border border-gray-200 bg-white shadow-soft grid place-items-center hover:ring-2 hover:ring-brand-yellow/40"
+                aria-label="Zamknij"
+              >
+                <Lucide name="x" className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5">{children}</div>
+            {footer && <div className="px-5 py-4 border-t border-gray-200 bg-white">{footer}</div>}
+          </div>
+        </div>
+      );
+    };
+
+    /* =======================
+       LAYOUT: SIDEBAR + TOPBAR
+    ======================= */
+
+    const Logo = () => (
+      <a href="#/dashboard" className="flex items-center gap-3 group">
+        <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center border border-gray-100 overflow-hidden shadow-soft logo-glow">
+          <img
+            src="https://i.imgur.com/f9TN0Gh.png"
+            alt="eatmi.pl — logo"
+            loading="lazy"
+            className="w-9 h-9 object-contain transition-transform duration-500 group-hover:-rotate-6 group-hover:scale-110"
+          />
+        </div>
+        <div className="min-w-0">
+          <div className="font-extrabold tracking-tight leading-none">
+            eatmi<span className="text-brand-yellow">.pl</span>
+          </div>
+          <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 font-semibold mt-1">
+            Panel administratora
+          </div>
+        </div>
+      </a>
+    );
+
+    const NavItem = ({ active, label, icon, to, badge }) => (
+      <a
+        href={`#/${to}`}
+        className={`group flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border transition shadow-soft ${
+          active
+            ? "bg-brand-yellow/20 border-brand-yellow/30 ring-1 ring-brand-yellow/30"
+            : "bg-white border-gray-200 hover:ring-2 hover:ring-brand-yellow/25 hover:shadow-md"
+        }`}
+      >
+        <span className="flex items-center gap-3 min-w-0">
+          <span className={`w-10 h-10 rounded-2xl grid place-items-center border ${
+            active ? "bg-brand-yellow/25 border-brand-yellow/30" : "bg-white border-gray-200"
+          }`}>
+            <Lucide name={icon} className="w-5 h-5 text-gray-900" />
+          </span>
+          <span className="font-extrabold text-gray-900 truncate">{label}</span>
+        </span>
+
+        {typeof badge === "number" && badge > 0 && (
+          <span className="text-[11px] font-extrabold bg-brand-yellow text-gray-900 px-2.5 py-1 rounded-full border border-black/10">
+            {badge > 99 ? "99+" : badge}
+          </span>
+        )}
+      </a>
+    );
+
+    const SidebarContent = ({ route, onCloseMobile }) => {
+      const { orders, users } = useAdmin();
+      const openCount = useMemo(() => orders.filter(o => ["new","paid","preparing"].includes(o.status)).length, [orders]);
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [route, openCount, users?.length]);
+
+      return (
+        <div className="h-full flex flex-col">
+          <div className="p-4">
+            <Logo />
+          </div>
+
+          <div className="px-4 pb-2">
+            <div className="rounded-3xl border border-white/60 shadow-glass sidebar-grad p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Status</div>
+                  <div className="text-lg font-extrabold mt-1">Administracja</div>
+                </div>
+                <span className="badge badge-ok">online</span>
+              </div>
+              <div className="mt-3 text-sm text-gray-600">
+                Szybki podgląd zamówień i komunikacji.
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="bg-white border border-gray-200 rounded-2xl p-3 shadow-soft">
+                  <div className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Otwarte</div>
+                  <div className="text-2xl font-extrabold mt-1">{openCount}</div>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-2xl p-3 shadow-soft">
+                  <div className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Użytkownicy</div>
+                  <div className="text-2xl font-extrabold mt-1">{users.length}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-4 mt-3 space-y-2">
+            <NavItem active={route===ROUTES.DASH} label="Dashboard" icon="layout-dashboard" to={ROUTES.DASH} />
+            <NavItem active={route===ROUTES.ORDERS} label="Zamówienia" icon="receipt" to={ROUTES.ORDERS} badge={openCount} />
+            <NavItem active={route===ROUTES.USERS} label="Użytkownicy" icon="users" to={ROUTES.USERS} />
+            <NavItem active={route===ROUTES.INFOBAR} label="Pasek info" icon="megaphone" to={ROUTES.INFOBAR} />
+            <NavItem active={route===ROUTES.PUSH} label="Powiadomienia push" icon="bell" to={ROUTES.PUSH} />
+          </div>
+
+          <div className="mt-auto p-4">
+            <div className="bg-white border border-gray-200 rounded-3xl p-4 shadow-soft">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 ring-1 ring-brand-yellow/30 grid place-items-center">
+                  <Lucide name="shield" className="w-6 h-6 text-gray-900" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-extrabold">Tryb demo</div>
+                  <div className="text-xs text-gray-600 mt-0.5 truncate">Dane zapisują się w localStorage</div>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <a
+                  href="#/dashboard"
+                  onClick={(e)=>{ if(onCloseMobile) onCloseMobile(); }}
+                  className="text-center bg-gray-100 text-gray-900 font-semibold rounded-2xl px-3 py-3 hover:ring-2 hover:ring-brand-yellow/20"
+                >
+                  Home
+                </a>
+                <a
+                  href="#/orders"
+                  onClick={(e)=>{ if(onCloseMobile) onCloseMobile(); }}
+                  className="text-center bg-brand-yellow text-gray-900 font-extrabold rounded-2xl px-3 py-3 hover:ring-2 hover:ring-brand-yellow/40"
+                >
+                  Zamówienia
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const TopBar = ({ onOpenSidebar, routeLabel }) => {
+      const { refreshSeeds } = useAdmin();
+      useEffect(() => { window.lucide?.createIcons?.(); }, [routeLabel]);
+
+      return (
+        <header className="sticky top-0 z-[60] topbar-grad border-b border-gray-200">
+          <div className="px-4 lg:px-8 py-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                type="button"
+                onClick={onOpenSidebar}
+                className="lg:hidden w-11 h-11 rounded-2xl border border-gray-200 bg-white shadow-soft grid place-items-center hover:ring-2 hover:ring-brand-yellow/40"
+                aria-label="Otwórz menu"
+              >
+                <Lucide name="menu" className="w-6 h-6" />
+              </button>
+
+              <div className="min-w-0">
+                <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Sekcja</div>
+                <div className="text-2xl font-extrabold truncate">{routeLabel}</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={refreshSeeds}
+                className="hidden sm:inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-3 rounded-2xl shadow-soft hover:shadow-md transition hover:ring-2 hover:ring-brand-yellow/30 font-semibold"
+              >
+                <Lucide name="refresh-cw" className="w-5 h-5" />
+                Odśwież demo
+              </button>
+
+              <div className="hidden sm:flex items-center gap-3 border border-gray-200 bg-white rounded-2xl px-3 py-2 shadow-soft">
+                <div className="w-10 h-10 rounded-2xl bg-brand-yellow/20 ring-1 ring-brand-yellow/30 grid place-items-center">
+                  <Lucide name="user" className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-extrabold leading-none">Admin</div>
+                  <div className="text-xs text-gray-500 mt-1">eatmi.pl</div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => alert("To tylko UI. Podłącz /api/admin/logout jeśli chcesz.")}
+                className="inline-flex items-center justify-center w-11 h-11 rounded-2xl border border-gray-200 bg-white shadow-soft hover:ring-2 hover:ring-brand-yellow/30"
+                aria-label="Wyloguj"
+              >
+                <Lucide name="log-out" className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </header>
+      );
+    };
+
+    const MobileDrawer = ({ open, onClose, route }) => {
+      useEffect(() => {
+        if (open) lockBodyScroll(true);
+        return () => lockBodyScroll(false);
+      }, [open]);
+
+      useEffect(() => {
+        const onKey = (e) => { if (open && e.key === "Escape") onClose?.(); };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+      }, [open, onClose]);
+
+      if (!open) return null;
+
+      return (
+        <div className="fixed inset-0 z-[120] lg:hidden">
+          <div className="absolute inset-0 drawer-overlay" onClick={onClose} aria-hidden="true"></div>
+          <div className="absolute inset-y-0 left-0 w-[86vw] max-w-[360px] bg-white border-r border-gray-200 shadow-glass overflow-auto">
+            <SidebarContent route={route} onCloseMobile={onClose} />
+          </div>
+        </div>
+      );
+    };
+
+    /* =======================
+       PAGES
+    ======================= */
+
+    const Dashboard = () => {
+      const { orders, users } = useAdmin();
+
+      const totals = useMemo(() => {
+        const totalOrders = orders.length;
+        const todayOrders = orders.filter(o => isSameLocalDay(o.createdAt, new Date())).length;
+        const revenueTotal = orders
+          .filter(o => o.status !== "cancelled")
+          .reduce((s,o)=> s + orderTotal(o), 0);
+
+        const open = orders.filter(o => ["new","paid","preparing"].includes(o.status)).length;
+        const cancelled = orders.filter(o => o.status === "cancelled").length;
+
+        return { totalOrders, todayOrders, revenueTotal, usersCount: users.length, open, cancelled };
+      }, [orders, users]);
+
+      const last = useMemo(() => orders.slice(0,5), [orders]);
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [last.length]);
+
+      return (
+        <div className="px-4 lg:px-8 py-6 lg:py-8">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <StatCard title="Łączna liczba zamówień" value={totals.totalOrders} icon="receipt" hint={`Otwarte: ${totals.open}`} tone="info" />
+            <StatCard title="Zamówienia dziś" value={totals.todayOrders} icon="calendar" hint="Liczba z dzisiejszej daty" tone="warn" />
+            <StatCard title="Zarobek łącznie" value={currency(totals.revenueTotal)} icon="wallet" hint={`Anulowane: ${totals.cancelled}`} tone="ok" />
+            <StatCard title="Użytkownicy" value={totals.usersCount} icon="users" hint="Wszyscy zapisani / demo" tone="violet" />
+          </div>
+
+          <div className="mt-6 lg:mt-8 grid gap-6 lg:grid-cols-3 items-start">
+            <div className="lg:col-span-2 bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Ostatnie</div>
+                  <div className="text-xl font-extrabold mt-1">Zamówienia</div>
+                </div>
+                <a href="#/orders" className="inline-flex items-center gap-2 text-sm font-extrabold text-gray-900 hover:underline">
+                  Przejdź <Lucide name="arrow-right" className="w-4 h-4" />
+                </a>
+              </div>
+
+              <div className="p-5">
+                {last.length === 0 ? (
+                  <div className="text-gray-600">Brak danych.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {last.map(o => (
+                      <a key={o.id} href="#/orders" className="block rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-soft hover:shadow-md transition hover:ring-2 hover:ring-brand-yellow/25">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-extrabold truncate">{o.id} • {o.customer?.name || "—"}</div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {formatDateTime(o.createdAt)} • {o.customer?.city || "—"} • {o.payment || "—"}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <StatusPill status={o.status} />
+                            <div className="font-extrabold">{currency(orderTotal(o))}</div>
+                          </div>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-200">
+                <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Skróty</div>
+                <div className="text-xl font-extrabold mt-1">Akcje</div>
+              </div>
+              <div className="p-5 space-y-3">
+                <a href="#/infobar" className="block">
+                  <GhostButton icon="megaphone" className="w-full justify-start">
+                    Edytuj pasek info
+                  </GhostButton>
+                </a>
+                <a href="#/push" className="block">
+                  <GhostButton icon="bell" className="w-full justify-start">
+                    Wyślij push (demo)
+                  </GhostButton>
+                </a>
+                <a href="#/users" className="block">
+                  <GhostButton icon="users" className="w-full justify-start">
+                    Zarządzaj użytkownikami
+                  </GhostButton>
+                </a>
+                <div className="pt-2">
+                  <div className="text-xs text-gray-500">
+                    Tip: To UI działa bez backendu. Jeśli podłączysz endpointy:
+                    <span className="font-mono"> /api/admin/infobar</span> i <span className="font-mono">/api/admin/push</span>,
+                    panel zacznie wysyłać dane.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const OrdersPage = () => {
+      const { orders, updateOrderStatus, deleteOrder } = useAdmin();
+      const toast = useToast();
+
+      const [q, setQ] = useState("");
+      const [status, setStatus] = useState("all");
+      const [selected, setSelected] = useState(null);
+
+      const filtered = useMemo(() => {
+        const query = (q||"").trim().toLowerCase();
+        return orders.filter(o => {
+          const matchesQ =
+            !query ||
+            (o.id||"").toLowerCase().includes(query) ||
+            (o.customer?.name||"").toLowerCase().includes(query) ||
+            (o.customer?.phone||"").toLowerCase().includes(query) ||
+            (o.customer?.city||"").toLowerCase().includes(query);
+          const matchesS = status === "all" ? true : o.status === status;
+          return matchesQ && matchesS;
+        });
+      }, [orders, q, status]);
+
+      const totals = useMemo(() => {
+        const sum = filtered
+          .filter(o => o.status !== "cancelled")
+          .reduce((s,o)=> s + orderTotal(o), 0);
+        return { count: filtered.length, sum };
+      }, [filtered]);
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [filtered.length, status]);
+
+      const setStatusSafe = (orderId, next) => {
+        updateOrderStatus(orderId, next);
+        haptics();
+      };
+
+      const confirmDelete = (orderId) => {
+        const ok = confirm(`Usunąć zamówienie ${orderId}?`);
+        if (!ok) return;
+        deleteOrder(orderId);
+      };
+
+      return (
+        <div className="px-4 lg:px-8 py-6 lg:py-8">
+          <div className="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-200 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Lista</div>
+                <div className="text-xl font-extrabold mt-1">Zamówienia</div>
+                <div className="text-sm text-gray-600 mt-2">
+                  Wyniki: <span className="font-extrabold text-gray-900">{totals.count}</span> • Suma: <span className="font-extrabold text-gray-900">{currency(totals.sum)}</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <Lucide name="search" className="w-5 h-5" />
+                  </span>
+                  <input
+                    value={q}
+                    onChange={(e)=>setQ(e.target.value)}
+                    placeholder="Szukaj: ID, klient, miasto, tel…"
+                    className="input-focus w-full sm:w-[320px] border border-gray-200 rounded-2xl pl-11 pr-4 py-3 bg-white min-h-[44px]"
+                  />
+                </div>
+
+                <select
+                  value={status}
+                  onChange={(e)=>setStatus(e.target.value)}
+                  className="input-focus border border-gray-200 rounded-2xl px-4 py-3 bg-white min-h-[44px] font-semibold"
+                >
+                  <option value="all">Wszystkie statusy</option>
+                  <option value="new">Nowe</option>
+                  <option value="paid">Opłacone</option>
+                  <option value="preparing">W realizacji</option>
+                  <option value="done">Zrealizowane</option>
+                  <option value="cancelled">Anulowane</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="p-5">
+              {filtered.length === 0 ? (
+                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 text-gray-700">
+                  Brak wyników. Zmień filtr lub zapytanie.
+                </div>
+              ) : (
+                <div className="overflow-auto">
+                  <table className="w-full min-w-[900px]">
+                    <thead>
+                      <tr className="text-left text-xs uppercase tracking-widest text-gray-500">
+                        <th className="pb-3">Zamówienie</th>
+                        <th className="pb-3">Klient</th>
+                        <th className="pb-3">Status</th>
+                        <th className="pb-3">Płatność</th>
+                        <th className="pb-3 text-right">Kwota</th>
+                        <th className="pb-3 text-right">Akcje</th>
+                      </tr>
+                    </thead>
+                    <tbody className="align-top">
+                      {filtered.map(o => (
+                        <tr key={o.id} className="border-t border-gray-100 hover:bg-gray-50/60">
+                          <td className="py-4 pr-3">
+                            <div className="font-extrabold">{o.id}</div>
+                            <div className="text-xs text-gray-500 mt-1">{formatDateTime(o.createdAt)}</div>
+                            <div className="text-xs text-gray-500 mt-1">{o.customer?.city || "—"}</div>
+                          </td>
+                          <td className="py-4 pr-3">
+                            <div className="font-semibold text-gray-900">{o.customer?.name || "—"}</div>
+                            <div className="text-xs text-gray-500 mt-1">{o.customer?.phone || "—"}</div>
+                          </td>
+                          <td className="py-4 pr-3">
+                            <div className="flex items-center gap-3">
+                              <StatusPill status={o.status} />
+                              <select
+                                value={o.status}
+                                onChange={(e)=> setStatusSafe(o.id, e.target.value)}
+                                className="input-focus border border-gray-200 rounded-xl px-3 py-2 bg-white text-sm font-semibold"
+                              >
+                                <option value="new">Nowe</option>
+                                <option value="paid">Opłacone</option>
+                                <option value="preparing">W realizacji</option>
+                                <option value="done">Zrealizowane</option>
+                                <option value="cancelled">Anulowane</option>
+                              </select>
+                            </div>
+                          </td>
+                          <td className="py-4 pr-3">
+                            <div className="font-semibold">{o.payment || "—"}</div>
+                            <div className="text-xs text-gray-500 mt-1">Pozycje: {(o.items||[]).length}</div>
+                          </td>
+                          <td className="py-4 pr-3 text-right">
+                            <div className="font-extrabold">{currency(orderTotal(o))}</div>
+                          </td>
+                          <td className="py-4 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={()=>setSelected(o)}
+                                className="inline-flex items-center gap-2 border border-gray-200 bg-white px-3 py-2 rounded-xl shadow-soft hover:ring-2 hover:ring-brand-yellow/30 font-semibold text-sm"
+                              >
+                                <Lucide name="eye" className="w-4 h-4" /> Podgląd
+                              </button>
+                              <button
+                                type="button"
+                                onClick={()=>confirmDelete(o.id)}
+                                className="inline-flex items-center gap-2 border border-red-200 bg-white px-3 py-2 rounded-xl shadow-soft hover:ring-2 hover:ring-red-200 font-semibold text-sm text-red-700"
+                              >
+                                <Lucide name="trash-2" className="w-4 h-4" /> Usuń
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <Modal
+            open={!!selected}
+            onClose={()=>setSelected(null)}
+            title={selected ? `Zamówienie ${selected.id}` : ""}
+            footer={selected && (
+              <div className="flex flex-col sm:flex-row gap-2 sm:justify-between sm:items-center">
+                <div className="text-sm text-gray-600">
+                  Status: <span className="font-extrabold text-gray-900">{selected.status}</span>
+                </div>
+                <div className="flex gap-2">
+                  <GhostButton icon="copy" onClick={()=>{
+                    try {
+                      navigator.clipboard.writeText(JSON.stringify(selected, null, 2));
+                      toast?.show?.("Skopiowano JSON do schowka.", "ok");
+                    } catch {
+                      toast?.show?.("Nie udało się skopiować (brak uprawnień).", "warn");
+                    }
+                  }}>
+                    Kopiuj JSON
+                  </GhostButton>
+                  <PrimaryButton icon="check" onClick={()=>setSelected(null)}>
+                    Zamknij
+                  </PrimaryButton>
+                </div>
+              </div>
+            )}
+          >
+            {selected && (
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+                  <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Klient</div>
+                  <div className="font-extrabold text-lg mt-1">{selected.customer?.name || "—"}</div>
+                  <div className="text-sm text-gray-700 mt-2">
+                    <div><span className="text-gray-500">Telefon:</span> <span className="font-semibold">{selected.customer?.phone || "—"}</span></div>
+                    <div><span className="text-gray-500">Email:</span> <span className="font-semibold">{selected.customer?.email || "—"}</span></div>
+                    <div><span className="text-gray-500">Miasto:</span> <span className="font-semibold">{selected.customer?.city || "—"}</span></div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+                  <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Płatność i suma</div>
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="font-semibold">{selected.payment || "—"}</div>
+                    <div className="font-extrabold text-lg">{currency(orderTotal(selected))}</div>
+                  </div>
+                  <div className="mt-3">
+                    <StatusPill status={selected.status} />
+                    <div className="text-xs text-gray-500 mt-2">{formatDateTime(selected.createdAt)}</div>
+                  </div>
+                  {selected.note && (
+                    <div className="mt-3 text-sm text-gray-700">
+                      <span className="text-gray-500">Uwagi:</span> <span className="font-semibold">{selected.note}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="md:col-span-2 bg-white border border-gray-200 rounded-2xl p-4">
+                  <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Pozycje</div>
+                  <div className="mt-3 space-y-2">
+                    {(selected.items||[]).map((it, idx) => (
+                      <div key={idx} className="flex items-center justify-between gap-3 border border-gray-200 rounded-xl px-3 py-2">
+                        <div className="min-w-0">
+                          <div className="font-semibold truncate">{it.name}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">{it.qty} × {currency(it.price)}</div>
+                        </div>
+                        <div className="font-extrabold">{currency((it.qty||1)*(it.price||0))}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </Modal>
+        </div>
+      );
+    };
+
+    const UsersPage = () => {
+      const { users, upsertUser, toggleUserBlock } = useAdmin();
+      const toast = useToast();
+
+      const [q, setQ] = useState("");
+      const [role, setRole] = useState("all");
+      const [editing, setEditing] = useState(null);
+
+      const filtered = useMemo(() => {
+        const query = (q||"").trim().toLowerCase();
+        return users.filter(u => {
+          const matchesQ =
+            !query ||
+            (u.id||"").toLowerCase().includes(query) ||
+            (u.name||"").toLowerCase().includes(query) ||
+            (u.email||"").toLowerCase().includes(query) ||
+            (u.phone||"").toLowerCase().includes(query);
+          const matchesR = role === "all" ? true : u.role === role;
+          return matchesQ && matchesR;
+        });
+      }, [users, q, role]);
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [filtered.length, role]);
+
+      const startNew = () => {
+        setEditing({
+          id: "U" + (Math.floor(1000 + Math.random()*9000)),
+          name: "",
+          email: "",
+          phone: "",
+          createdAt: new Date().toISOString(),
+          role: "user",
+          status: "active",
+          ordersCount: 0,
+        });
+      };
+
+      const save = () => {
+        if (!editing.name || !editing.email) {
+          toast?.show?.("Uzupełnij imię i email.", "warn");
+          return;
+        }
+        upsertUser(editing);
+        setEditing(null);
+      };
+
+      return (
+        <div className="px-4 lg:px-8 py-6 lg:py-8">
+          <div className="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-200 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Baza</div>
+                <div className="text-xl font-extrabold mt-1">Użytkownicy</div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <Lucide name="search" className="w-5 h-5" />
+                  </span>
+                  <input
+                    value={q}
+                    onChange={(e)=>setQ(e.target.value)}
+                    placeholder="Szukaj: ID, imię, email, tel…"
+                    className="input-focus w-full sm:w-[320px] border border-gray-200 rounded-2xl pl-11 pr-4 py-3 bg-white min-h-[44px]"
+                  />
+                </div>
+
+                <select
+                  value={role}
+                  onChange={(e)=>setRole(e.target.value)}
+                  className="input-focus border border-gray-200 rounded-2xl px-4 py-3 bg-white min-h-[44px] font-semibold"
+                >
+                  <option value="all">Wszystkie role</option>
+                  <option value="admin">admin</option>
+                  <option value="staff">staff</option>
+                  <option value="user">user</option>
+                </select>
+
+                <PrimaryButton icon="user-plus" onClick={startNew}>
+                  Dodaj
+                </PrimaryButton>
+              </div>
+            </div>
+
+            <div className="p-5">
+              {filtered.length === 0 ? (
+                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 text-gray-700">
+                  Brak wyników.
+                </div>
+              ) : (
+                <div className="overflow-auto">
+                  <table className="w-full min-w-[900px]">
+                    <thead>
+                      <tr className="text-left text-xs uppercase tracking-widest text-gray-500">
+                        <th className="pb-3">Użytkownik</th>
+                        <th className="pb-3">Kontakt</th>
+                        <th className="pb-3">Rola</th>
+                        <th className="pb-3">Status</th>
+                        <th className="pb-3 text-right">Zamówienia</th>
+                        <th className="pb-3 text-right">Akcje</th>
+                      </tr>
+                    </thead>
+                    <tbody className="align-top">
+                      {filtered.map(u => (
+                        <tr key={u.id} className="border-t border-gray-100 hover:bg-gray-50/60">
+                          <td className="py-4 pr-3">
+                            <div className="font-extrabold">{u.name || "—"}</div>
+                            <div className="text-xs text-gray-500 mt-1">{u.id} • {formatDateTime(u.createdAt)}</div>
+                          </td>
+                          <td className="py-4 pr-3">
+                            <div className="font-semibold">{u.email || "—"}</div>
+                            <div className="text-xs text-gray-500 mt-1">{u.phone || "—"}</div>
+                          </td>
+                          <td className="py-4 pr-3">
+                            <Pill tone={u.role === "admin" ? "warn" : (u.role === "staff" ? "info" : "ok")}>{u.role}</Pill>
+                          </td>
+                          <td className="py-4 pr-3">
+                            <Pill tone={u.status === "blocked" ? "bad" : "ok"}>{u.status}</Pill>
+                          </td>
+                          <td className="py-4 pr-3 text-right">
+                            <div className="font-extrabold">{u.ordersCount ?? 0}</div>
+                          </td>
+                          <td className="py-4 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={()=>setEditing({ ...u })}
+                                className="inline-flex items-center gap-2 border border-gray-200 bg-white px-3 py-2 rounded-xl shadow-soft hover:ring-2 hover:ring-brand-yellow/30 font-semibold text-sm"
+                              >
+                                <Lucide name="pencil" className="w-4 h-4" /> Edytuj
+                              </button>
+                              <button
+                                type="button"
+                                onClick={()=>toggleUserBlock(u.id)}
+                                className={`inline-flex items-center gap-2 border px-3 py-2 rounded-xl shadow-soft hover:ring-2 font-semibold text-sm ${
+                                  u.status === "blocked"
+                                    ? "border-emerald-200 hover:ring-emerald-200 text-emerald-700"
+                                    : "border-red-200 hover:ring-red-200 text-red-700"
+                                }`}
+                              >
+                                <Lucide name={u.status === "blocked" ? "unlock" : "ban"} className="w-4 h-4" />
+                                {u.status === "blocked" ? "Odblokuj" : "Zablokuj"}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <Modal
+            open={!!editing}
+            onClose={()=>setEditing(null)}
+            title={editing ? (editing.name ? `Edytuj: ${editing.name}` : "Nowy użytkownik") : ""}
+            footer={editing && (
+              <div className="flex flex-col sm:flex-row gap-2 sm:justify-between sm:items-center">
+                <div className="text-sm text-gray-600">
+                  ID: <span className="font-mono font-semibold text-gray-900">{editing.id}</span>
+                </div>
+                <div className="flex gap-2">
+                  <GhostButton icon="x" onClick={()=>setEditing(null)}>Anuluj</GhostButton>
+                  <PrimaryButton icon="save" onClick={save}>Zapisz</PrimaryButton>
+                </div>
+              </div>
+            )}
+          >
+            {editing && (
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs uppercase tracking-wider text-gray-500">Imię i nazwisko *</label>
+                  <input
+                    className="input-focus w-full border border-gray-200 rounded-2xl px-4 py-3 bg-white min-h-[44px]"
+                    value={editing.name}
+                    onChange={(e)=>setEditing(s=>({ ...s, name:e.target.value }))}
+                    placeholder="np. Jan Kowalski"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-wider text-gray-500">Email *</label>
+                  <input
+                    className="input-focus w-full border border-gray-200 rounded-2xl px-4 py-3 bg-white min-h-[44px]"
+                    value={editing.email}
+                    onChange={(e)=>setEditing(s=>({ ...s, email:e.target.value }))}
+                    placeholder="np. jan@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-wider text-gray-500">Telefon</label>
+                  <input
+                    className="input-focus w-full border border-gray-200 rounded-2xl px-4 py-3 bg-white min-h-[44px]"
+                    value={editing.phone}
+                    onChange={(e)=>setEditing(s=>({ ...s, phone:e.target.value }))}
+                    placeholder="np. 500 000 000"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-wider text-gray-500">Rola</label>
+                  <select
+                    className="input-focus w-full border border-gray-200 rounded-2xl px-4 py-3 bg-white min-h-[44px] font-semibold"
+                    value={editing.role}
+                    onChange={(e)=>setEditing(s=>({ ...s, role:e.target.value }))}
+                  >
+                    <option value="user">user</option>
+                    <option value="staff">staff</option>
+                    <option value="admin">admin</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-2 bg-gray-50 border border-gray-200 rounded-2xl p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Status</div>
+                      <div className="font-extrabold mt-1">{editing.status}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <GhostButton icon="ban" onClick={()=>setEditing(s=>({ ...s, status:"blocked" }))}>Zablokuj</GhostButton>
+                      <PrimaryButton icon="unlock" onClick={()=>setEditing(s=>({ ...s, status:"active" }))}>Aktywuj</PrimaryButton>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Modal>
+        </div>
+      );
+    };
+
+    const InfoBarPage = () => {
+      const { infoBar, saveInfoBar } = useAdmin();
+      const toast = useToast();
+
+      const [draft, setDraft] = useState(infoBar || {
+        enabled: true, tone:"info", text:"", ctaLabel:"", ctaUrl:""
+      });
+
+      useEffect(() => { setDraft(infoBar || draft); }, [infoBar]); // kiedy storage się doczyta
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [draft?.tone, draft?.enabled]);
+
+      const previewTone = draft?.tone === "warn" ? "badge badge-warn" : "badge badge-info";
+
+      const submit = async () => {
+        if (!draft.text || (draft.text||"").trim().length < 3) {
+          toast?.show?.("Tekst paska info jest za krótki.", "warn");
+          return;
+        }
+        await saveInfoBar(draft);
+      };
+
+      return (
+        <div className="px-4 lg:px-8 py-6 lg:py-8">
+          <div className="grid gap-6 lg:grid-cols-3 items-start">
+            <div className="lg:col-span-2 bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-200">
+                <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Ustawienia</div>
+                <div className="text-xl font-extrabold mt-1">Pasek info</div>
+                <div className="text-sm text-gray-600 mt-2">
+                  To ma być “baner” na stronie klienta (np. o dostawach, promocjach, przerwach).
+                </div>
+              </div>
+
+              <div className="p-5">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="flex items-center gap-2 text-sm font-semibold">
+                      <input
+                        type="checkbox"
+                        checked={!!draft.enabled}
+                        onChange={(e)=>setDraft(s=>({ ...s, enabled:e.target.checked }))}
+                      />
+                      Włącz pasek info
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Ton</label>
+                    <select
+                      className="input-focus w-full border border-gray-200 rounded-2xl px-4 py-3 bg-white min-h-[44px] font-semibold"
+                      value={draft.tone}
+                      onChange={(e)=>setDraft(s=>({ ...s, tone:e.target.value }))}
+                    >
+                      <option value="info">info</option>
+                      <option value="warn">warn</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">CTA label</label>
+                    <input
+                      className="input-focus w-full border border-gray-200 rounded-2xl px-4 py-3 bg-white min-h-[44px]"
+                      value={draft.ctaLabel || ""}
+                      onChange={(e)=>setDraft(s=>({ ...s, ctaLabel:e.target.value }))}
+                      placeholder="np. Zobacz menu"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="text-xs uppercase tracking-wider text-gray-500">CTA URL</label>
+                    <input
+                      className="input-focus w-full border border-gray-200 rounded-2xl px-4 py-3 bg-white min-h-[44px]"
+                      value={draft.ctaUrl || ""}
+                      onChange={(e)=>setDraft(s=>({ ...s, ctaUrl:e.target.value }))}
+                      placeholder="np. #/kategoria/lunche"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Tekst *</label>
+                    <textarea
+                      className="input-focus w-full border border-gray-200 rounded-2xl px-4 py-3 bg-white min-h-[120px]"
+                      value={draft.text || ""}
+                      onChange={(e)=>setDraft(s=>({ ...s, text:e.target.value }))}
+                      placeholder="np. Dziś dostawy 12:00–16:00…"
+                    ></textarea>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+                  <div className="text-sm text-gray-600">
+                    Zapis: <span className="font-mono">localStorage</span> + opcjonalny <span className="font-mono">/api/admin/infobar</span>
+                  </div>
+                  <PrimaryButton icon="save" onClick={submit}>
+                    Zapisz
+                  </PrimaryButton>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-200">
+                <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Podgląd</div>
+                <div className="text-xl font-extrabold mt-1">Jak to wygląda</div>
+              </div>
+
+              <div className="p-5">
+                <div className={`rounded-3xl border border-gray-200 shadow-soft overflow-hidden ${draft.enabled ? "" : "opacity-60"}`}>
+                  <div className="px-4 py-3 bg-white">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={previewTone}>{draft.tone === "warn" ? "UWAGA" : "INFO"}</span>
+                          {!draft.enabled && <span className="badge badge-bad">wyłączone</span>}
+                        </div>
+                        <div className="text-sm text-gray-900 font-semibold mt-2 break-words">
+                          {draft.text || <span className="text-gray-400">— brak tekstu —</span>}
+                        </div>
+                      </div>
+
+                      {draft.ctaLabel && (
+                        <span className="shrink-0 inline-flex items-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-3 py-2 rounded-2xl border border-black/10">
+                          <Lucide name="arrow-right" className="w-4 h-4" />
+                          {draft.ctaLabel}
+                        </span>
+                      )}
+                    </div>
+
+                    {draft.ctaUrl && (
+                      <div className="text-xs text-gray-500 mt-3">
+                        URL: <span className="font-mono">{draft.ctaUrl}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="h-1.5 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 opacity-80"></div>
+                </div>
+
+                <div className="mt-4 text-xs text-gray-500">
+                  Integracja: na stronie klienta odczytujesz ten obiekt i renderujesz baner na górze.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const PushPage = () => {
+      const { pushLog, sendPush } = useAdmin();
+      const toast = useToast();
+
+      const [form, setForm] = useState({
+        title: "eatmi.pl",
+        body: "Nowa promocja: darmowa lemoniada do lunchu!",
+        url: "#/kategoria/lunche",
+        audience: "all" // all | active | city:...
+      });
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [pushLog.length]);
+
+      const submit = async (e) => {
+        e.preventDefault();
+        if (!form.title || !form.body) {
+          toast?.show?.("Uzupełnij tytuł i treść.", "warn");
+          return;
+        }
+        await sendPush({ ...form });
+        haptics();
+      };
+
+      const Status = ({ s }) => {
+        if (s === "sent") return <Pill tone="ok">wysłane</Pill>;
+        if (s === "failed") return <Pill tone="bad">błąd</Pill>;
+        return <Pill tone="warn">kolejka</Pill>;
+      };
+
+      return (
+        <div className="px-4 lg:px-8 py-6 lg:py-8">
+          <div className="grid gap-6 lg:grid-cols-3 items-start">
+            <div className="lg:col-span-2 bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-200">
+                <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Wysyłka</div>
+                <div className="text-xl font-extrabold mt-1">Powiadomienia push</div>
+                <div className="text-sm text-gray-600 mt-2">
+                  UI do wysyłki. Podłącz backend pod <span className="font-mono">POST /api/admin/push</span>.
+                </div>
+              </div>
+
+              <div className="p-5">
+                <form onSubmit={submit} className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Tytuł *</label>
+                    <input
+                      className="input-focus w-full border border-gray-200 rounded-2xl px-4 py-3 bg-white min-h-[44px]"
+                      value={form.title}
+                      onChange={(e)=>setForm(s=>({ ...s, title:e.target.value }))}
+                      placeholder="np. eatmi.pl"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Odbiorcy</label>
+                    <select
+                      className="input-focus w-full border border-gray-200 rounded-2xl px-4 py-3 bg-white min-h-[44px] font-semibold"
+                      value={form.audience}
+                      onChange={(e)=>setForm(s=>({ ...s, audience:e.target.value }))}
+                    >
+                      <option value="all">Wszyscy</option>
+                      <option value="active">Tylko aktywni</option>
+                      <option value="city:Warszawa">Miasto: Warszawa</option>
+                      <option value="city:Kraków">Miasto: Kraków</option>
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Treść *</label>
+                    <textarea
+                      className="input-focus w-full border border-gray-200 rounded-2xl px-4 py-3 bg-white min-h-[120px]"
+                      value={form.body}
+                      onChange={(e)=>setForm(s=>({ ...s, body:e.target.value }))}
+                      placeholder="Treść powiadomienia…"
+                    ></textarea>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="text-xs uppercase tracking-wider text-gray-500">URL po kliknięciu</label>
+                    <input
+                      className="input-focus w-full border border-gray-200 rounded-2xl px-4 py-3 bg-white min-h-[44px]"
+                      value={form.url}
+                      onChange={(e)=>setForm(s=>({ ...s, url:e.target.value }))}
+                      placeholder="np. #/koszyk"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+                    <div className="text-sm text-gray-600">
+                      Log: <span className="font-mono">localStorage</span> • Backend: <span className="font-mono">/api/admin/push</span>
+                    </div>
+                    <PrimaryButton icon="send" type="submit">
+                      Wyślij push
+                    </PrimaryButton>
+                  </div>
+                </form>
+
+                <div className="mt-6 bg-gray-50 border border-gray-200 rounded-3xl p-5">
+                  <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Podgląd</div>
+                  <div className="mt-3 rounded-3xl bg-white border border-gray-200 shadow-soft p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-extrabold">{form.title || "—"}</div>
+                        <div className="text-sm text-gray-700 mt-1 break-words">{form.body || "—"}</div>
+                        <div className="text-xs text-gray-500 mt-2">
+                          Audience: <span className="font-mono">{form.audience}</span> • URL: <span className="font-mono">{form.url || "—"}</span>
+                        </div>
+                      </div>
+                      <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 ring-1 ring-brand-yellow/30 grid place-items-center shrink-0">
+                        <Lucide name="bell" className="w-6 h-6" />
+                      </div>
+                    </div>
+                    <div className="mt-3 h-1.5 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 opacity-80 rounded-full"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-200">
+                <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Historia</div>
+                <div className="text-xl font-extrabold mt-1">Log push</div>
+              </div>
+              <div className="p-5">
+                {pushLog.length === 0 ? (
+                  <div className="text-gray-600">Brak wpisów.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {pushLog.slice(0, 10).map(p => (
+                      <div key={p.id} className="bg-white border border-gray-200 rounded-2xl p-4 shadow-soft">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-extrabold truncate">{p.title}</div>
+                            <div className="text-xs text-gray-500 mt-1">{formatDateTime(p.createdAt)} • <span className="font-mono">{p.audience}</span></div>
+                          </div>
+                          <Status s={p.status} />
+                        </div>
+                        <div className="text-sm text-gray-700 mt-2 break-words">{p.body}</div>
+                        {p.url && <div className="text-xs text-gray-500 mt-2">URL: <span className="font-mono">{p.url}</span></div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    /* =======================
+       MAIN APP
+    ======================= */
+
+    const routeLabelMap = {
+      [ROUTES.DASH]: "Dashboard",
+      [ROUTES.ORDERS]: "Zamówienia",
+      [ROUTES.USERS]: "Użytkownicy",
+      [ROUTES.INFOBAR]: "Pasek info",
+      [ROUTES.PUSH]: "Powiadomienia push",
+    };
+
+    const Main = () => {
+      const [route, nav] = useRoute();
+      const isMobile = useIsMobile(1024);
+      const [drawerOpen, setDrawerOpen] = useState(false);
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [route, drawerOpen]);
+
+      useEffect(() => {
+        if (!isMobile) setDrawerOpen(false);
+      }, [isMobile]);
+
+      const content = (() => {
+        if (route === ROUTES.ORDERS) return <OrdersPage />;
+        if (route === ROUTES.USERS) return <UsersPage />;
+        if (route === ROUTES.INFOBAR) return <InfoBarPage />;
+        if (route === ROUTES.PUSH) return <PushPage />;
+        return <Dashboard />;
+      })();
+
+      return (
+        <div className="min-h-screen">
+          <TopBar onOpenSidebar={() => setDrawerOpen(true)} routeLabel={routeLabelMap[route] || "Dashboard"} />
+
+          <div className="flex">
+            {/* Desktop sidebar */}
+            <aside className="hidden lg:block w-[var(--sidebar-w)] shrink-0 border-r border-gray-200 min-h-[calc(100vh-80px)] sticky top-[80px]">
+              <SidebarContent route={route} />
+            </aside>
+
+            {/* Mobile drawer */}
+            <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} route={route} />
+
+            <main className="flex-1">
+              {content}
+              <footer className="px-4 lg:px-8 pb-[calc(var(--safe-b)+24px)] pt-6 text-center text-sm text-gray-500">
+                © {new Date().getFullYear()} eatmi.pl • Panel administratora (UI)
+              </footer>
+            </main>
+          </div>
+        </div>
+      );
+    };
+
+    const App = () => (
+      <ToastProvider>
+        <AdminProvider>
+          <Main />
+        </AdminProvider>
+      </ToastProvider>
+    );
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
