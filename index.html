@@ -102,33 +102,26 @@
     .no-overscroll { overscroll-behavior: none; }
 
     /* =======================
-       PWA SPLASH (ONLY STANDALONE)
+       PWA SPLASH (ONLY STANDALONE) — FAST ZOOM
     ======================= */
-    .splash-enter { animation: splashIn .22s ease-out; }
-    .splash-exit { animation: splashOut .28s ease-in forwards; }
+    .splash-enter { animation: splashFadeIn .05s linear both; }
+    .splash-exit  { animation: splashFadeOut .06s linear both; }
 
-    @keyframes splashIn {
-      from { opacity: 0; transform: scale(.98); }
-      to   { opacity: 1; transform: scale(1); }
-    }
-    @keyframes splashOut {
-      from { opacity: 1; transform: scale(1); }
-      to   { opacity: 0; transform: scale(1.02); }
-    }
+    @keyframes splashFadeIn  { from { opacity: 0 } to { opacity: 1 } }
+    @keyframes splashFadeOut { from { opacity: 1 } to { opacity: 0 } }
 
-    @keyframes logoPop {
-      0%   { transform: translateY(10px) scale(.92); opacity: 0; }
-      55%  { transform: translateY(0) scale(1.02); opacity: 1; }
-      100% { transform: translateY(0) scale(1); }
-    }
-    @keyframes shimmer {
-      0% { transform: translateX(-120%); opacity: 0; }
-      15% { opacity: .9; }
-      100% { transform: translateX(120%); opacity: 0; }
+    /* zoom: biały “kafelek” z logo szybko przybliża się do nas */
+    .splash-zoom {
+      animation: splashZoom .26s cubic-bezier(.2,.9,.2,1) both;
+      will-change: transform;
+      transform-origin: center;
     }
 
-    .splash-logo-anim { animation: logoPop .65s cubic-bezier(.2,.9,.2,1) both; }
-    .splash-shimmer { animation: shimmer 1.2s ease-in-out infinite; }
+    @keyframes splashZoom {
+      0%   { transform: translateY(8px) scale(.86); }
+      70%  { transform: translateY(0) scale(1.05); }
+      100% { transform: translateY(0) scale(12); } /* “prawie fullscreen” */
+    }
   </style>
 
   <!-- React 18 + ReactDOM 18 -->
@@ -188,7 +181,7 @@
     const SANDWICHES = [
       { id:'k-jajecznica-bekon', name:'Maślane pieczywo z jajecznicą, bekonem i majonezem sriracha', price: 17 },
       { id:'k-club-kurczak', name:'Club sandwich z grillowanym kurczakiem, chrupiący bekon, majonez, sałata i pomidor', price: 17 },
-      { id:'k-club-vege', name:'Vege club sandwich z camembert, palonym awokado, majonezem, sałatą i pomidorem', price: 17 },
+      { id:'k-club-vege', name:'Vege club sandwich z camembert, palonym awokado, majonez, sałata i pomidorem', price: 17 },
       { id:'k-jajecznica-avo', name:'Maślane pieczywo z jajecznicą, awokado i majonezem sriracha', price: 17 },
       { id:'k-buritto-chorizo', name:'Buritto z jajecznicą z mozzarellą, chorizo i majonezem sriracha', price: 19 },
       { id:'k-rostbef', name:'Maślane pieczywo z rostbefem, jajkiem poche, rukolą, sosem musztardowo-chrzanowym i oliwą truflową', price: 21 },
@@ -976,7 +969,7 @@
           alert('Hasła nie są takie same.');
           return;
         }
-        alert(`(${mode === 'login' ? 'Logowanie' : 'Rejestracja'}) to na razie makieta UI :)`);
+        alert(\`(\${mode === 'login' ? 'Logowanie' : 'Rejestracja'}) to na razie makieta UI :)\`);
         onClose();
       };
 
@@ -1559,14 +1552,18 @@
       }
     };
 
+    // ✅ NOWY SPLASH: pomarańczowe tło + biały kafelek z logo, ultra szybki zoom do "fullscreen"
     const PWASplash = ({ visible, onDone }) => {
       const [phase, setPhase] = useState("enter"); // enter | exit
 
       useEffect(() => {
         if (!visible) return;
 
-        const t1 = setTimeout(() => setPhase("exit"), 1250);
-        const t2 = setTimeout(() => onDone?.(), 1550);
+        // SUPER SZYBKO:
+        // - zoom trwa 260ms
+        // - zaraz po nim chowamy splash i pokazujemy app (czyli wywołujemy onDone)
+        const t1 = setTimeout(() => setPhase("exit"), 260);
+        const t2 = setTimeout(() => onDone?.(), 300);
 
         return () => { clearTimeout(t1); clearTimeout(t2); };
       }, [visible, onDone]);
@@ -1575,36 +1572,19 @@
 
       return (
         <div className={`fixed inset-0 z-[200] ${phase === "exit" ? "splash-exit" : "splash-enter"}`}>
-          <div className="absolute inset-0 bg-brand-light"></div>
+          {/* Tło fullscreen w kolorze logo */}
+          <div className="absolute inset-0" style={{ background: "#FFC107" }} />
 
-          <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full bg-brand-yellow/25 blur-3xl"></div>
-          <div className="absolute -bottom-24 -right-24 w-80 h-80 rounded-full bg-amber-300/25 blur-3xl"></div>
-
-          <div className="relative h-full w-full flex flex-col items-center justify-center px-6 text-center">
-            <div className="w-28 h-28 rounded-[28px] bg-white border border-gray-100 shadow-soft logo-glow grid place-items-center overflow-hidden splash-logo-anim">
+          {/* Kafelek + logo (zoomuje do fullscreen) */}
+          <div className="relative h-full w-full flex items-center justify-center">
+            <div className="splash-zoom w-28 h-28 md:w-32 md:h-32 rounded-[28px] bg-white shadow-glass border border-white/60 grid place-items-center overflow-hidden">
               <img
                 src="https://i.imgur.com/f9TN0Gh.png"
                 alt="eatmi"
-                className="w-20 h-20 object-contain"
+                className="w-16 h-16 md:w-20 md:h-20 object-contain"
                 draggable="false"
               />
             </div>
-
-            <div className="mt-4 text-2xl font-extrabold tracking-tight">
-              eatmi<span className="text-brand-yellow">.pl</span>
-            </div>
-            <div className="mt-2 text-sm text-gray-600 font-semibold">
-              Ładujemy Twoje menu…
-            </div>
-
-            <div className="mt-6 w-full max-w-xs h-2 rounded-full bg-white/70 border border-gray-200 overflow-hidden shadow-soft">
-              <div className="relative h-full w-full">
-                <div className="absolute inset-y-0 left-0 w-[55%] bg-brand-yellow rounded-full"></div>
-                <div className="absolute inset-y-0 left-0 w-[45%] bg-white/30 rounded-full splash-shimmer"></div>
-              </div>
-            </div>
-
-            <div style={{ height: "calc(var(--safe-b) + 6px)" }} />
           </div>
         </div>
       );
