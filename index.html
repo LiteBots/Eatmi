@@ -59,7 +59,11 @@
       --cta-h: 56px;
       --safe-b: env(safe-area-inset-bottom, 0px);
       --safe-t: env(safe-area-inset-top, 0px);
+
+      /* Cinematic splash */
       --splash-orange: #FFC107; /* kolor jak logo */
+      --splash-zoom-ms: 980ms;  /* wolniej + cinematic */
+      --splash-fade-ms: 180ms;
     }
 
     html, body { height: 100%; }
@@ -103,23 +107,46 @@
     .no-overscroll { overscroll-behavior: none; }
 
     /* =======================
-       PWA SPLASH (ONLY STANDALONE) — NOWY SZYBKI ZOOM
+       PWA SPLASH (ONLY STANDALONE) — CINEMATIC
        Fullscreen pomarańcz + biały kwadrat + logo.
-       Całość (kwadrat+logo) szybko przybliża się do kamery.
-       Gdy jest "na fullscreen", splash znika i widać appkę.
+       Całość (kwadrat+logo) płynnie przybliża się do kamery + lekkie "ease/bounce".
     ======================= */
 
-    .splash-wrap { will-change: transform, opacity; }
-    .splash-zoom-enter { animation: splashZoomIn .22s cubic-bezier(.12,.92,.2,1) both; }
-    .splash-zoom-exit  { animation: splashFadeOut .06s ease-out both; }
+    .splash-wrap {
+      will-change: transform, opacity, filter;
+      transform-origin: center;
+    }
+
+    .splash-zoom-enter {
+      animation: splashZoomIn var(--splash-zoom-ms) cubic-bezier(.18,.92,.18,1) both;
+    }
+
+    .splash-zoom-exit  {
+      animation: splashFadeOut var(--splash-fade-ms) ease-out both;
+    }
 
     @keyframes splashZoomIn {
-      0%   { transform: translateZ(0) scale(.18); opacity: 1; }
-      100% { transform: translateZ(0) scale(14); opacity: 1; }
+      0%   { transform: translateZ(0) scale(.16); filter: blur(0px); opacity: 1; }
+      58%  { transform: translateZ(0) scale(8.6); filter: blur(0px); opacity: 1; }
+      84%  { transform: translateZ(0) scale(15.2); filter: blur(.35px); opacity: 1; } /* lekki overshoot */
+      100% { transform: translateZ(0) scale(14.2); filter: blur(.15px); opacity: 1; } /* settle */
     }
+
     @keyframes splashFadeOut {
       from { opacity: 1; }
       to   { opacity: 0; }
+    }
+
+    @keyframes splashShine {
+      0%   { transform: translateX(-140%) rotate(18deg); opacity: 0; }
+      12%  { opacity: .65; }
+      55%  { opacity: .35; }
+      100% { transform: translateX(140%) rotate(18deg); opacity: 0; }
+    }
+
+    @keyframes splashPulse {
+      0%   { transform: translateZ(0) scale(1); opacity: .16; }
+      100% { transform: translateZ(0) scale(1.08); opacity: .06; }
     }
   </style>
 
@@ -167,7 +194,6 @@
        MENU
     ======================= */
 
-    // ✅ DODANE: image dla każdej kategorii (pliki luzem w repo: /boxy.png itd.)
     const PRODUCT_CATEGORIES = [
       { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open', description: 'Małe, średnie i duże zestawy. Także VEGE.', image: '/boxy.png' },
       { id: 'lunche', name: 'Lunche', icon: 'utensils-crossed', description: 'Lunch tygodnia, miesiąca i vege (12:00–16:00).', image: '/lunch.png' },
@@ -436,7 +462,6 @@
               <i data-lucide="user" className="w-5 h-5"></i>
             </button>
 
-            {/* Koszyk zawsze w prawym górnym rogu */}
             <CartButton />
           </div>
         </div>
@@ -497,7 +522,6 @@
       </div>
     );
 
-    // ✅ ZMIANA: CategoryCard ma teraz cover image (category.image)
     const CategoryCard = ({ category }) => {
       const handleClick = () => { window.location.hash = `#/kategoria/${category.id}`; };
       return (
@@ -508,7 +532,6 @@
         >
           <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 opacity-80 z-[2]"></div>
 
-          {/* COVER IMAGE */}
           <div className="relative h-36 w-full overflow-hidden">
             <img
               src={category.image}
@@ -1191,7 +1214,6 @@
                     className="w-full flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-soft hover:ring-2 hover:ring-brand-yellow/40"
                   >
                     <div className="flex items-center gap-3 text-left min-w-0">
-                      {/* mini thumb (opcjonalnie, ale fajnie) */}
                       <div className="w-11 h-11 rounded-2xl overflow-hidden border border-gray-200 shrink-0">
                         <img src={c.image} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
                       </div>
@@ -1560,7 +1582,7 @@
     };
 
     /* =======================
-       PWA SPLASH (ONLY STANDALONE) — NOWY
+       PWA SPLASH (ONLY STANDALONE) — CINEMATIC
     ======================= */
 
     const isStandalonePWA = () => {
@@ -1574,15 +1596,17 @@
       }
     };
 
-    // Szybki zoom: tło pomarańcz + biały kwadrat + logo
     const PWASplash = ({ visible, onDone }) => {
       const [phase, setPhase] = useState("enter"); // enter | exit
 
       useEffect(() => {
         if (!visible) return;
-        // super szybkie: zoom 220ms + fade 60ms
-        const t1 = setTimeout(() => setPhase("exit"), 220);
-        const t2 = setTimeout(() => onDone?.(), 280);
+
+        const zoomMs = 980;  // musi pasować do CSS (--splash-zoom-ms)
+        const fadeMs = 180;  // musi pasować do CSS (--splash-fade-ms)
+
+        const t1 = setTimeout(() => setPhase("exit"), zoomMs);
+        const t2 = setTimeout(() => onDone?.(), zoomMs + fadeMs);
 
         return () => { clearTimeout(t1); clearTimeout(t2); };
       }, [visible, onDone]);
@@ -1594,10 +1618,46 @@
           {/* pomarańczowy fullscreen */}
           <div className="absolute inset-0" style={{ background: "var(--splash-orange)" }} />
 
+          {/* cinematic vignette / depth */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(1200px 800px at 50% 45%, rgba(255,255,255,.18) 0%, rgba(255,255,255,0) 55%), radial-gradient(900px 600px at 50% 55%, rgba(0,0,0,.10) 0%, rgba(0,0,0,0) 55%)",
+              mixBlendMode: "soft-light",
+              opacity: 0.95
+            }}
+          />
+
+          {/* delikatny puls tła */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: "radial-gradient(700px 700px at 50% 50%, rgba(255,255,255,.22), rgba(255,255,255,0) 65%)",
+              animation: "splashPulse 900ms ease-in-out infinite alternate",
+              pointerEvents: "none"
+            }}
+          />
+
           {/* kwadrat + logo, przybliżanie */}
           <div className="absolute inset-0 flex items-center justify-center">
             <div className={`splash-wrap ${phase === "exit" ? "splash-zoom-exit" : "splash-zoom-enter"}`}>
-              <div className="w-28 h-28 rounded-[26px] bg-white shadow-glass border border-white/60 grid place-items-center overflow-hidden">
+              <div
+                className="relative w-28 h-28 rounded-[26px] bg-white border border-white/70 grid place-items-center overflow-hidden"
+                style={{
+                  boxShadow: "0 18px 60px rgba(0,0,0,.22), 0 10px 22px rgba(0,0,0,.12)"
+                }}
+              >
+                {/* shine */}
+                <div
+                  className="absolute -inset-10"
+                  style={{
+                    background: "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.55) 50%, rgba(255,255,255,0) 100%)",
+                    animation: "splashShine 900ms ease-in-out infinite",
+                    transform: "rotate(18deg)",
+                    opacity: 0.0
+                  }}
+                />
                 <img
                   src="https://i.imgur.com/f9TN0Gh.png"
                   alt="eatmi"
@@ -1624,7 +1684,7 @@
       const [route, setRoute] = useState(window.location.hash || "#/");
       const isMobile = useIsMobile(768);
 
-      // ✅ Splash tylko gdy uruchomione jako standalone (z ikonki)
+      // Splash tylko gdy uruchomione jako standalone (z ikonki)
       const [showSplash, setShowSplash] = useState(() => isStandalonePWA());
 
       useEffect(() => {
@@ -1678,13 +1738,13 @@
 
           <DeveloperUnlock onUnlock={() => setMaintenance(false)} />
 
-          {/* ✅ Splash tylko w PWA (standalone) */}
+          {/* Splash tylko w PWA (standalone) */}
           <PWASplash visible={showSplash} onDone={() => setShowSplash(false)} />
         </div>
       );
     };
 
-    // Render z fallbackiem na ekran (żeby nie było białego)
+    // Render z fallbackiem (żeby nie było białego)
     try {
       ReactDOM.createRoot(document.getElementById('root')).render(
         <ToastProvider>
