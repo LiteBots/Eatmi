@@ -100,6 +100,35 @@
     }
 
     .no-overscroll { overscroll-behavior: none; }
+
+    /* =======================
+       PWA SPLASH (ONLY STANDALONE)
+    ======================= */
+    .splash-enter { animation: splashIn .22s ease-out; }
+    .splash-exit { animation: splashOut .28s ease-in forwards; }
+
+    @keyframes splashIn {
+      from { opacity: 0; transform: scale(.98); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    @keyframes splashOut {
+      from { opacity: 1; transform: scale(1); }
+      to   { opacity: 0; transform: scale(1.02); }
+    }
+
+    @keyframes logoPop {
+      0%   { transform: translateY(10px) scale(.92); opacity: 0; }
+      55%  { transform: translateY(0) scale(1.02); opacity: 1; }
+      100% { transform: translateY(0) scale(1); }
+    }
+    @keyframes shimmer {
+      0% { transform: translateX(-120%); opacity: 0; }
+      15% { opacity: .9; }
+      100% { transform: translateX(120%); opacity: 0; }
+    }
+
+    .splash-logo-anim { animation: logoPop .65s cubic-bezier(.2,.9,.2,1) both; }
+    .splash-shimmer { animation: shimmer 1.2s ease-in-out infinite; }
   </style>
 
   <!-- React 18 + ReactDOM 18 -->
@@ -1516,6 +1545,72 @@
     };
 
     /* =======================
+       PWA SPLASH (ONLY STANDALONE)
+    ======================= */
+
+    const isStandalonePWA = () => {
+      try {
+        return (
+          (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+          (window.navigator && window.navigator.standalone === true)
+        );
+      } catch {
+        return false;
+      }
+    };
+
+    const PWASplash = ({ visible, onDone }) => {
+      const [phase, setPhase] = useState("enter"); // enter | exit
+
+      useEffect(() => {
+        if (!visible) return;
+
+        const t1 = setTimeout(() => setPhase("exit"), 1250);
+        const t2 = setTimeout(() => onDone?.(), 1550);
+
+        return () => { clearTimeout(t1); clearTimeout(t2); };
+      }, [visible, onDone]);
+
+      if (!visible) return null;
+
+      return (
+        <div className={`fixed inset-0 z-[200] ${phase === "exit" ? "splash-exit" : "splash-enter"}`}>
+          <div className="absolute inset-0 bg-brand-light"></div>
+
+          <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full bg-brand-yellow/25 blur-3xl"></div>
+          <div className="absolute -bottom-24 -right-24 w-80 h-80 rounded-full bg-amber-300/25 blur-3xl"></div>
+
+          <div className="relative h-full w-full flex flex-col items-center justify-center px-6 text-center">
+            <div className="w-28 h-28 rounded-[28px] bg-white border border-gray-100 shadow-soft logo-glow grid place-items-center overflow-hidden splash-logo-anim">
+              <img
+                src="https://i.imgur.com/f9TN0Gh.png"
+                alt="eatmi"
+                className="w-20 h-20 object-contain"
+                draggable="false"
+              />
+            </div>
+
+            <div className="mt-4 text-2xl font-extrabold tracking-tight">
+              eatmi<span className="text-brand-yellow">.pl</span>
+            </div>
+            <div className="mt-2 text-sm text-gray-600 font-semibold">
+              Ładujemy Twoje menu…
+            </div>
+
+            <div className="mt-6 w-full max-w-xs h-2 rounded-full bg-white/70 border border-gray-200 overflow-hidden shadow-soft">
+              <div className="relative h-full w-full">
+                <div className="absolute inset-y-0 left-0 w-[55%] bg-brand-yellow rounded-full"></div>
+                <div className="absolute inset-y-0 left-0 w-[45%] bg-white/30 rounded-full splash-shimmer"></div>
+              </div>
+            </div>
+
+            <div style={{ height: "calc(var(--safe-b) + 6px)" }} />
+          </div>
+        </div>
+      );
+    };
+
+    /* =======================
        APP
     ======================= */
 
@@ -1527,6 +1622,9 @@
 
       const [route, setRoute] = useState(window.location.hash || "#/");
       const isMobile = useIsMobile(768);
+
+      // ✅ PWA SPLASH: tylko gdy uruchomione jako standalone (z ikonki)
+      const [showSplash, setShowSplash] = useState(() => isStandalonePWA());
 
       useEffect(() => {
         const onHash = () => setRoute(window.location.hash || "#/");
@@ -1578,6 +1676,9 @@
           />
 
           <DeveloperUnlock onUnlock={() => setMaintenance(false)} />
+
+          {/* ✅ Splash tylko w PWA (standalone) */}
+          <PWASplash visible={showSplash} onDone={() => setShowSplash(false)} />
         </div>
       );
     };
