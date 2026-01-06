@@ -59,6 +59,7 @@
       --cta-h: 56px;
       --safe-b: env(safe-area-inset-bottom, 0px);
       --safe-t: env(safe-area-inset-top, 0px);
+      --splash-orange: #FFC107; /* kolor jak logo */
     }
 
     html, body { height: 100%; }
@@ -102,25 +103,23 @@
     .no-overscroll { overscroll-behavior: none; }
 
     /* =======================
-       PWA SPLASH (ONLY STANDALONE) — FAST ZOOM
+       PWA SPLASH (ONLY STANDALONE) — NOWY SZYBKI ZOOM
+       Fullscreen pomarańcz + biały kwadrat + logo.
+       Całość (kwadrat+logo) szybko przybliża się do kamery.
+       Gdy jest "na fullscreen", splash znika i widać appkę.
     ======================= */
-    .splash-enter { animation: splashFadeIn .05s linear both; }
-    .splash-exit  { animation: splashFadeOut .06s linear both; }
 
-    @keyframes splashFadeIn  { from { opacity: 0 } to { opacity: 1 } }
-    @keyframes splashFadeOut { from { opacity: 1 } to { opacity: 0 } }
+    .splash-wrap { will-change: transform, opacity; }
+    .splash-zoom-enter { animation: splashZoomIn .22s cubic-bezier(.12,.92,.2,1) both; }
+    .splash-zoom-exit  { animation: splashFadeOut .06s ease-out both; }
 
-    /* zoom: biały “kafelek” z logo szybko przybliża się do nas */
-    .splash-zoom {
-      animation: splashZoom .26s cubic-bezier(.2,.9,.2,1) both;
-      will-change: transform;
-      transform-origin: center;
+    @keyframes splashZoomIn {
+      0%   { transform: translateZ(0) scale(.18); opacity: 1; }
+      100% { transform: translateZ(0) scale(14); opacity: 1; }
     }
-
-    @keyframes splashZoom {
-      0%   { transform: translateY(8px) scale(.86); }
-      70%  { transform: translateY(0) scale(1.05); }
-      100% { transform: translateY(0) scale(12); } /* “prawie fullscreen” */
+    @keyframes splashFadeOut {
+      from { opacity: 1; }
+      to   { opacity: 0; }
     }
   </style>
 
@@ -140,6 +139,29 @@
 
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
+
+    // ===== DEBUG: pokaż błąd na ekranie zamiast białego =====
+    (function attachFatalErrorOverlay(){
+      const show = (title, err) => {
+        const msg = (err && (err.stack || err.message)) ? (err.stack || err.message) : String(err || "Unknown error");
+        const pre = document.createElement("pre");
+        pre.style.position = "fixed";
+        pre.style.inset = "0";
+        pre.style.zIndex = "999999";
+        pre.style.margin = "0";
+        pre.style.padding = "16px";
+        pre.style.background = "#0b0f1a";
+        pre.style.color = "#fff";
+        pre.style.font = "12px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace";
+        pre.style.whiteSpace = "pre-wrap";
+        pre.textContent = `FATAL: ${title}\n\n${msg}`;
+        document.body.innerHTML = "";
+        document.body.appendChild(pre);
+      };
+
+      window.addEventListener("error", (e) => show("window.error", e?.error || e?.message || e));
+      window.addEventListener("unhandledrejection", (e) => show("unhandledrejection", e?.reason || e));
+    })();
 
     /* =======================
        MENU
@@ -181,7 +203,7 @@
     const SANDWICHES = [
       { id:'k-jajecznica-bekon', name:'Maślane pieczywo z jajecznicą, bekonem i majonezem sriracha', price: 17 },
       { id:'k-club-kurczak', name:'Club sandwich z grillowanym kurczakiem, chrupiący bekon, majonez, sałata i pomidor', price: 17 },
-      { id:'k-club-vege', name:'Vege club sandwich z camembert, palonym awokado, majonez, sałata i pomidorem', price: 17 },
+      { id:'k-club-vege', name:'Vege club sandwich z camembert, palonym awokado, majonezem, sałatą i pomidorem', price: 17 },
       { id:'k-jajecznica-avo', name:'Maślane pieczywo z jajecznicą, awokado i majonezem sriracha', price: 17 },
       { id:'k-buritto-chorizo', name:'Buritto z jajecznicą z mozzarellą, chorizo i majonezem sriracha', price: 19 },
       { id:'k-rostbef', name:'Maślane pieczywo z rostbefem, jajkiem poche, rukolą, sosem musztardowo-chrzanowym i oliwą truflową', price: 21 },
@@ -969,7 +991,7 @@
           alert('Hasła nie są takie same.');
           return;
         }
-        alert(\`(\${mode === 'login' ? 'Logowanie' : 'Rejestracja'}) to na razie makieta UI :)\`);
+        alert(`(${mode === 'login' ? 'Logowanie' : 'Rejestracja'}) to na razie makieta UI :)`);
         onClose();
       };
 
@@ -1538,7 +1560,7 @@
     };
 
     /* =======================
-       PWA SPLASH (ONLY STANDALONE)
+       PWA SPLASH (ONLY STANDALONE) — NOWY
     ======================= */
 
     const isStandalonePWA = () => {
@@ -1552,18 +1574,15 @@
       }
     };
 
-    // ✅ NOWY SPLASH: pomarańczowe tło + biały kafelek z logo, ultra szybki zoom do "fullscreen"
+    // Szybki zoom: tło pomarańcz + biały kwadrat + logo
     const PWASplash = ({ visible, onDone }) => {
       const [phase, setPhase] = useState("enter"); // enter | exit
 
       useEffect(() => {
         if (!visible) return;
-
-        // SUPER SZYBKO:
-        // - zoom trwa 260ms
-        // - zaraz po nim chowamy splash i pokazujemy app (czyli wywołujemy onDone)
-        const t1 = setTimeout(() => setPhase("exit"), 260);
-        const t2 = setTimeout(() => onDone?.(), 300);
+        // super szybkie: zoom 220ms + fade 60ms
+        const t1 = setTimeout(() => setPhase("exit"), 220);
+        const t2 = setTimeout(() => onDone?.(), 280);
 
         return () => { clearTimeout(t1); clearTimeout(t2); };
       }, [visible, onDone]);
@@ -1571,19 +1590,21 @@
       if (!visible) return null;
 
       return (
-        <div className={`fixed inset-0 z-[200] ${phase === "exit" ? "splash-exit" : "splash-enter"}`}>
-          {/* Tło fullscreen w kolorze logo */}
-          <div className="absolute inset-0" style={{ background: "#FFC107" }} />
+        <div className="fixed inset-0 z-[200]">
+          {/* pomarańczowy fullscreen */}
+          <div className="absolute inset-0" style={{ background: "var(--splash-orange)" }} />
 
-          {/* Kafelek + logo (zoomuje do fullscreen) */}
-          <div className="relative h-full w-full flex items-center justify-center">
-            <div className="splash-zoom w-28 h-28 md:w-32 md:h-32 rounded-[28px] bg-white shadow-glass border border-white/60 grid place-items-center overflow-hidden">
-              <img
-                src="https://i.imgur.com/f9TN0Gh.png"
-                alt="eatmi"
-                className="w-16 h-16 md:w-20 md:h-20 object-contain"
-                draggable="false"
-              />
+          {/* kwadrat + logo, przybliżanie */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className={`splash-wrap ${phase === "exit" ? "splash-zoom-exit" : "splash-zoom-enter"}`}>
+              <div className="w-28 h-28 rounded-[26px] bg-white shadow-glass border border-white/60 grid place-items-center overflow-hidden">
+                <img
+                  src="https://i.imgur.com/f9TN0Gh.png"
+                  alt="eatmi"
+                  className="w-20 h-20 object-contain"
+                  draggable="false"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -1603,7 +1624,7 @@
       const [route, setRoute] = useState(window.location.hash || "#/");
       const isMobile = useIsMobile(768);
 
-      // ✅ PWA SPLASH: tylko gdy uruchomione jako standalone (z ikonki)
+      // ✅ Splash tylko gdy uruchomione jako standalone (z ikonki)
       const [showSplash, setShowSplash] = useState(() => isStandalonePWA());
 
       useEffect(() => {
@@ -1663,13 +1684,30 @@
       );
     };
 
-    ReactDOM.createRoot(document.getElementById('root')).render(
-      <ToastProvider>
-        <CartProvider>
-          <App />
-        </CartProvider>
-      </ToastProvider>
-    );
+    // Render z fallbackiem na ekran (żeby nie było białego)
+    try {
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        <ToastProvider>
+          <CartProvider>
+            <App />
+          </CartProvider>
+        </ToastProvider>
+      );
+    } catch (e) {
+      const pre = document.createElement("pre");
+      pre.style.position = "fixed";
+      pre.style.inset = "0";
+      pre.style.zIndex = "999999";
+      pre.style.margin = "0";
+      pre.style.padding = "16px";
+      pre.style.background = "#0b0f1a";
+      pre.style.color = "#fff";
+      pre.style.font = "12px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace";
+      pre.style.whiteSpace = "pre-wrap";
+      pre.textContent = "FATAL: render() crashed\n\n" + (e?.stack || e?.message || String(e));
+      document.body.innerHTML = "";
+      document.body.appendChild(pre);
+    }
   </script>
 </body>
 </html>
