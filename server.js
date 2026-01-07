@@ -15,12 +15,12 @@ app.use(express.static(__dirname));
 // ====== PayU ENV ======
 const {
   PAYU_ENV = "prod",            // "prod" albo "sandbox"
-  PAYU_POS_ID,                  // pos_id
+  PAYU_POS_ID,                  // pos_id (merchantPosId)
   PAYU_CLIENT_ID,               // OAuth client_id
   PAYU_CLIENT_SECRET,           // OAuth client_secret
-  PAYU_MD5_SECOND_KEY,          // drugi klucz MD5 (na start nie używamy)
-  PAYU_NOTIFY_URL,              // np. https://twojapp.railway.app/api/payu/notify
-  PAYU_CONTINUE_URL             // np. https://twojapp.railway.app/#/zamowienie?paid=1
+  PAYU_MD5_SECOND_KEY,          // (na start nie używamy)
+  PAYU_NOTIFY_URL,              // np. https://www.eatmi.pl/api/payu/notify
+  PAYU_CONTINUE_URL             // np. https://www.eatmi.pl/#/zamowienie?paid=1
 } = process.env;
 
 const PAYU_BASE =
@@ -33,6 +33,7 @@ function requireEnv(name, value) {
 // ====== PRICE LIST (server-side truth) ======
 // Ceny w GROSZACH
 const PRICE_LIST = {
+  // Boxy śniadaniowe
   "bs-small-1": 3800,
   "bs-small-2": 4000,
   "bs-small-3": 4200,
@@ -46,10 +47,12 @@ const PRICE_LIST = {
   "bs-big-3": 8400,
   "bs-big-vege": 8000,
 
+  // Lunche
   "lunch-week": 4900,
   "lunch-month": 5900,
   "lunch-vege": 4900,
 
+  // Kanapki
   "k-jajecznica-bekon": 1700,
   "k-club-kurczak": 1700,
   "k-club-vege": 1700,
@@ -57,16 +60,19 @@ const PRICE_LIST = {
   "k-buritto-chorizo": 1900,
   "k-rostbef": 2100,
 
+  // Zdrowe
   "z-granola": 1900,
   "z-cezar": 1900,
   "z-koreanska": 1900,
   "z-burak": 1900,
 
+  // Słodkie
   "s-smoothie": 1900,
   "s-tost-fr": 1900,
   "s-pancakes": 1900,
   "s-deser-czeko": 1900,
 
+  // Napoje
   "n-lemoniada": 1200,
   "n-sok-pom": 1200,
   "n-kawa-filt-cz": 1000,
@@ -79,6 +85,7 @@ const PRICE_LIST = {
   "n-herbata-cz": 900,
   "n-zimowa": 1500,
 
+  // Extras
   "extra-granola": 1900,
   "extra-lemoniada": 1200,
   "extra-deser": 1900
@@ -146,13 +153,20 @@ async function getPayuToken() {
     body
   });
 
+  const raw = await r.text().catch(() => "");
   if (!r.ok) {
-    const raw = await r.text().catch(() => "");
     console.log("PAYU OAUTH FAIL:", r.status, raw);
     throw new Error(`PayU OAuth failed: ${r.status} ${raw}`);
   }
 
-  return r.json(); // { access_token, ... }
+  let data;
+  try { data = JSON.parse(raw); } catch { data = {}; }
+  if (!data?.access_token) {
+    console.log("PAYU OAUTH BAD JSON:", raw);
+    throw new Error("PayU OAuth: missing access_token");
+  }
+
+  return data; // { access_token, ... }
 }
 
 // ====== Create order ======
@@ -178,7 +192,7 @@ app.post("/api/payu/order", async (req, res) => {
 
       return {
         name: NAME_LIST[productId] || "Pozycja",
-        unitPrice: String(PRICE_LIST[productId]),
+        unitPrice: String(PRICE_LIST[productId]), // grosze
         quantity: String(qty)
       };
     });
@@ -199,7 +213,7 @@ app.post("/api/payu/order", async (req, res) => {
 
     const orderBody = {
       customerIp,
-      merchantPosId: PAYU_POS_ID,
+      merchantPosId: String(PAYU_POS_ID),
       extOrderId,
       description: "Zamówienie eatmi.pl",
       currencyCode: "PLN",
@@ -209,8 +223,10 @@ app.post("/api/payu/order", async (req, res) => {
       products
     };
 
+    // 🔥 KLUCZ: PayU potrafi zwrócić 302 + Location (redirectUri) -> fetch NIE MOŻE tego followować
     const r = await fetch(`${PAYU_BASE}/api/v2_1/orders`, {
       method: "POST",
+      redirect: "manual", // ✅ IMPORTANT
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${access_token}`
@@ -218,16 +234,43 @@ app.post("/api/payu/order", async (req, res) => {
       body: JSON.stringify(orderBody)
     });
 
-    const raw = await r.text();
-    let data;
-    try { data = JSON.parse(raw); } catch { data = { raw }; }
+    const location = r.headers.get("location") || r.headers.get("Location");
 
-    if (!r.ok) {
-      console.log("PAYU CREATE ORDER FAIL:", r.status, data);
-      return res.status(502).json({ error: "PayU create order failed", status: r.status, details: data });
+    // w razie gdy PayU jednak zwróci JSON (czasem zwraca)
+    const raw = await r.text().catch(() => "");
+    let data = null;
+    if (raw) {
+      try { data = JSON.parse(raw); } catch { data = { raw }; }
     }
 
-    return res.json({ redirectUri: data.redirectUri, orderId: data.orderId, extOrderId });
+    // ✅ Najczęstsza ścieżka: 302 + Location
+    if ((r.status === 301 || r.status === 302 || r.status === 303) && location) {
+      return res.json({
+        redirectUri: location,
+        orderId: data?.orderId || null,
+        extOrderId
+      });
+    }
+
+    // ✅ Druga ścieżka: 200/201 + JSON z redirectUri
+    if (r.ok && data?.redirectUri) {
+      return res.json({ redirectUri: data.redirectUri, orderId: data.orderId, extOrderId });
+    }
+
+    // ❌ Błędy / brak redirecta
+    console.log("PAYU CREATE ORDER UNEXPECTED:", {
+      status: r.status,
+      location,
+      data
+    });
+
+    return res.status(502).json({
+      error: "PayU create order failed / no redirect",
+      status: r.status,
+      location: location || null,
+      details: data
+    });
+
   } catch (e) {
     console.log("PAYU ORDER ERROR:", e);
     return res.status(500).json({ error: e.message || "Server error" });
@@ -245,6 +288,7 @@ app.get("/api/payu/notify", (req, res) => {
   res.status(200).send("OK (PayU notify endpoint expects POST)");
 });
 
+// SPA fallback (hash-router)
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
