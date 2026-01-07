@@ -2,6 +2,8 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 
+console.log("NODE VERSION:", process.version);
+
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
@@ -18,7 +20,7 @@ const {
   PAYU_CLIENT_SECRET,           // OAuth client_secret
   PAYU_MD5_SECOND_KEY,          // drugi klucz MD5 (na start nie używamy)
   PAYU_NOTIFY_URL,              // np. https://twojapp.railway.app/api/payu/notify
-  PAYU_CONTINUE_URL             // np. https://twojapp.railway.app/#/zamowienie?paid=1 albo /success.html
+  PAYU_CONTINUE_URL             // np. https://twojapp.railway.app/#/zamowienie?paid=1
 } = process.env;
 
 const PAYU_BASE =
@@ -31,7 +33,6 @@ function requireEnv(name, value) {
 // ====== PRICE LIST (server-side truth) ======
 // Ceny w GROSZACH
 const PRICE_LIST = {
-  // Boxy śniadaniowe
   "bs-small-1": 3800,
   "bs-small-2": 4000,
   "bs-small-3": 4200,
@@ -45,12 +46,10 @@ const PRICE_LIST = {
   "bs-big-3": 8400,
   "bs-big-vege": 8000,
 
-  // Lunche
   "lunch-week": 4900,
   "lunch-month": 5900,
   "lunch-vege": 4900,
 
-  // Kanapki
   "k-jajecznica-bekon": 1700,
   "k-club-kurczak": 1700,
   "k-club-vege": 1700,
@@ -58,19 +57,16 @@ const PRICE_LIST = {
   "k-buritto-chorizo": 1900,
   "k-rostbef": 2100,
 
-  // Zdrowe
   "z-granola": 1900,
   "z-cezar": 1900,
   "z-koreanska": 1900,
   "z-burak": 1900,
 
-  // Słodkie
   "s-smoothie": 1900,
   "s-tost-fr": 1900,
   "s-pancakes": 1900,
   "s-deser-czeko": 1900,
 
-  // Napoje
   "n-lemoniada": 1200,
   "n-sok-pom": 1200,
   "n-kawa-filt-cz": 1000,
@@ -83,14 +79,12 @@ const PRICE_LIST = {
   "n-herbata-cz": 900,
   "n-zimowa": 1500,
 
-  // Extras z Twojej sekcji “Może dorzucisz…”
   "extra-granola": 1900,
   "extra-lemoniada": 1200,
   "extra-deser": 1900
 };
 
 const NAME_LIST = {
-  // Minimum do PayU products[] (może być też "Pozycja")
   "bs-small-1": "Box śniadaniowy mały nr 1",
   "bs-small-2": "Box śniadaniowy mały nr 2",
   "bs-small-3": "Box śniadaniowy mały nr 3",
@@ -153,9 +147,11 @@ async function getPayuToken() {
   });
 
   if (!r.ok) {
-    const t = await r.text().catch(() => "");
-    throw new Error(`PayU OAuth failed: ${r.status} ${t}`);
+    const raw = await r.text().catch(() => "");
+    console.log("PAYU OAUTH FAIL:", r.status, raw);
+    throw new Error(`PayU OAuth failed: ${r.status} ${raw}`);
   }
+
   return r.json(); // { access_token, ... }
 }
 
@@ -169,7 +165,6 @@ app.post("/api/payu/order", async (req, res) => {
     const cart = Array.isArray(req.body?.cart) ? req.body.cart : [];
     if (!cart.length) return res.status(400).json({ error: "Empty cart" });
 
-    // cart items expected: { productId, qty }
     const products = cart.map((i) => {
       const productId = i.productId;
       const qty = Number(i.qty || 1);
@@ -183,7 +178,7 @@ app.post("/api/payu/order", async (req, res) => {
 
       return {
         name: NAME_LIST[productId] || "Pozycja",
-        unitPrice: String(PRICE_LIST[productId]), // grosze
+        unitPrice: String(PRICE_LIST[productId]),
         quantity: String(qty)
       };
     });
@@ -200,9 +195,12 @@ app.post("/api/payu/order", async (req, res) => {
       req.socket.remoteAddress ||
       "127.0.0.1";
 
+    const extOrderId = `eatmi-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
     const orderBody = {
       customerIp,
-      merchantPosId: PAYU_POS_ID,     // pos_id
+      merchantPosId: PAYU_POS_ID,
+      extOrderId,
       description: "Zamówienie eatmi.pl",
       currencyCode: "PLN",
       totalAmount: String(totalAmount),
@@ -220,26 +218,33 @@ app.post("/api/payu/order", async (req, res) => {
       body: JSON.stringify(orderBody)
     });
 
-    const data = await r.json().catch(() => ({}));
+    const raw = await r.text();
+    let data;
+    try { data = JSON.parse(raw); } catch { data = { raw }; }
+
     if (!r.ok) {
-      return res.status(502).json({ error: "PayU create order failed", details: data });
+      console.log("PAYU CREATE ORDER FAIL:", r.status, data);
+      return res.status(502).json({ error: "PayU create order failed", status: r.status, details: data });
     }
 
-    return res.json({ redirectUri: data.redirectUri, orderId: data.orderId });
+    return res.json({ redirectUri: data.redirectUri, orderId: data.orderId, extOrderId });
   } catch (e) {
+    console.log("PAYU ORDER ERROR:", e);
     return res.status(500).json({ error: e.message || "Server error" });
   }
 });
 
 // ====== Webhook from PayU ======
 app.post("/api/payu/notify", (req, res) => {
-  // Na start: tylko log. Potem: zapis statusu w DB.
   console.log("PAYU NOTIFY:", JSON.stringify(req.body));
   res.sendStatus(200);
 });
 
-// Fallback: jeśli ktoś wejdzie w nieistniejącą ścieżkę (a chcesz single-page),
-// możesz odsyłać index.html. U Ciebie jest hash-router, więc i tak ok.
+// ✅ Debug endpoint (GET) - żeby w przeglądarce nie wracało na SPA
+app.get("/api/payu/notify", (req, res) => {
+  res.status(200).send("OK (PayU notify endpoint expects POST)");
+});
+
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
