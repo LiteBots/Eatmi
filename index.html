@@ -1549,8 +1549,35 @@
 
             <main className={`app-content-pad ${showCTA ? "has-cta" : ""}`}>
               <Router />
-              <footer className="py-14 text-center text-sm text-gray-500">
-                © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
+
+              <!-- ✅ FOOTER Z DANYMI FIRMY -->
+              <footer className="py-10 text-center text-sm text-gray-500">
+                <div className="max-w-6xl mx-auto px-4">
+                  <div className="font-semibold text-gray-700">
+                    © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
+                  </div>
+
+                  <div className="mt-3 text-xs text-gray-500 leading-relaxed">
+                    <div className="font-semibold text-gray-700">Dane przedsiębiorcy</div>
+
+                    <div className="mt-2">
+                      <span className="font-semibold">Firma:</span> MARCIN CHOJNACKI MILKSHAKE BAR
+                    </div>
+
+                    <div className="mt-1">
+                      <span className="font-semibold">Imię i nazwisko:</span> MARCIN CHOJNACKI
+                    </div>
+
+                    <div className="mt-1">
+                      <span className="font-semibold">NIP:</span> 8271982077 •{" "}
+                      <span className="font-semibold">REGON:</span> 100473965
+                    </div>
+
+                    <div className="mt-1">
+                      <span className="font-semibold">Adres:</span> ul. Szczecińska 17, 76-200 Słupsk, pow. Słupsk, gm. Słupsk, woj. POMORSKIE, Polska
+                    </div>
+                  </div>
+                </div>
               </footer>
             </main>
 
