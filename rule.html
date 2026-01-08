@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#FFC107" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="eatmi" />
+
+  <title>eatmi.pl — Regulamin i Polityka Prywatności</title>
+  <meta name="description" content="Regulamin świadczenia usług drogą elektroniczną oraz Polityka Prywatności eatmi.pl." />
+
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/favicon.png" />
+
+  <!-- Tailwind config MUST be before tailwindcdn script -->
+  <script>
+    tailwind = window.tailwind || {};
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { yellow: '#FFC107', dark: '#111827', light: '#F9FAFB' },
+            kiosk: {
+              bg: '#0B0F1A',
+              card: '#0F1629',
+              card2: '#111B34',
+              green: '#22C55E',
+              red: '#EF4444',
+              blue: '#3B82F6',
+              violet: '#8B5CF6',
+              orange: '#F59E0B',
+              gray: '#94A3B8'
+            }
+          },
+          boxShadow: {
+            soft: '0 10px 30px rgba(0,0,0,.08)',
+            glass: '0 8px 25px rgba(0,0,0,.12)',
+            kiosk: '0 14px 50px rgba(0,0,0,.35)'
+          },
+          borderRadius: { xl2: '1.25rem' }
+        }
+      }
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    :root{
+      --tabbar-h: 72px;
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-t: env(safe-area-inset-top, 0px);
+    }
+    html, body { height: 100%; }
+    body { overscroll-behavior-y: none; background:#F9FAFB; }
+
+    .liquid { background: rgba(255,255,255,.75); backdrop-filter: blur(12px); }
+    .logo-glow { box-shadow: 0 12px 30px rgba(255,193,7,.18); }
+
+    .input-focus { outline: none; }
+    .input-focus:focus { box-shadow: 0 0 0 3px rgba(255,193,7,.35); border-color: rgba(255,193,7,.75); }
+
+    /* App-like: treść nie może chować się pod tabbarem */
+    .app-content-pad {
+      padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + 18px);
+    }
+    .no-overscroll { overscroll-behavior: none; }
+
+    /* ładny gradient pasek jak w kartach */
+    .top-accent {
+      background: linear-gradient(90deg, #FFC107, #FCD34D, #FB923C);
+    }
+  </style>
+
+  <!-- Lucide icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="text-gray-900 no-overscroll">
+  <!-- HEADER -->
+  <header class="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-gray-200">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <a href="/#/" class="flex items-center gap-3 group">
+        <div class="w-10 h-10 rounded-2xl bg-white flex items-center justify-center border border-gray-100 overflow-hidden shadow-soft logo-glow">
+          <img
+            src="https://i.imgur.com/f9TN0Gh.png"
+            alt="eatmi.pl — logo"
+            loading="lazy"
+            class="w-9 h-9 object-contain transition-transform duration-500 group-hover:-rotate-6 group-hover:scale-110"
+          />
+        </div>
+        <span class="font-extrabold tracking-tight">
+          eatmi<span class="text-brand-yellow">.pl</span>
+        </span>
+      </a>
+
+      <div class="flex items-center gap-2">
+        <a
+          href="/#/"
+          class="inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition text-sm font-semibold text-gray-800 hover:ring-2 hover:ring-brand-yellow/50"
+        >
+          <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          <span>Wróć do zamówień</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="relative overflow-hidden">
+    <div class="max-w-6xl mx-auto px-4 py-10 md:py-14">
+      <div class="max-w-3xl">
+        <div class="inline-flex items-center gap-2 mb-3 px-4 py-2 rounded-full bg-white/80 border border-gray-200 shadow-soft">
+          <span class="text-xl">📄</span>
+          <span class="text-sm md:text-base font-semibold text-gray-900">
+            Dokumenty i zasady
+          </span>
+        </div>
+
+        <h1 class="text-4xl md:text-5xl font-extrabold leading-tight">
+          Regulamin oraz <span class="text-brand-yellow">Polityka Prywatności</span>
+        </h1>
+
+        <p class="mt-4 text-gray-600 max-w-prose">
+          Poniżej znajdziesz najważniejsze informacje dotyczące korzystania z serwisu, składania zamówień,
+          płatności oraz przetwarzania danych osobowych.
+        </p>
+
+        <div class="mt-6 flex flex-wrap gap-3">
+          <a href="#regulamin" class="inline-flex items-center gap-2 font-extrabold px-6 py-3 rounded-xl2 shadow-soft bg-white border border-gray-200 hover:ring-2 hover:ring-brand-yellow/60 transition">
+            <i data-lucide="scroll-text" class="w-5 h-5"></i>
+            Regulamin
+          </a>
+          <a href="#privacy" class="inline-flex items-center gap-2 font-extrabold px-6 py-3 rounded-xl2 shadow-soft bg-white border border-gray-200 hover:ring-2 hover:ring-brand-yellow/60 transition">
+            <i data-lucide="shield-check" class="w-5 h-5"></i>
+            Polityka prywatności
+          </a>
+          <a href="#cookies" class="inline-flex items-center gap-2 font-extrabold px-6 py-3 rounded-xl2 shadow-soft bg-white border border-gray-200 hover:ring-2 hover:ring-brand-yellow/60 transition">
+            <i data-lucide="cookie" class="w-5 h-5"></i>
+            Cookies
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <main class="app-content-pad">
+    <!-- INFO CARDS -->
+    <section class="py-10 md:py-12 bg-gradient-to-b from-white to-brand-light">
+      <div class="max-w-6xl mx-auto px-4">
+        <div class="grid md:grid-cols-3 gap-5 md:gap-6">
+          <div class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden hover:ring-2 hover:ring-brand-yellow/40 transition">
+            <div class="h-1.5 top-accent"></div>
+            <div class="p-6">
+              <div class="w-11 h-11 rounded-2xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                <i data-lucide="shopping-bag" class="w-6 h-6"></i>
+              </div>
+              <h3 class="mt-4 text-lg font-extrabold">Zamówienia</h3>
+              <p class="mt-2 text-sm text-gray-600">
+                Opisujemy zasady składania zamówień, dostępność, potwierdzenie oraz realizację.
+              </p>
+            </div>
+          </div>
+
+          <div class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden hover:ring-2 hover:ring-brand-yellow/40 transition">
+            <div class="h-1.5 top-accent"></div>
+            <div class="p-6">
+              <div class="w-11 h-11 rounded-2xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                <i data-lucide="credit-card" class="w-6 h-6"></i>
+              </div>
+              <h3 class="mt-4 text-lg font-extrabold">Płatności</h3>
+              <p class="mt-2 text-sm text-gray-600">
+                Płatności online realizowane są przez zewnętrznego operatora (np. PayU) zgodnie z jego regulaminem.
+              </p>
+            </div>
+          </div>
+
+          <div class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden hover:ring-2 hover:ring-brand-yellow/40 transition">
+            <div class="h-1.5 top-accent"></div>
+            <div class="p-6">
+              <div class="w-11 h-11 rounded-2xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                <i data-lucide="lock" class="w-6 h-6"></i>
+              </div>
+              <h3 class="mt-4 text-lg font-extrabold">Dane i prywatność</h3>
+              <p class="mt-2 text-sm text-gray-600">
+                Wyjaśniamy jakie dane przetwarzamy, w jakim celu i jakie masz prawa.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-8 text-xs text-gray-500 leading-relaxed">
+          Uwaga: treści poniżej są szablonem i warto je dostosować do faktycznego modelu działania (odbiór/dostawa, reklamacje, dane kontaktowe).
+        </div>
+      </div>
+    </section>
+
+    <!-- REGULAMIN -->
+    <section id="regulamin" class="py-12 md:py-16 bg-white">
+      <div class="max-w-6xl mx-auto px-4">
+        <div class="text-center max-w-2xl mx-auto">
+          <div class="text-xs uppercase tracking-widest text-gray-500">Regulamin</div>
+          <h2 class="text-3xl md:text-4xl font-extrabold mt-1">Regulamin świadczenia usług</h2>
+          <p class="text-gray-600 mt-2">Obowiązuje od: <span class="font-semibold">[wstaw datę]</span></p>
+        </div>
+
+        <div class="mt-10 grid lg:grid-cols-3 gap-6 items-start">
+          <!-- TOC -->
+          <aside class="bg-white border border-gray-200 rounded-2xl p-5 shadow-soft sticky top-[84px]">
+            <div class="font-semibold flex items-center gap-2">
+              <i data-lucide="list" class="w-4 h-4"></i> Spis treści
+            </div>
+            <div class="mt-3 grid gap-2 text-sm">
+              <a href="#r1" class="hover:underline text-gray-700">1. Postanowienia ogólne</a>
+              <a href="#r2" class="hover:underline text-gray-700">2. Definicje</a>
+              <a href="#r3" class="hover:underline text-gray-700">3. Zasady składania zamówień</a>
+              <a href="#r4" class="hover:underline text-gray-700">4. Płatności</a>
+              <a href="#r5" class="hover:underline text-gray-700">5. Realizacja i odbiór/dostawa</a>
+              <a href="#r6" class="hover:underline text-gray-700">6. Reklamacje</a>
+              <a href="#r7" class="hover:underline text-gray-700">7. Odstąpienie od umowy</a>
+              <a href="#r8" class="hover:underline text-gray-700">8. Konto użytkownika</a>
+              <a href="#r9" class="hover:underline text-gray-700">9. Postanowienia końcowe</a>
+            </div>
+          </aside>
+
+          <!-- CONTENT -->
+          <div class="lg:col-span-2 space-y-4">
+            <!-- Section card -->
+            <div id="r1" class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div class="h-1.5 top-accent"></div>
+              <div class="p-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                    <i data-lucide="info" class="w-5 h-5"></i>
+                  </div>
+                  <h3 class="text-xl font-extrabold">1. Postanowienia ogólne</h3>
+                </div>
+                <div class="mt-4 text-sm text-gray-700 space-y-2 leading-relaxed">
+                  <p>1.1. Regulamin określa zasady korzystania z serwisu <span class="font-semibold">eatmi.pl</span> oraz składania zamówień online.</p>
+                  <p>1.2. Sprzedawcą/Usługodawcą jest: <span class="font-semibold">MARCIN CHOJNACKI MILKSHAKE BAR</span> (dalej: „Sprzedawca”).</p>
+                  <p>1.3. Kontakt: <span class="font-semibold">[e-mail]</span>, tel.: <span class="font-semibold">[telefon]</span>.</p>
+                </div>
+              </div>
+            </div>
+
+            <div id="r2" class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div class="h-1.5 top-accent"></div>
+              <div class="p-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                    <i data-lucide="book-open" class="w-5 h-5"></i>
+                  </div>
+                  <h3 class="text-xl font-extrabold">2. Definicje</h3>
+                </div>
+                <div class="mt-4 text-sm text-gray-700 space-y-2 leading-relaxed">
+                  <p><span class="font-semibold">Serwis</span> – strona internetowa eatmi.pl.</p>
+                  <p><span class="font-semibold">Klient</span> – osoba składająca zamówienie (konsument lub przedsiębiorca).</p>
+                  <p><span class="font-semibold">Zamówienie</span> – oświadczenie woli Klienta zmierzające do zawarcia umowy sprzedaży.</p>
+                </div>
+              </div>
+            </div>
+
+            <div id="r3" class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div class="h-1.5 top-accent"></div>
+              <div class="p-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                    <i data-lucide="clipboard-check" class="w-5 h-5"></i>
+                  </div>
+                  <h3 class="text-xl font-extrabold">3. Zasady składania zamówień</h3>
+                </div>
+                <div class="mt-4 text-sm text-gray-700 space-y-2 leading-relaxed">
+                  <p>3.1. Zamówienia składa się poprzez wybór produktów, dodanie do koszyka oraz wypełnienie formularza zamówienia.</p>
+                  <p>3.2. Ceny w Serwisie podawane są w PLN i obejmują podatki wymagane przepisami (o ile dotyczy).</p>
+                  <p>3.3. Klient powinien podać dane prawdziwe i kompletne. Braki mogą uniemożliwić realizację.</p>
+                  <p>3.4. Potwierdzeniem złożenia zamówienia jest komunikat w Serwisie oraz (opcjonalnie) e-mail/SMS potwierdzający.</p>
+                </div>
+              </div>
+            </div>
+
+            <div id="r4" class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div class="h-1.5 top-accent"></div>
+              <div class="p-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                    <i data-lucide="wallet" class="w-5 h-5"></i>
+                  </div>
+                  <h3 class="text-xl font-extrabold">4. Płatności</h3>
+                </div>
+                <div class="mt-4 text-sm text-gray-700 space-y-2 leading-relaxed">
+                  <p>4.1. Płatności online są obsługiwane przez zewnętrznego operatora płatności (np. PayU).</p>
+                  <p>4.2. Warunki realizacji płatności, zwrotów i procedury bezpieczeństwa mogą wynikać z regulaminu operatora.</p>
+                  <p>4.3. W przypadku nieudanej płatności zamówienie może zostać anulowane automatycznie po upływie określonego czasu.</p>
+                </div>
+
+                <div class="mt-5 border border-gray-200 rounded-2xl overflow-hidden">
+                  <div class="px-4 py-3 bg-gray-50 text-xs uppercase tracking-widest text-gray-500 font-semibold">Skrót</div>
+                  <div class="p-4 text-sm text-gray-700 grid gap-2">
+                    <div class="flex items-center justify-between gap-3">
+                      <span class="font-semibold">Operator płatności</span>
+                      <span class="font-mono">PayU (przykład)</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                      <span class="font-semibold">Waluta</span>
+                      <span class="font-mono">PLN</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-3">
+                      <span class="font-semibold">Potwierdzenie</span>
+                      <span class="font-mono">redirect / status</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="r5" class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div class="h-1.5 top-accent"></div>
+              <div class="p-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                    <i data-lucide="truck" class="w-5 h-5"></i>
+                  </div>
+                  <h3 class="text-xl font-extrabold">5. Realizacja i odbiór/dostawa</h3>
+                </div>
+                <div class="mt-4 text-sm text-gray-700 space-y-2 leading-relaxed">
+                  <p>5.1. Szczegóły realizacji (odbiór osobisty / dostawa) zależą od aktualnej oferty i ustawień Serwisu.</p>
+                  <p>5.2. Przewidywany czas realizacji może zależeć od dostępności produktów oraz obłożenia.</p>
+                  <p>5.3. W przypadku braku możliwości realizacji Sprzedawca skontaktuje się z Klientem w celu ustalenia dalszych kroków (np. zmiana zamówienia / zwrot).</p>
+                </div>
+              </div>
+            </div>
+
+            <div id="r6" class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div class="h-1.5 top-accent"></div>
+              <div class="p-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                    <i data-lucide="message-square-warning" class="w-5 h-5"></i>
+                  </div>
+                  <h3 class="text-xl font-extrabold">6. Reklamacje</h3>
+                </div>
+                <div class="mt-4 text-sm text-gray-700 space-y-2 leading-relaxed">
+                  <p>6.1. Reklamacje można składać na adres e-mail: <span class="font-semibold">[e-mail]</span>.</p>
+                  <p>6.2. W zgłoszeniu podaj: numer zamówienia, opis problemu, datę zakupu oraz dane kontaktowe.</p>
+                  <p>6.3. Sprzedawca odpowie w rozsądnym terminie, nie później niż <span class="font-semibold">[np. 14 dni]</span>.</p>
+                </div>
+              </div>
+            </div>
+
+            <div id="r7" class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div class="h-1.5 top-accent"></div>
+              <div class="p-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                    <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+                  </div>
+                  <h3 class="text-xl font-extrabold">7. Odstąpienie od umowy</h3>
+                </div>
+                <div class="mt-4 text-sm text-gray-700 space-y-2 leading-relaxed">
+                  <p>7.1. Uprawnienie do odstąpienia od umowy może być ograniczone w przypadku produktów szybko psujących się lub mających krótki termin przydatności (jeśli dotyczy).</p>
+                  <p>7.2. Szczegóły i wyjątki wynikają z obowiązujących przepisów prawa oraz charakteru produktu.</p>
+                </div>
+              </div>
+            </div>
+
+            <div id="r8" class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div class="h-1.5 top-accent"></div>
+              <div class="p-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                    <i data-lucide="user" class="w-5 h-5"></i>
+                  </div>
+                  <h3 class="text-xl font-extrabold">8. Konto użytkownika</h3>
+                </div>
+                <div class="mt-4 text-sm text-gray-700 space-y-2 leading-relaxed">
+                  <p>8.1. Serwis może umożliwiać utworzenie konta (aktualnie może to być makieta UI).</p>
+                  <p>8.2. Klient odpowiada za bezpieczeństwo swoich danych dostępowych, jeśli konto jest aktywne.</p>
+                </div>
+              </div>
+            </div>
+
+            <div id="r9" class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div class="h-1.5 top-accent"></div>
+              <div class="p-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                    <i data-lucide="gavel" class="w-5 h-5"></i>
+                  </div>
+                  <h3 class="text-xl font-extrabold">9. Postanowienia końcowe</h3>
+                </div>
+                <div class="mt-4 text-sm text-gray-700 space-y-2 leading-relaxed">
+                  <p>9.1. Sprzedawca może aktualizować Regulamin. Aktualna wersja jest dostępna na tej stronie.</p>
+                  <p>9.2. W sprawach nieuregulowanych zastosowanie mają przepisy prawa polskiego.</p>
+                  <p>9.3. Wszelkie pytania kieruj na: <span class="font-semibold">[e-mail]</span>.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- FAQ / DETAILS -->
+            <div class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div class="h-1.5 top-accent"></div>
+              <div class="p-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                    <i data-lucide="help-circle" class="w-5 h-5"></i>
+                  </div>
+                  <h3 class="text-xl font-extrabold">Szybkie pytania</h3>
+                </div>
+
+                <div class="mt-5 space-y-3">
+                  <details class="group border border-gray-200 rounded-2xl p-4">
+                    <summary class="cursor-pointer list-none flex items-center justify-between gap-3 font-semibold">
+                      Jak sprawdzić status zamówienia?
+                      <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="mt-3 text-sm text-gray-700 leading-relaxed">
+                      Jeśli włączymy konto/ historię zamówień — zobaczysz status w panelu. W wersji podstawowej potwierdzenie może przyjść e-mailem/SMS.
+                    </div>
+                  </details>
+
+                  <details class="group border border-gray-200 rounded-2xl p-4">
+                    <summary class="cursor-pointer list-none flex items-center justify-between gap-3 font-semibold">
+                      Co jeśli płatność się nie powiedzie?
+                      <i data-lucide="chevron-down" class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="mt-3 text-sm text-gray-700 leading-relaxed">
+                      Spróbuj ponownie lub wybierz inną metodę płatności u operatora. Jeśli środki zostały pobrane, a zamówienie nie powstało — skontaktuj się z nami i operatorem płatności.
+                    </div>
+                  </details>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRIVACY -->
+    <section id="privacy" class="py-12 md:py-16 bg-gradient-to-b from-white to-brand-light">
+      <div class="max-w-6xl mx-auto px-4">
+        <div class="text-center max-w-2xl mx-auto">
+          <div class="text-xs uppercase tracking-widest text-gray-500">Prywatność</div>
+          <h2 class="text-3xl md:text-4xl font-extrabold mt-1">Polityka Prywatności</h2>
+          <p class="text-gray-600 mt-2">Obowiązuje od: <span class="font-semibold">[wstaw datę]</span></p>
+        </div>
+
+        <div class="mt-10 grid lg:grid-cols-3 gap-6 items-start">
+          <aside class="bg-white border border-gray-200 rounded-2xl p-5 shadow-soft sticky top-[84px]">
+            <div class="font-semibold flex items-center gap-2">
+              <i data-lucide="shield" class="w-4 h-4"></i> Na skróty
+            </div>
+            <div class="mt-3 grid gap-2 text-sm">
+              <a href="#p1" class="hover:underline text-gray-700">1. Administrator</a>
+              <a href="#p2" class="hover:underline text-gray-700">2. Jakie dane zbieramy</a>
+              <a href="#p3" class="hover:underline text-gray-700">3. Cele i podstawy</a>
+              <a href="#p4" class="hover:underline text-gray-700">4. Odbiorcy danych</a>
+              <a href="#p5" class="hover:underline text-gray-700">5. Okres przechowywania</a>
+              <a href="#p6" class="hover:underline text-gray-700">6. Twoje prawa</a>
+              <a href="#p7" class="hover:underline text-gray-700">7. Bezpieczeństwo</a>
+              <a href="#p8" class="hover:underline text-gray-700">8. Kontakt</a>
+            </div>
+          </aside>
+
+          <div class="lg:col-span-2 space-y-4">
+            <div id="p1" class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div class="h-1.5 top-accent"></div>
+              <div class="p-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                    <i data-lucide="building-2" class="w-5 h-5"></i>
+                  </div>
+                  <h3 class="text-xl font-extrabold">1. Administrator danych</h3>
+                </div>
+                <div class="mt-4 text-sm text-gray-700 space-y-2 leading-relaxed">
+                  <p>Administratorem danych osobowych jest <span class="font-semibold">MARCIN CHOJNACKI MILKSHAKE BAR</span>.</p>
+                  <p>Adres: <span class="font-semibold">ul. Szczecińska 17, 76-200 Słupsk</span></p>
+                  <p>E-mail kontaktowy: <span class="font-semibold">[e-mail]</span></p>
+                </div>
+              </div>
+            </div>
+
+            <div id="p2" class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div class="h-1.5 top-accent"></div>
+              <div class="p-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                    <i data-lucide="database" class="w-5 h-5"></i>
+                  </div>
+                  <h3 class="text-xl font-extrabold">2. Jakie dane przetwarzamy</h3>
+                </div>
+
+                <div class="mt-4 text-sm text-gray-700 leading-relaxed">
+                  <div class="border border-gray-200 rounded-2xl overflow-hidden">
+                    <div class="px-4 py-3 bg-gray-50 text-xs uppercase tracking-widest text-gray-500 font-semibold">Przykładowe kategorie danych</div>
+                    <div class="p-4 overflow-x-auto">
+                      <table class="min-w-[640px] w-full text-sm">
+                        <thead>
+                          <tr class="text-left text-gray-500">
+                            <th class="py-2 pr-4 font-semibold">Kategoria</th>
+                            <th class="py-2 pr-4 font-semibold">Przykłady</th>
+                            <th class="py-2 font-semibold">Źródło</th>
+                          </tr>
+                        </thead>
+                        <tbody class="text-gray-700">
+                          <tr class="border-t border-gray-200">
+                            <td class="py-3 pr-4 font-semibold">Dane zamówienia</td>
+                            <td class="py-3 pr-4">imię i nazwisko, telefon, e-mail, adres, uwagi</td>
+                            <td class="py-3">formularz</td>
+                          </tr>
+                          <tr class="border-t border-gray-200">
+                            <td class="py-3 pr-4 font-semibold">Dane techniczne</td>
+                            <td class="py-3 pr-4">IP, identyfikatory urządzenia, logi</td>
+                            <td class="py-3">serwer/przeglądarka</td>
+                          </tr>
+                          <tr class="border-t border-gray-200">
+                            <td class="py-3 pr-4 font-semibold">Płatności</td>
+                            <td class="py-3 pr-4">status, identyfikator transakcji</td>
+                            <td class="py-3">operator płatności</td>
+                          </tr>
+                          <tr class="border-t border-gray-200">
+                            <td class="py-3 pr-4 font-semibold">Cookies</td>
+                            <td class="py-3 pr-4">preferencje, statystyki (jeśli włączone)</td>
+                            <td class="py-3">przeglądarka</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <p class="mt-4">
+                    Nie zbieramy danych „na zapas”. Zakres zależy od funkcji, z której korzystasz.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div id="p3" class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div class="h-1.5 top-accent"></div>
+              <div class="p-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                    <i data-lucide="target" class="w-5 h-5"></i>
+                  </div>
+                  <h3 class="text-xl font-extrabold">3. Cele i podstawy przetwarzania</h3>
+                </div>
+                <div class="mt-4 text-sm text-gray-700 space-y-2 leading-relaxed">
+                  <p><span class="font-semibold">Realizacja zamówienia</span> – przetwarzamy dane, aby zawrzeć i wykonać umowę.</p>
+                  <p><span class="font-semibold">Obsługa płatności</span> – niezbędna do rozliczeń i potwierdzeń (współpraca z operatorem).</p>
+                  <p><span class="font-semibold">Kontakt i wsparcie</span> – odpowiedzi na wiadomości, reklamacje.</p>
+                  <p><span class="font-semibold">Obowiązki prawne</span> – np. księgowe/podatkowe (jeśli dotyczy).</p>
+                  <p><span class="font-semibold">Analityka</span> – wyłącznie jeśli ją włączysz i/lub wyrazisz zgodę (jeśli dotyczy).</p>
+                </div>
+              </div>
+            </div>
+
+            <div id="p4" class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div class="h-1.5 top-accent"></div>
+              <div class="p-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                    <i data-lucide="users" class="w-5 h-5"></i>
+                  </div>
+                  <h3 class="text-xl font-extrabold">4. Odbiorcy danych</h3>
+                </div>
+                <div class="mt-4 text-sm text-gray-700 space-y-2 leading-relaxed">
+                  <p>Dane mogą być przekazywane podmiotom przetwarzającym je na nasze zlecenie, w szczególności:</p>
+                  <ul class="mt-2 space-y-1.5">
+                    <li class="flex gap-2"><span class="mt-[6px] w-1.5 h-1.5 rounded-full bg-gray-900/60 shrink-0"></span><span>operatorowi płatności (np. PayU),</span></li>
+                    <li class="flex gap-2"><span class="mt-[6px] w-1.5 h-1.5 rounded-full bg-gray-900/60 shrink-0"></span><span>dostawcom hostingu/utrzymania serwisu,</span></li>
+                    <li class="flex gap-2"><span class="mt-[6px] w-1.5 h-1.5 rounded-full bg-gray-900/60 shrink-0"></span><span>podwykonawcom (np. dostawa) – jeśli dotyczy.</span></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div id="p5" class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div class="h-1.5 top-accent"></div>
+              <div class="p-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                    <i data-lucide="hourglass" class="w-5 h-5"></i>
+                  </div>
+                  <h3 class="text-xl font-extrabold">5. Okres przechowywania</h3>
+                </div>
+                <div class="mt-4 text-sm text-gray-700 space-y-2 leading-relaxed">
+                  <p>Przechowujemy dane przez czas niezbędny do realizacji celów, a następnie przez okres wymagany przepisami (np. księgowość) lub do przedawnienia roszczeń.</p>
+                </div>
+              </div>
+            </div>
+
+            <div id="p6" class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div class="h-1.5 top-accent"></div>
+              <div class="p-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                    <i data-lucide="hand" class="w-5 h-5"></i>
+                  </div>
+                  <h3 class="text-xl font-extrabold">6. Twoje prawa</h3>
+                </div>
+                <div class="mt-4 text-sm text-gray-700 space-y-2 leading-relaxed">
+                  <p>Masz prawo do: dostępu do danych, sprostowania, usunięcia, ograniczenia przetwarzania, przenoszenia danych oraz wniesienia sprzeciwu (w zakresie przewidzianym prawem).</p>
+                  <p>Jeżeli przetwarzanie odbywa się na podstawie zgody, możesz ją wycofać w dowolnym momencie.</p>
+                </div>
+              </div>
+            </div>
+
+            <div id="p7" class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div class="h-1.5 top-accent"></div>
+              <div class="p-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                    <i data-lucide="shield-check" class="w-5 h-5"></i>
+                  </div>
+                  <h3 class="text-xl font-extrabold">7. Bezpieczeństwo</h3>
+                </div>
+                <div class="mt-4 text-sm text-gray-700 space-y-2 leading-relaxed">
+                  <p>Stosujemy środki techniczne i organizacyjne adekwatne do ryzyka, m.in. szyfrowanie transmisji (HTTPS) oraz kontrolę dostępu.</p>
+                </div>
+              </div>
+            </div>
+
+            <div id="p8" class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div class="h-1.5 top-accent"></div>
+              <div class="p-6">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                    <i data-lucide="mail" class="w-5 h-5"></i>
+                  </div>
+                  <h3 class="text-xl font-extrabold">8. Kontakt</h3>
+                </div>
+                <div class="mt-4 text-sm text-gray-700 space-y-2 leading-relaxed">
+                  <p>W sprawach prywatności napisz do nas: <span class="font-semibold">[e-mail]</span>.</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- COOKIES -->
+    <section id="cookies" class="py-12 md:py-16 bg-white">
+      <div class="max-w-6xl mx-auto px-4">
+        <div class="text-center max-w-2xl mx-auto">
+          <div class="text-xs uppercase tracking-widest text-gray-500">Cookies</div>
+          <h2 class="text-3xl md:text-4xl font-extrabold mt-1">Pliki cookies</h2>
+          <p class="text-gray-600 mt-2">Jak działają i jak możesz je kontrolować</p>
+        </div>
+
+        <div class="mt-10 grid md:grid-cols-2 gap-6">
+          <div class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+            <div class="h-1.5 top-accent"></div>
+            <div class="p-6">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                  <i data-lucide="cookie" class="w-5 h-5"></i>
+                </div>
+                <h3 class="text-xl font-extrabold">Co to są cookies?</h3>
+              </div>
+              <p class="mt-4 text-sm text-gray-700 leading-relaxed">
+                Cookies to niewielkie pliki zapisywane w przeglądarce, które pomagają stronie działać poprawnie
+                (np. zapamiętać preferencje). Mogą być też używane do analityki — tylko jeśli to wdrożymy i włączymy.
+              </p>
+            </div>
+          </div>
+
+          <div class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+            <div class="h-1.5 top-accent"></div>
+            <div class="p-6">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                  <i data-lucide="settings" class="w-5 h-5"></i>
+                </div>
+                <h3 class="text-xl font-extrabold">Jak je kontrolować?</h3>
+              </div>
+              <p class="mt-4 text-sm text-gray-700 leading-relaxed">
+                Możesz blokować lub usuwać cookies w ustawieniach przeglądarki. Pamiętaj: wyłączenie cookies może
+                ograniczyć działanie niektórych funkcji serwisu.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-8 bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+          <div class="h-1.5 top-accent"></div>
+          <div class="p-6">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                <i data-lucide="hard-drive" class="w-5 h-5"></i>
+              </div>
+              <h3 class="text-xl font-extrabold">LocalStorage (koszyk)</h3>
+            </div>
+            <p class="mt-4 text-sm text-gray-700 leading-relaxed">
+              Serwis może przechowywać koszyk w pamięci przeglądarki (localStorage) pod kluczem
+              <span class="font-mono font-semibold">eatmi-cart</span>. Możesz to usunąć, czyszcząc dane strony w przeglądarce.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTACT / FOOTER -->
+    <section class="py-12 bg-gradient-to-b from-white to-brand-light">
+      <div class="max-w-6xl mx-auto px-4">
+        <div class="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+          <div class="h-1.5 top-accent"></div>
+          <div class="p-6 md:p-8 grid md:grid-cols-2 gap-6 items-start">
+            <div>
+              <div class="text-xs uppercase tracking-widest text-gray-500 font-semibold">Kontakt</div>
+              <h3 class="text-2xl font-extrabold mt-1">Masz pytania?</h3>
+              <p class="mt-2 text-sm text-gray-600">
+                Napisz do nas, a pomożemy w sprawie zamówień, płatności oraz prywatności.
+              </p>
+
+              <div class="mt-5 space-y-2 text-sm text-gray-700">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="mail" class="w-4 h-4 text-gray-500"></i>
+                  <span class="font-semibold">E-mail:</span> <span>[e-mail]</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <i data-lucide="phone" class="w-4 h-4 text-gray-500"></i>
+                  <span class="font-semibold">Telefon:</span> <span>[telefon]</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white border border-gray-200 rounded-2xl p-5">
+              <div class="text-xs uppercase tracking-widest text-gray-500 font-semibold">Szybka wiadomość</div>
+              <div class="text-sm text-gray-700 mt-1">Formularz (opcjonalny) – podepnij backend jak w contact na home.</div>
+
+              <div class="mt-4 grid gap-3">
+                <input class="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]" placeholder="Imię" />
+                <input class="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]" placeholder="Email" />
+                <textarea class="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[120px]" placeholder="Wiadomość"></textarea>
+                <button type="button" class="bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-5 py-3 hover:ring-2 hover:ring-brand-yellow/40 min-h-[44px]">
+                  Wyślij
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <footer class="py-10 text-center text-sm text-gray-500">
+          <div class="max-w-6xl mx-auto px-4">
+            <div class="font-semibold text-gray-700">
+              © <span id="year"></span> eatmi.pl • Wszystkie prawa zastrzeżone
+            </div>
+
+            <div class="mt-3 text-xs text-gray-500 leading-relaxed">
+              <div class="font-semibold text-gray-700">Dane przedsiębiorcy</div>
+              <div class="mt-2"><span class="font-semibold">Firma:</span> MARCIN CHOJNACKI MILKSHAKE BAR</div>
+              <div class="mt-1"><span class="font-semibold">Imię i nazwisko:</span> MARCIN CHOJNACKI</div>
+              <div class="mt-1"><span class="font-semibold">NIP:</span> 8271982077 • <span class="font-semibold">REGON:</span> 100473965</div>
+              <div class="mt-1"><span class="font-semibold">Adres:</span> ul. Szczecińska 17, 76-200 Słupsk, Polska</div>
+            </div>
+          </div>
+        </footer>
+      </div>
+    </section>
+  </main>
+
+  <!-- BOTTOM TAB BAR (linki jak w appce, bez Reacta) -->
+  <div class="fixed inset-x-0 bottom-0 z-[70]">
+    <div class="mx-auto w-full max-w-2xl px-3" style="padding-bottom: calc(var(--safe-b) + 10px);">
+      <div class="liquid border border-white/60 shadow-glass rounded-3xl px-2 py-2">
+        <div class="grid grid-cols-4 gap-2">
+          <a href="/#/" class="flex flex-col items-center justify-center gap-1 py-2 px-3 rounded-2xl hover:bg-gray-100 transition min-h-[52px]" aria-label="Start">
+            <i data-lucide="home" class="w-6 h-6"></i>
+            <span class="text-[11px] font-extrabold text-gray-600">Start</span>
+          </a>
+          <a href="/#/" class="flex flex-col items-center justify-center gap-1 py-2 px-3 rounded-2xl hover:bg-gray-100 transition min-h-[52px]" aria-label="Zamów">
+            <i data-lucide="shopping-bag" class="w-6 h-6"></i>
+            <span class="text-[11px] font-extrabold text-gray-600">Zamów</span>
+          </a>
+          <a href="/#/koszyk" class="flex flex-col items-center justify-center gap-1 py-2 px-3 rounded-2xl hover:bg-gray-100 transition min-h-[52px]" aria-label="Koszyk">
+            <i data-lucide="shopping-cart" class="w-6 h-6"></i>
+            <span class="text-[11px] font-extrabold text-gray-600">Koszyk</span>
+          </a>
+          <a href="/#/" class="flex flex-col items-center justify-center gap-1 py-2 px-3 rounded-2xl hover:bg-gray-100 transition min-h-[52px]" aria-label="Konto">
+            <i data-lucide="user" class="w-6 h-6"></i>
+            <span class="text-[11px] font-extrabold text-gray-600">Konto</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // icons + year
+    window.lucide?.createIcons?.();
+    document.getElementById("year").textContent = String(new Date().getFullYear());
+
+    // smooth scroll (nice UX)
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', (e) => {
+        const href = a.getAttribute('href');
+        if (!href || href === "#") return;
+        const id = href.slice(1);
+        const el = document.getElementById(id);
+        if (!el) return;
+        e.preventDefault();
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        history.replaceState(null, "", href);
+      });
+    });
+  </script>
+</body>
+</html>
