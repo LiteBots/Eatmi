@@ -1550,11 +1550,32 @@
             <main className={`app-content-pad ${showCTA ? "has-cta" : ""}`}>
               <Router />
 
-              {/* Footer: poprawny JSX (bez HTML komentarzy) */}
+              {/* Footer */}
               <footer className="py-10 text-center text-sm text-gray-500">
                 <div className="max-w-6xl mx-auto px-4">
                   <div className="font-semibold text-gray-700">
                     © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
+                  </div>
+
+                  {/* ✅ Linki do rule.html (Regulamin + Polityka prywatności w jednym pliku) */}
+                  <div className="mt-4 flex flex-wrap justify-center gap-3 text-sm">
+                    <a
+                      href="/rule.html"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-4"
+                    >
+                      Regulamin
+                    </a>
+                    <span className="text-gray-300">•</span>
+                    <a
+                      href="/rule.html"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-4"
+                    >
+                      Polityka prywatności
+                    </a>
                   </div>
 
                   <div className="mt-3 text-xs text-gray-500 leading-relaxed">
