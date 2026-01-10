@@ -85,12 +85,6 @@
       box-shadow: 0 0 0 3px rgba(255,193,7,.30);
     }
 
-    /* Maintenance blur */
-    .page-blur {
-      filter: blur(10px);
-      transform: translateZ(0);
-    }
-
     /* App-like: treść nie może chować się pod tabbarem (i CTA) */
     .app-content-pad {
       padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + 18px);
@@ -100,6 +94,14 @@
     }
 
     .no-overscroll { overscroll-behavior: none; }
+
+    /* Info bar (top) */
+    .info-bar {
+      background: rgba(17, 24, 39, 0.92);
+      backdrop-filter: blur(10px);
+      color: #fff;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+    }
   </style>
 
   <!-- React 18 + ReactDOM 18 -->
@@ -322,6 +324,19 @@
         </CartContext.Provider>
       );
     };
+
+    /* =======================
+       TOP INFO BAR
+    ======================= */
+
+    const TopInfoBar = () => (
+      <div className="info-bar">
+        <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-center gap-2 text-sm font-semibold">
+          <i data-lucide="info" className="w-4 h-4"></i>
+          <span>Zamówienia dostępne od <span className="font-extrabold">12 stycznia 2026</span></span>
+        </div>
+      </div>
+    );
 
     /* =======================
        HEADER / LOGO / CART BTN
@@ -1293,203 +1308,6 @@
     };
 
     /* =======================
-       MAINTENANCE OVERLAY + DEV UNLOCK
-    ======================= */
-
-    const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1446213305067769970/ZkfUbnPddZ4PmXBeidPfhoRDyhKwZtlAnRksp_okBNb-dufbR2ueBLW7cqrb9MaSUpLv";
-    const DEV_CODE = "0051";
-
-    const DeveloperUnlock = ({ onUnlock }) => {
-      const [open, setOpen] = useState(false);
-      const [code, setCode] = useState("");
-      const [error, setError] = useState("");
-
-      useEffect(() => {
-        const onKey = (e) => {
-          if (!open) return;
-          if (e.key === "Escape") {
-            setOpen(false);
-            setCode("");
-            setError("");
-          }
-        };
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
-      }, [open]);
-
-      const submit = () => {
-        if ((code || "").trim() === DEV_CODE) {
-          setOpen(false);
-          setCode("");
-          setError("");
-          onUnlock?.();
-          return;
-        }
-        setError("Nieprawidłowy kod.");
-      };
-
-      return (
-        <>
-          <button
-            type="button"
-            onClick={() => { setOpen(true); setError(""); setCode(""); }}
-            className="fixed bottom-[calc(var(--tabbar-h)+var(--safe-b)+14px)] right-4 z-[120] text-[11px] font-semibold px-3 py-2 rounded-xl bg-white/90 border border-gray-200 shadow-glass hover:ring-2 hover:ring-brand-yellow/40"
-            title="Developer"
-          >
-            developer
-          </button>
-
-          {open && (
-            <div
-              className="fixed inset-0 z-[130] bg-black/60 flex items-center justify-center px-4"
-              onClick={() => setOpen(false)}
-              role="dialog"
-              aria-modal="true"
-            >
-              <div
-                className="w-full max-w-sm bg-white rounded-2xl border border-gray-200 shadow-glass p-5"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Developer</div>
-                <div className="text-xl font-extrabold mt-1">Wpisz kod</div>
-                <p className="text-sm text-gray-600 mt-2">Po poprawnym kodzie strona odblokuje podgląd.</p>
-
-                <div className="mt-4 space-y-2">
-                  <input
-                    className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white font-mono min-h-[44px]"
-                    placeholder="np. 5555"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    inputMode="numeric"
-                    autoFocus
-                  />
-                  {error && <div className="text-sm text-red-600 font-semibold">{error}</div>}
-                </div>
-
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setOpen(false)}
-                    className="w-full bg-gray-100 text-gray-800 font-semibold rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/20 min-h-[44px]"
-                  >
-                    Anuluj
-                  </button>
-                  <button
-                    type="button"
-                    onClick={submit}
-                    className="w-full bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/40 min-h-[44px]"
-                  >
-                    Odblokuj
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </>
-      );
-    };
-
-    const MaintenanceOverlay = ({ enabled }) => {
-      const [email, setEmail] = useState("");
-      const [status, setStatus] = useState({ type: "idle", msg: "" });
-
-      if (!enabled) return null;
-
-      const validEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v || "").trim());
-
-      const submit = async (e) => {
-        e.preventDefault();
-        const value = (email || "").trim();
-
-        if (!validEmail(value)) {
-          setStatus({ type: "error", msg: "Podaj poprawny adres e-mail." });
-          return;
-        }
-
-        setStatus({ type: "loading", msg: "Zapisywanie..." });
-
-        try {
-          const payload = { content: `📩 Newsletter signup: **${value}**` };
-
-          const r = await fetch(DISCORD_WEBHOOK_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-
-          if (!r.ok) {
-            setStatus({ type: "error", msg: `Nie udało się zapisać (status ${r.status}).` });
-            return;
-          }
-
-          setEmail("");
-          setStatus({ type: "ok", msg: "Dzięki! Daliśmy znać — odezwiemy się niebawem." });
-        } catch (err) {
-          console.log("NEWSLETTER ERROR:", err);
-          setStatus({ type: "error", msg: "Błąd połączenia (sprawdź konsolę / CORS)." });
-        }
-      };
-
-      return (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-white/35 backdrop-blur-xl"></div>
-
-          <div className="relative w-full max-w-lg rounded-3xl bg-white/85 border border-white/60 shadow-glass p-6 md:p-8">
-            <div className="inline-flex items-center gap-2 text-[10px] font-extrabold tracking-widest uppercase px-3 py-1.5 rounded-full bg-brand-yellow text-gray-900 shadow-sm">
-              <span>🚧</span> strona w budowie
-            </div>
-
-            <h2 className="text-2xl md:text-3xl font-extrabold mt-4 leading-tight">
-              Pracujemy nad nową wersją eatmi.pl
-            </h2>
-            <p className="text-gray-700 mt-3">
-              Strona jest w budowie — wszelkie informacje podamy niebawem.
-            </p>
-
-            <div className="mt-6 bg-white rounded-2xl border border-gray-200 p-4">
-              <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Newsletter</div>
-              <div className="text-sm text-gray-700 mt-1">
-                Zostaw e-mail, a damy znać, gdy wystartujemy.
-              </div>
-
-              <form onSubmit={submit} className="mt-4 flex flex-col sm:flex-row gap-3">
-                <input
-                  className="input-focus flex-1 border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"
-                  placeholder="Twój e-mail"
-                  type="email"
-                  value={email}
-                  onChange={(e) => { setEmail(e.target.value); if (status.type !== "idle") setStatus({ type: "idle", msg: "" }); }}
-                  required
-                />
-                <button
-                  type="submit"
-                  disabled={status.type === "loading"}
-                  className="bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-5 py-3 hover:ring-2 hover:ring-brand-yellow/40 disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px]"
-                >
-                  Zapisz się
-                </button>
-              </form>
-
-              {status.type !== "idle" && (
-                <div className={`mt-3 text-sm font-semibold ${
-                  status.type === "ok" ? "text-emerald-700" :
-                  status.type === "error" ? "text-red-600" :
-                  "text-gray-600"
-                }`}>
-                  {status.msg}
-                </div>
-              )}
-            </div>
-
-            <div className="mt-5 text-xs text-gray-500">
-              Twój adres email zostanie przetworzony oraz wykorzystany do poinformowania cię o starcie naszej platformy w formie reklamy lub wiadomości tekstowej.
-            </div>
-          </div>
-        </div>
-      );
-    };
-
-    /* =======================
        PWA: SERVICE WORKER REGISTER
     ======================= */
 
@@ -1519,8 +1337,6 @@
       const [authOpen, setAuthOpen] = useState(false);
       const [orderOpen, setOrderOpen] = useState(false);
 
-      const [maintenance, setMaintenance] = useState(true);
-
       const [route, setRoute] = useState(window.location.hash || "#/");
       const isMobile = useIsMobile(768);
 
@@ -1532,84 +1348,81 @@
 
       const { count } = useCart();
 
-      useEffect(() => { window.lucide?.createIcons?.(); }, [authOpen, maintenance, orderOpen, route, count]);
+      useEffect(() => { window.lucide?.createIcons?.(); }, [authOpen, orderOpen, route, count]);
       useEffect(() => { registerSW(); }, []);
 
       const showCTA =
         isMobile &&
-        !maintenance &&
         count > 0 &&
         route !== "#/koszyk" &&
         !route.startsWith("#/zamowienie");
 
       return (
         <div className="min-h-screen no-overscroll">
-          <div className={maintenance ? "page-blur pointer-events-none select-none" : ""}>
-            <Header onOpenAuth={() => setAuthOpen(true)} />
+          {/* Top info bar */}
+          <TopInfoBar />
 
-            <main className={`app-content-pad ${showCTA ? "has-cta" : ""}`}>
-              <Router />
+          {/* Header */}
+          <Header onOpenAuth={() => setAuthOpen(true)} />
 
-              {/* Footer */}
-              <footer className="py-10 text-center text-sm text-gray-500">
-                <div className="max-w-6xl mx-auto px-4">
-                  <div className="font-semibold text-gray-700">
-                    © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
+          <main className={`app-content-pad ${showCTA ? "has-cta" : ""}`}>
+            <Router />
+
+            {/* Footer */}
+            <footer className="py-10 text-center text-sm text-gray-500">
+              <div className="max-w-6xl mx-auto px-4">
+                <div className="font-semibold text-gray-700">
+                  © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
+                </div>
+
+                {/* ✅ Linki do rule.html (Regulamin + Polityka prywatności w jednym pliku) */}
+                <div className="mt-4 flex flex-wrap justify-center gap-3 text-sm">
+                  <a
+                    href="/rule.html"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-4"
+                  >
+                    Regulamin
+                  </a>
+                  <span className="text-gray-300">•</span>
+                  <a
+                    href="/rule.html"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-4"
+                  >
+                    Polityka prywatności
+                  </a>
+                </div>
+
+                <div className="mt-3 text-xs text-gray-500 leading-relaxed">
+                  <div className="font-semibold text-gray-700">Dane przedsiębiorcy</div>
+
+                  <div className="mt-2">
+                    <span className="font-semibold">Firma:</span> MARCIN CHOJNACKI MILKSHAKE BAR
                   </div>
 
-                  {/* ✅ Linki do rule.html (Regulamin + Polityka prywatności w jednym pliku) */}
-                  <div className="mt-4 flex flex-wrap justify-center gap-3 text-sm">
-                    <a
-                      href="/rule.html"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-4"
-                    >
-                      Regulamin
-                    </a>
-                    <span className="text-gray-300">•</span>
-                    <a
-                      href="/rule.html"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-4"
-                    >
-                      Polityka prywatności
-                    </a>
+                  <div className="mt-1">
+                    <span className="font-semibold">Imię i nazwisko:</span> MARCIN CHOJNACKI
                   </div>
 
-                  <div className="mt-3 text-xs text-gray-500 leading-relaxed">
-                    <div className="font-semibold text-gray-700">Dane przedsiębiorcy</div>
+                  <div className="mt-1">
+                    <span className="font-semibold">NIP:</span> 8271982077 •{" "}
+                    <span className="font-semibold">REGON:</span> 100473965
+                  </div>
 
-                    <div className="mt-2">
-                      <span className="font-semibold">Firma:</span> MARCIN CHOJNACKI MILKSHAKE BAR
-                    </div>
-
-                    <div className="mt-1">
-                      <span className="font-semibold">Imię i nazwisko:</span> MARCIN CHOJNACKI
-                    </div>
-
-                    <div className="mt-1">
-                      <span className="font-semibold">NIP:</span> 8271982077 •{" "}
-                      <span className="font-semibold">REGON:</span> 100473965
-                    </div>
-
-                    <div className="mt-1">
-                      <span className="font-semibold">Adres:</span> ul. Szczecińska 17, 76-200 Słupsk, pow. Słupsk, gm. Słupsk, woj. POMORSKIE, Polska
-                    </div>
+                  <div className="mt-1">
+                    <span className="font-semibold">Adres:</span> ul. Szczecińska 17, 76-200 Słupsk, pow. Słupsk, gm. Słupsk, woj. POMORSKIE, Polska
                   </div>
                 </div>
-              </footer>
-            </main>
+              </div>
+            </footer>
+          </main>
 
-            <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
-          </div>
+          <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
 
-          <MaintenanceOverlay enabled={maintenance} />
-
-          {!maintenance && (
-            <CategorySheet open={orderOpen} onClose={() => setOrderOpen(false)} />
-          )}
+          <CategorySheet open={orderOpen} onClose={() => setOrderOpen(false)} />
 
           <FloatingCheckoutCTA visible={showCTA} />
 
@@ -1618,8 +1431,6 @@
             onOpenOrder={() => setOrderOpen(true)}
             onOpenAuth={() => setAuthOpen(true)}
           />
-
-          <DeveloperUnlock onUnlock={() => setMaintenance(false)} />
         </div>
       );
     };
