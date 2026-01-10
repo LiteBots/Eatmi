@@ -1,5 +1,7 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
+import crypto from "crypto";
 import { fileURLToPath } from "url";
 
 console.log("NODE VERSION:", process.version);
@@ -20,7 +22,12 @@ const {
   PAYU_CLIENT_SECRET,           // OAuth client_secret
   PAYU_MD5_SECOND_KEY,          // (na start nie używamy)
   PAYU_NOTIFY_URL,              // np. https://www.eatmi.pl/api/payu/notify
-  PAYU_CONTINUE_URL             // np. https://www.eatmi.pl/#/zamowienie?paid=1
+  PAYU_CONTINUE_URL,            // np. https://www.eatmi.pl/#/zamowienie?paid=1
+
+  // ====== ADMIN ======
+  ADMIN_PIN,                    // np. "0051" (4 cyfry) - główny admin
+  ADMIN_TOKEN_SECRET = "CHANGE_ME_LONG_SECRET_64CHARS_MIN",
+  ADMIN_PIN_SALT = "CHANGE_ME_SALT"
 } = process.env;
 
 const PAYU_BASE =
@@ -28,6 +35,135 @@ const PAYU_BASE =
 
 function requireEnv(name, value) {
   if (!value) throw new Error(`Missing env var: ${name}`);
+}
+
+// =======================================================
+// FILE STORAGE (orders + staff)  [na VPS działa od razu]
+// Jeśli hostujesz na platformie bez trwałego dysku -> DB.
+// =======================================================
+const DATA_DIR = path.join(__dirname, "data");
+const ORDERS_FILE = path.join(DATA_DIR, "orders.json");
+const STAFF_FILE = path.join(DATA_DIR, "staff.json");
+
+function ensureData() {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!fs.existsSync(ORDERS_FILE)) fs.writeFileSync(ORDERS_FILE, "[]", "utf8");
+  if (!fs.existsSync(STAFF_FILE)) fs.writeFileSync(STAFF_FILE, "[]", "utf8");
+}
+
+function readJson(file, fallback) {
+  ensureData();
+  try {
+    const raw = fs.readFileSync(file, "utf8");
+    return JSON.parse(raw) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJson(file, data) {
+  ensureData();
+  fs.writeFileSync(file, JSON.stringify(data, null, 2), "utf8");
+}
+
+// ====== Orders store ======
+function readOrders() {
+  return readJson(ORDERS_FILE, []);
+}
+function writeOrders(orders) {
+  writeJson(ORDERS_FILE, orders);
+}
+function upsertOrder(patch) {
+  const orders = readOrders();
+  const idx = orders.findIndex(o => o.extOrderId === patch.extOrderId);
+  const now = new Date().toISOString();
+
+  if (idx >= 0) {
+    orders[idx] = { ...orders[idx], ...patch, updatedAt: now };
+    writeOrders(orders);
+    return orders[idx];
+  } else {
+    const item = { ...patch, createdAt: now, updatedAt: now };
+    orders.unshift(item);
+    writeOrders(orders);
+    return item;
+  }
+}
+
+// ====== Staff store ======
+function readStaff() {
+  return readJson(STAFF_FILE, []);
+}
+function writeStaff(list) {
+  writeJson(STAFF_FILE, list);
+}
+function hashPin(pin) {
+  return crypto.createHash("sha256").update(`${ADMIN_PIN_SALT}:${pin}`).digest("hex");
+}
+function addStaff({ name, pin }) {
+  const list = readStaff();
+  const id = crypto.randomBytes(10).toString("hex");
+  const item = { id, name, pinHash: hashPin(pin), role: "staff", createdAt: new Date().toISOString() };
+  list.unshift(item);
+  writeStaff(list);
+  return item;
+}
+function removeStaff(id) {
+  const list = readStaff();
+  const next = list.filter(x => String(x.id) !== String(id));
+  writeStaff(next);
+}
+
+// ====== Minimal token (HMAC) ======
+function signToken(payload) {
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const sig = crypto.createHmac("sha256", ADMIN_TOKEN_SECRET).update(`${header}.${body}`).digest("base64url");
+  return `${header}.${body}.${sig}`;
+}
+function verifyToken(token) {
+  const [h, b, s] = String(token || "").split(".");
+  if (!h || !b || !s) return null;
+  const sig = crypto.createHmac("sha256", ADMIN_TOKEN_SECRET).update(`${h}.${b}`).digest("base64url");
+  if (sig !== s) return null;
+  try { return JSON.parse(Buffer.from(b, "base64url").toString("utf8")); }
+  catch { return null; }
+}
+function getBearer(req) {
+  const auth = req.headers.authorization || "";
+  return auth.startsWith("Bearer ") ? auth.slice(7) : "";
+}
+function requireStaff(req, res, next) {
+  const token = getBearer(req);
+  const data = verifyToken(token);
+  if (!data) return res.status(401).json({ error: "Unauthorized" });
+  req.admin = data;
+  next();
+}
+function requireAdminOnly(req, res, next) {
+  const token = getBearer(req);
+  const data = verifyToken(token);
+  if (!data) return res.status(401).json({ error: "Unauthorized" });
+  if (data.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+  req.admin = data;
+  next();
+}
+// SSE: EventSource nie ma headerów, więc bierzemy token z query
+function requireStaffForStream(req, res, next) {
+  const token = String(req.query.token || "");
+  const data = verifyToken(token);
+  if (!data) return res.status(401).end();
+  req.admin = data;
+  next();
+}
+
+// ====== SSE clients ======
+const sseClients = new Set();
+function sseBroadcast(event, data) {
+  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const res of sseClients) {
+    try { res.write(payload); } catch {}
+  }
 }
 
 // ====== PRICE LIST (server-side truth) ======
@@ -169,7 +305,34 @@ async function getPayuToken() {
   return data; // { access_token, ... }
 }
 
-// ====== Create order ======
+function safeCustomer(customer) {
+  const c = customer || {};
+  // przepuszczamy to co masz w formularzu; backend może to walidować dokładniej
+  return {
+    imieNazwisko: c.imieNazwisko || c.name || "",
+    telefon: c.telefon || c.phone || "",
+    email: c.email || "",
+    miasto: c.miasto || "",
+    kod: c.kod || "",
+    ulica: c.ulica || "",
+    nrBud: c.nrBud || "",
+    pietro: c.pietro || "",
+    lokal: c.lokal || "",
+    uwagi: c.uwagi || "",
+    faktura: !!c.faktura,
+    nip: c.nip || "",
+    firma: c.firma || ""
+  };
+}
+
+function isPaidStatus(status) {
+  const s = String(status || "").toUpperCase();
+  return s === "COMPLETED" || s === "PAID";
+}
+
+// ===============================
+// PayU: Create order
+// ===============================
 app.post("/api/payu/order", async (req, res) => {
   try {
     requireEnv("PAYU_POS_ID", PAYU_POS_ID);
@@ -211,6 +374,18 @@ app.post("/api/payu/order", async (req, res) => {
 
     const extOrderId = `eatmi-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
+    // ✅ ZAPISUJEMY jako PENDING przed wysłaniem do PayU
+    const customer = safeCustomer(req.body?.customer);
+    upsertOrder({
+      extOrderId,
+      payuOrderId: null,
+      status: "PENDING",
+      totalAmount,                 // grosze
+      totalPLN: totalAmount / 100, // PLN
+      customer,
+      cart
+    });
+
     const orderBody = {
       customerIp,
       merchantPosId: String(PAYU_POS_ID),
@@ -236,11 +411,16 @@ app.post("/api/payu/order", async (req, res) => {
 
     const location = r.headers.get("location") || r.headers.get("Location");
 
-    // w razie gdy PayU jednak zwróci JSON (czasem zwraca)
+    // w razie gdy PayU zwróci JSON
     const raw = await r.text().catch(() => "");
     let data = null;
     if (raw) {
       try { data = JSON.parse(raw); } catch { data = { raw }; }
+    }
+
+    // uzupełnij payuOrderId jeśli jest
+    if (data?.orderId) {
+      upsertOrder({ extOrderId, payuOrderId: data.orderId });
     }
 
     // ✅ Najczęstsza ścieżka: 302 + Location
@@ -257,12 +437,7 @@ app.post("/api/payu/order", async (req, res) => {
       return res.json({ redirectUri: data.redirectUri, orderId: data.orderId, extOrderId });
     }
 
-    // ❌ Błędy / brak redirecta
-    console.log("PAYU CREATE ORDER UNEXPECTED:", {
-      status: r.status,
-      location,
-      data
-    });
+    console.log("PAYU CREATE ORDER UNEXPECTED:", { status: r.status, location, data });
 
     return res.status(502).json({
       error: "PayU create order failed / no redirect",
@@ -277,18 +452,178 @@ app.post("/api/payu/order", async (req, res) => {
   }
 });
 
-// ====== Webhook from PayU ======
+// ===============================
+// PayU: Webhook notify (source of truth)
+// ===============================
 app.post("/api/payu/notify", (req, res) => {
-  console.log("PAYU NOTIFY:", JSON.stringify(req.body));
-  res.sendStatus(200);
+  try {
+    const body = req.body || {};
+    const order = body.order || {};
+    const extOrderId = order.extOrderId;
+    const status = order.status;
+    const payuOrderId = order.orderId || null;
+
+    console.log("PAYU NOTIFY:", JSON.stringify(body));
+
+    if (extOrderId) {
+      const updated = upsertOrder({
+        extOrderId,
+        payuOrderId,
+        status: status || "UNKNOWN",
+        payuRaw: order
+      });
+
+      // ✅ WYSYŁAMY ALERT DO PANELU dopiero gdy status pozytywny
+      if (isPaidStatus(status)) {
+        sseBroadcast("new_order", {
+          extOrderId: updated.extOrderId,
+          payuOrderId: updated.payuOrderId,
+          totalPLN: updated.totalPLN,
+          customer: updated.customer?.imieNazwisko || updated.customer?.name || null,
+          status: updated.status
+        });
+      }
+    }
+
+    res.sendStatus(200);
+  } catch (e) {
+    console.log("PAYU NOTIFY ERROR:", e);
+    // PayU lubi retry; lepiej nie robić 500
+    res.sendStatus(200);
+  }
 });
 
-// ✅ Debug endpoint (GET) - żeby w przeglądarce nie wracało na SPA
+// ✅ Debug endpoint (GET)
 app.get("/api/payu/notify", (req, res) => {
   res.status(200).send("OK (PayU notify endpoint expects POST)");
 });
 
+// ===============================
+// ADMIN API
+// ===============================
+
+// Login: działa dla ADMIN_PIN oraz staff PIN
+app.post("/api/admin/login", (req, res) => {
+  try {
+    const pin = String(req.body?.pin || "").trim();
+    if (!/^\d{4}$/.test(pin)) return res.status(400).json({ error: "PIN must be 4 digits" });
+
+    if (!ADMIN_PIN) return res.status(500).json({ error: "ADMIN_PIN not set" });
+
+    // admin
+    if (pin === String(ADMIN_PIN)) {
+      const token = signToken({ role: "admin", name: "Administrator", iat: Date.now() });
+      return res.json({ token });
+    }
+
+    // staff
+    const list = readStaff();
+    const h = hashPin(pin);
+    const found = list.find(x => x.pinHash === h);
+    if (!found) return res.status(401).json({ error: "Bad PIN" });
+
+    const token = signToken({ role: "staff", name: found.name || "Pracownik", staffId: found.id, iat: Date.now() });
+    return res.json({ token });
+
+  } catch (e) {
+    console.log("ADMIN LOGIN ERROR:", e);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// SSE stream
+app.get("/api/admin/stream", requireStaffForStream, (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+
+  res.write(`event: hello\ndata: ${JSON.stringify({ ok: true, role: req.admin?.role })}\n\n`);
+  sseClients.add(res);
+
+  req.on("close", () => {
+    sseClients.delete(res);
+  });
+});
+
+// Stats
+app.get("/api/admin/stats", requireStaff, (req, res) => {
+  const orders = readOrders();
+  const ordersTotal = orders.length;
+
+  // today (local server day)
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+
+  const ordersToday = orders.filter(o => {
+    const t = new Date(o.createdAt || 0).getTime();
+    return t >= start && t <= end;
+  }).length;
+
+  const revenueTotal = orders
+    .filter(o => isPaidStatus(o.status))
+    .reduce((sum, o) => sum + Number(o.totalPLN || 0), 0);
+
+  res.json({ ordersTotal, ordersToday, revenueTotal });
+});
+
+// Orders list
+app.get("/api/admin/orders", requireStaff, (req, res) => {
+  const q = String(req.query.query || "").trim().toLowerCase();
+  let orders = readOrders();
+
+  if (q) {
+    orders = orders.filter(o => JSON.stringify(o || {}).toLowerCase().includes(q));
+  }
+
+  res.json({ orders });
+});
+
+// Push (placeholder – backend możesz podpiąć pod FCM/WebPush)
+app.post("/api/admin/push", requireStaff, (req, res) => {
+  const title = String(req.body?.title || "").trim();
+  const body = String(req.body?.body || "").trim();
+  if (!body) return res.status(400).json({ error: "Missing body" });
+
+  console.log("ADMIN PUSH:", { from: req.admin?.name, title, body });
+  res.json({ ok: true });
+});
+
+// Staff CRUD (tylko ADMIN)
+app.get("/api/admin/staff", requireAdminOnly, (req, res) => {
+  const list = readStaff().map(x => ({ id: x.id, name: x.name, role: x.role, createdAt: x.createdAt }));
+  res.json({ staff: list });
+});
+
+app.post("/api/admin/staff", requireAdminOnly, (req, res) => {
+  const name = String(req.body?.name || "").trim();
+  const pin = String(req.body?.pin || "").trim();
+
+  if (!name) return res.status(400).json({ error: "Missing name" });
+  if (!/^\d{4}$/.test(pin)) return res.status(400).json({ error: "PIN must be 4 digits" });
+  if (pin === String(ADMIN_PIN)) return res.status(400).json({ error: "This PIN is reserved" });
+
+  // nie pozwalaj na duplikaty PIN
+  const list = readStaff();
+  const h = hashPin(pin);
+  if (list.some(x => x.pinHash === h)) return res.status(409).json({ error: "PIN already in use" });
+
+  const item = addStaff({ name, pin });
+  res.json({ ok: true, staff: { id: item.id, name: item.name, role: item.role, createdAt: item.createdAt } });
+});
+
+app.delete("/api/admin/staff/:id", requireAdminOnly, (req, res) => {
+  const id = String(req.params.id || "");
+  if (!id) return res.status(400).json({ error: "Missing id" });
+
+  removeStaff(id);
+  res.json({ ok: true });
+});
+
+// ===============================
 // SPA fallback (hash-router)
+// ===============================
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
