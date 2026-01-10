@@ -4,6 +4,11 @@ import fs from "fs";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { Resend } from "resend";
+
 console.log("NODE VERSION:", process.version);
 
 const app = express();
@@ -14,8 +19,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use(express.static(__dirname));
 
-// ====== PayU ENV ======
+// ====== PayU + ADMIN + AUTH + RESEND + MONGO ENV ======
 const {
+  // ====== PAYU ======
   PAYU_ENV = "prod",            // "prod" albo "sandbox"
   PAYU_POS_ID,                  // pos_id (merchantPosId)
   PAYU_CLIENT_ID,               // OAuth client_id
@@ -27,7 +33,18 @@ const {
   // ====== ADMIN ======
   ADMIN_PIN,                    // np. "0051" (4 cyfry) - główny admin
   ADMIN_TOKEN_SECRET = "CHANGE_ME_LONG_SECRET_64CHARS_MIN",
-  ADMIN_PIN_SALT = "CHANGE_ME_SALT"
+  ADMIN_PIN_SALT = "CHANGE_ME_SALT",
+
+  // ====== AUTH (USER ACCOUNTS) ======
+  MONGO_URI,
+  JWT_SECRET,
+
+  // ====== RESEND ======
+  RESEND_API_KEY,
+  MAIL_FROM,
+
+  // ====== VERIFY SETTINGS ======
+  VERIFY_CODE_TTL_MIN = "15"
 } = process.env;
 
 const PAYU_BASE =
@@ -37,7 +54,268 @@ function requireEnv(name, value) {
   if (!value) throw new Error(`Missing env var: ${name}`);
 }
 
-// =======================================================
+// ===============================
+// MONGO CONNECT + USER MODEL (IN THIS FILE)
+// ===============================
+requireEnv("MONGO_URI", MONGO_URI);
+requireEnv("JWT_SECRET", JWT_SECRET);
+
+mongoose.set("strictQuery", true);
+await mongoose.connect(MONGO_URI);
+console.log("Mongo connected");
+
+const UserSchema = new mongoose.Schema(
+  {
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    fullName: { type: String, required: true, trim: true },
+    passwordHash: { type: String, required: true },
+
+    isVerified: { type: Boolean, default: false },
+
+    verifyCodeHash: { type: String, default: null },
+    verifyCodeExpiresAt: { type: Date, default: null },
+    verifyAttempts: { type: Number, default: 0 },
+    verifyLastSentAt: { type: Date, default: null }
+  },
+  { timestamps: true }
+);
+
+UserSchema.index({ email: 1 }, { unique: true });
+
+const User = mongoose.models.User || mongoose.model("User", UserSchema);
+
+// ===============================
+// RESEND (MAIL)
+// ===============================
+requireEnv("RESEND_API_KEY", RESEND_API_KEY);
+requireEnv("MAIL_FROM", MAIL_FROM);
+
+const resend = new Resend(RESEND_API_KEY);
+
+async function sendVerifyCodeEmail({ to, code, fullName }) {
+  const subject = "Kod weryfikacyjny eatmi (4 cyfry)";
+  const text =
+    `Cześć ${fullName || ""}\n\n` +
+    `Twój kod weryfikacyjny do eatmi.pl:\n\n` +
+    `👉 ${code}\n\n` +
+    `Kod jest ważny przez ${VERIFY_CODE_TTL_MIN} minut.\n\n` +
+    `Jeśli to nie Ty – zignoruj tę wiadomość.`;
+
+  await resend.emails.send({
+    from: MAIL_FROM,
+    to,
+    subject,
+    text
+  });
+}
+
+// ===============================
+// AUTH HELPERS
+// ===============================
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function generate4DigitCode() {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
+function signAuthToken(user) {
+  return jwt.sign(
+    { uid: String(user._id), email: user.email, verified: !!user.isVerified },
+    JWT_SECRET,
+    { expiresIn: "14d" }
+  );
+}
+
+function authRequired(req, res, next) {
+  const auth = req.headers.authorization || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!token) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const data = jwt.verify(token, JWT_SECRET);
+    req.user = data;
+    next();
+  } catch {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+}
+
+// ===============================
+// AUTH API
+// ===============================
+
+// Register -> zapis usera + wysyłka kodu
+app.post("/api/auth/register", async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body?.email);
+    const fullName = String(req.body?.fullName || "").trim();
+    const password = String(req.body?.password || "");
+    const confirm = String(req.body?.confirm || "");
+
+    if (!email || !email.includes("@")) return res.status(400).json({ error: "Invalid email" });
+    if (!fullName || fullName.length < 3) return res.status(400).json({ error: "Invalid fullName" });
+    if (password.length < 8) return res.status(400).json({ error: "Password must be at least 8 chars" });
+    if (password !== confirm) return res.status(400).json({ error: "Passwords do not match" });
+
+    const exists = await User.findOne({ email }).lean();
+    if (exists) return res.status(409).json({ error: "Email already in use" });
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const code = generate4DigitCode();
+    const verifyCodeHash = await bcrypt.hash(code, 10);
+    const ttlMin = Number(VERIFY_CODE_TTL_MIN) || 15;
+    const verifyCodeExpiresAt = new Date(Date.now() + ttlMin * 60 * 1000);
+
+    const user = await User.create({
+      email,
+      fullName,
+      passwordHash,
+      isVerified: false,
+      verifyCodeHash,
+      verifyCodeExpiresAt,
+      verifyAttempts: 0,
+      verifyLastSentAt: new Date()
+    });
+
+    await sendVerifyCodeEmail({ to: email, code, fullName });
+
+    return res.json({
+      ok: true,
+      message: "Verification code sent",
+      userId: String(user._id),
+      ttlMin
+    });
+  } catch (e) {
+    console.log("REGISTER ERROR:", e);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Resend code (limit 60s)
+app.post("/api/auth/resend", async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body?.email);
+    if (!email) return res.status(400).json({ error: "Invalid email" });
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(200).json({ ok: true }); // nie ujawniamy
+
+    if (user.isVerified) return res.json({ ok: true });
+
+    const now = Date.now();
+    const last = user.verifyLastSentAt ? user.verifyLastSentAt.getTime() : 0;
+    if (now - last < 60_000) {
+      return res.status(429).json({ error: "Wait 60 seconds before resending" });
+    }
+
+    const code = generate4DigitCode();
+    user.verifyCodeHash = await bcrypt.hash(code, 10);
+    const ttlMin = Number(VERIFY_CODE_TTL_MIN) || 15;
+    user.verifyCodeExpiresAt = new Date(Date.now() + ttlMin * 60 * 1000);
+    user.verifyAttempts = 0;
+    user.verifyLastSentAt = new Date();
+    await user.save();
+
+    await sendVerifyCodeEmail({ to: user.email, code, fullName: user.fullName });
+
+    return res.json({ ok: true, ttlMin });
+  } catch (e) {
+    console.log("RESEND ERROR:", e);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Verify code -> aktywacja konta + token
+app.post("/api/auth/verify", async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body?.email);
+    const code = String(req.body?.code || "").trim();
+
+    if (!email) return res.status(400).json({ error: "Invalid email" });
+    if (!/^\d{4}$/.test(code)) return res.status(400).json({ error: "Code must be 4 digits" });
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(401).json({ error: "Invalid code" });
+
+    if (user.isVerified) {
+      const token = signAuthToken(user);
+      return res.json({ ok: true, token, verified: true });
+    }
+
+    if (!user.verifyCodeExpiresAt || user.verifyCodeExpiresAt.getTime() < Date.now()) {
+      return res.status(410).json({ error: "Code expired" });
+    }
+
+    if ((user.verifyAttempts || 0) >= 5) {
+      return res.status(429).json({ error: "Too many attempts" });
+    }
+
+    const ok = await bcrypt.compare(code, user.verifyCodeHash || "");
+    user.verifyAttempts = (user.verifyAttempts || 0) + 1;
+
+    if (!ok) {
+      await user.save();
+      return res.status(401).json({ error: "Invalid code" });
+    }
+
+    user.isVerified = true;
+    user.verifyCodeHash = null;
+    user.verifyCodeExpiresAt = null;
+    user.verifyAttempts = 0;
+    await user.save();
+
+    const token = signAuthToken(user);
+    return res.json({ ok: true, token, verified: true });
+  } catch (e) {
+    console.log("VERIFY ERROR:", e);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Login -> token (tylko verified)
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body?.email);
+    const password = String(req.body?.password || "");
+
+    if (!email || !password) return res.status(400).json({ error: "Missing credentials" });
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(401).json({ error: "Bad credentials" });
+
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) return res.status(401).json({ error: "Bad credentials" });
+
+    if (!user.isVerified) return res.status(403).json({ error: "Email not verified" });
+
+    const token = signAuthToken(user);
+    return res.json({
+      ok: true,
+      token,
+      verified: true,
+      user: { email: user.email, fullName: user.fullName }
+    });
+  } catch (e) {
+    console.log("LOGIN ERROR:", e);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Me (po tokenie)
+app.get("/api/auth/me", authRequired, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.uid).select("email fullName isVerified createdAt");
+    if (!user) return res.status(404).json({ error: "Not found" });
+    return res.json({ ok: true, user });
+  } catch (e) {
+    console.log("ME ERROR:", e);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ===============================
 // FILE STORAGE (orders + staff)  [na VPS działa od razu]
 // Jeśli hostujesz na platformie bez trwałego dysku -> DB.
 // =======================================================
@@ -307,7 +585,6 @@ async function getPayuToken() {
 
 function safeCustomer(customer) {
   const c = customer || {};
-  // przepuszczamy to co masz w formularzu; backend może to walidować dokładniej
   return {
     imieNazwisko: c.imieNazwisko || c.name || "",
     telefon: c.telefon || c.phone || "",
@@ -355,7 +632,7 @@ app.post("/api/payu/order", async (req, res) => {
 
       return {
         name: NAME_LIST[productId] || "Pozycja",
-        unitPrice: String(PRICE_LIST[productId]), // grosze
+        unitPrice: String(PRICE_LIST[productId]),
         quantity: String(qty)
       };
     });
@@ -374,14 +651,13 @@ app.post("/api/payu/order", async (req, res) => {
 
     const extOrderId = `eatmi-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-    // ✅ ZAPISUJEMY jako PENDING przed wysłaniem do PayU
     const customer = safeCustomer(req.body?.customer);
     upsertOrder({
       extOrderId,
       payuOrderId: null,
       status: "PENDING",
-      totalAmount,                 // grosze
-      totalPLN: totalAmount / 100, // PLN
+      totalAmount,
+      totalPLN: totalAmount / 100,
       customer,
       cart
     });
@@ -398,10 +674,9 @@ app.post("/api/payu/order", async (req, res) => {
       products
     };
 
-    // 🔥 KLUCZ: PayU potrafi zwrócić 302 + Location (redirectUri) -> fetch NIE MOŻE tego followować
     const r = await fetch(`${PAYU_BASE}/api/v2_1/orders`, {
       method: "POST",
-      redirect: "manual", // ✅ IMPORTANT
+      redirect: "manual",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${access_token}`
@@ -411,19 +686,16 @@ app.post("/api/payu/order", async (req, res) => {
 
     const location = r.headers.get("location") || r.headers.get("Location");
 
-    // w razie gdy PayU zwróci JSON
     const raw = await r.text().catch(() => "");
     let data = null;
     if (raw) {
       try { data = JSON.parse(raw); } catch { data = { raw }; }
     }
 
-    // uzupełnij payuOrderId jeśli jest
     if (data?.orderId) {
       upsertOrder({ extOrderId, payuOrderId: data.orderId });
     }
 
-    // ✅ Najczęstsza ścieżka: 302 + Location
     if ((r.status === 301 || r.status === 302 || r.status === 303) && location) {
       return res.json({
         redirectUri: location,
@@ -432,7 +704,6 @@ app.post("/api/payu/order", async (req, res) => {
       });
     }
 
-    // ✅ Druga ścieżka: 200/201 + JSON z redirectUri
     if (r.ok && data?.redirectUri) {
       return res.json({ redirectUri: data.redirectUri, orderId: data.orderId, extOrderId });
     }
@@ -453,7 +724,7 @@ app.post("/api/payu/order", async (req, res) => {
 });
 
 // ===============================
-// PayU: Webhook notify (source of truth)
+// PayU: Webhook notify
 // ===============================
 app.post("/api/payu/notify", (req, res) => {
   try {
@@ -473,7 +744,6 @@ app.post("/api/payu/notify", (req, res) => {
         payuRaw: order
       });
 
-      // ✅ WYSYŁAMY ALERT DO PANELU dopiero gdy status pozytywny
       if (isPaidStatus(status)) {
         sseBroadcast("new_order", {
           extOrderId: updated.extOrderId,
@@ -488,12 +758,10 @@ app.post("/api/payu/notify", (req, res) => {
     res.sendStatus(200);
   } catch (e) {
     console.log("PAYU NOTIFY ERROR:", e);
-    // PayU lubi retry; lepiej nie robić 500
     res.sendStatus(200);
   }
 });
 
-// ✅ Debug endpoint (GET)
 app.get("/api/payu/notify", (req, res) => {
   res.status(200).send("OK (PayU notify endpoint expects POST)");
 });
@@ -501,8 +769,6 @@ app.get("/api/payu/notify", (req, res) => {
 // ===============================
 // ADMIN API
 // ===============================
-
-// Login: działa dla ADMIN_PIN oraz staff PIN
 app.post("/api/admin/login", (req, res) => {
   try {
     const pin = String(req.body?.pin || "").trim();
@@ -510,13 +776,11 @@ app.post("/api/admin/login", (req, res) => {
 
     if (!ADMIN_PIN) return res.status(500).json({ error: "ADMIN_PIN not set" });
 
-    // admin
     if (pin === String(ADMIN_PIN)) {
       const token = signToken({ role: "admin", name: "Administrator", iat: Date.now() });
       return res.json({ token });
     }
 
-    // staff
     const list = readStaff();
     const h = hashPin(pin);
     const found = list.find(x => x.pinHash === h);
@@ -531,7 +795,6 @@ app.post("/api/admin/login", (req, res) => {
   }
 });
 
-// SSE stream
 app.get("/api/admin/stream", requireStaffForStream, (req, res) => {
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -546,12 +809,10 @@ app.get("/api/admin/stream", requireStaffForStream, (req, res) => {
   });
 });
 
-// Stats
 app.get("/api/admin/stats", requireStaff, (req, res) => {
   const orders = readOrders();
   const ordersTotal = orders.length;
 
-  // today (local server day)
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
   const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
@@ -568,7 +829,6 @@ app.get("/api/admin/stats", requireStaff, (req, res) => {
   res.json({ ordersTotal, ordersToday, revenueTotal });
 });
 
-// Orders list
 app.get("/api/admin/orders", requireStaff, (req, res) => {
   const q = String(req.query.query || "").trim().toLowerCase();
   let orders = readOrders();
@@ -580,7 +840,6 @@ app.get("/api/admin/orders", requireStaff, (req, res) => {
   res.json({ orders });
 });
 
-// Push (placeholder – backend możesz podpiąć pod FCM/WebPush)
 app.post("/api/admin/push", requireStaff, (req, res) => {
   const title = String(req.body?.title || "").trim();
   const body = String(req.body?.body || "").trim();
@@ -590,7 +849,6 @@ app.post("/api/admin/push", requireStaff, (req, res) => {
   res.json({ ok: true });
 });
 
-// Staff CRUD (tylko ADMIN)
 app.get("/api/admin/staff", requireAdminOnly, (req, res) => {
   const list = readStaff().map(x => ({ id: x.id, name: x.name, role: x.role, createdAt: x.createdAt }));
   res.json({ staff: list });
@@ -604,7 +862,6 @@ app.post("/api/admin/staff", requireAdminOnly, (req, res) => {
   if (!/^\d{4}$/.test(pin)) return res.status(400).json({ error: "PIN must be 4 digits" });
   if (pin === String(ADMIN_PIN)) return res.status(400).json({ error: "This PIN is reserved" });
 
-  // nie pozwalaj na duplikaty PIN
   const list = readStaff();
   const h = hashPin(pin);
   if (list.some(x => x.pinHash === h)) return res.status(409).json({ error: "PIN already in use" });
