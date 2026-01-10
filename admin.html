@@ -51,6 +51,7 @@
     }
     html, body { height: 100%; }
     body { overscroll-behavior-y: none; }
+
     .liquid { background: rgba(255,255,255,.75); backdrop-filter: blur(12px); }
     .input-focus { outline: none; }
     .input-focus:focus { box-shadow: 0 0 0 3px rgba(255,193,7,.35); border-color: rgba(255,193,7,.75); }
@@ -68,6 +69,11 @@
 
     /* Drawer scroll */
     .drawer-scroll { max-height: calc(100vh - 140px); overflow: auto; }
+
+    /* New order full-screen overlay flashing */
+    .flash-yellow { background: #FFC107; }
+    .flash-white { background: #ffffff; }
+    .no-interact { pointer-events: none; user-select: none; }
   </style>
 
   <!-- React 18 + ReactDOM 18 -->
@@ -88,30 +94,23 @@
     const { useEffect, useMemo, useRef, useState } = React;
 
     /* =========================================================
-      KONTRAKT API (backend)
-      - Login (PIN 4 cyfry):
-          POST /api/admin/login
-          body: { pin: "1234" }
-          response: { token: "..." }  (JWT / session token)
-      - Stats:
-          GET /api/admin/stats
-          response: { ordersTotal, ordersToday, revenueTotal }  // revenue w PLN lub groszach (ustal po swojej stronie)
-      - Orders list:
-          GET /api/admin/orders?query=&from=&to=
-          response: { orders: [...] }
-      - Push:
-          POST /api/admin/push
-          body: { title?: string, body: string }
-          response: { ok: true }
-      - Staff (pracownicy):
-          GET /api/admin/staff
-          POST /api/admin/staff  body: { name: "Imię Nazwisko", pin: "1234" }
-          DELETE /api/admin/staff/:id
+      WYMAGANE ENDPOINTY (backend / Twój server.js po aktualizacji):
 
-      Autoryzacja:
-        Authorization: Bearer <token>
-      PIN głównego admina trzymaj na Railway jako ENV (np. ADMIN_PIN) i weryfikuj w /api/admin/login.
-    ========================================================= */
+      Auth:
+        POST /api/admin/login  { pin: "1234" } -> { token }
+
+      Stats:
+        GET  /api/admin/stats
+
+      Orders:
+        GET  /api/admin/orders?query=&from=&to=
+        -> { orders: [...] } (posortowane: najnowsze na górze zalecane)
+
+      Realtime (zalecane, ale kod ma fallback do pollingu):
+        GET /api/admin/events  (SSE)
+        -> event: message
+           data: {"type":"new_order","orderId":"...","createdAt":"..."}  (JSON)
+      ========================================================= */
 
     const API = {
       login: "/api/admin/login",
@@ -119,6 +118,7 @@
       orders: "/api/admin/orders",
       push: "/api/admin/push",
       staff: "/api/admin/staff",
+      events: "/api/admin/events", // SSE (opcjonalne, ale wspierane w tym admin.html)
     };
 
     /* =======================
@@ -129,12 +129,14 @@
       return new Intl.NumberFormat('pl-PL', { style:'currency', currency:'PLN' }).format(num);
     };
 
-    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     const safeJson = async (r) => {
       try { return await r.json(); } catch { return {}; }
     };
 
     const authHeader = (token) => token ? { Authorization: `Bearer ${token}` } : {};
+
+    const pickOrderId = (o, idx=0) => o?.id || o?.orderId || o?.extOrderId || o?._id || `row-${idx}`;
+    const pickCreatedAt = (o) => o?.createdAt || o?.created_at || o?.date || o?.timestamp || o?.orderDate || null;
 
     /* =======================
       Toast
@@ -226,6 +228,182 @@
     const Icon = ({ name, className="" }) => (
       <i data-lucide={name} className={className}></i>
     );
+
+    /* =======================
+      New Order ALERT (full-screen, flashing + loud beep)
+      - Nie da się wyłączyć bez kliknięcia OK
+      - Flash co 0.1s (100ms) żółty/biały
+      - Dźwięk: WebAudio beep loop (może wymagać wcześniejszej interakcji — login/klik spełnia)
+    ======================= */
+    const useBeep = () => {
+      const audioRef = useRef({ ctx: null, master: null, timer: null, running: false });
+
+      const ensure = async () => {
+        const st = audioRef.current;
+        if (st.ctx && st.ctx.state === "suspended") {
+          try { await st.ctx.resume(); } catch {}
+        }
+        if (!st.ctx) {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          if (!Ctx) return;
+          st.ctx = new Ctx();
+          st.master = st.ctx.createGain();
+          st.master.gain.value = 0.9; // głośno
+          st.master.connect(st.ctx.destination);
+        }
+      };
+
+      const start = async () => {
+        const st = audioRef.current;
+        if (st.running) return;
+        await ensure();
+        if (!st.ctx || !st.master) return;
+
+        st.running = true;
+
+        // beep: krótkie "pip" co ~180ms
+        const tick = () => {
+          const s = audioRef.current;
+          if (!s.running || !s.ctx || !s.master) return;
+
+          const osc = s.ctx.createOscillator();
+          const g = s.ctx.createGain();
+
+          osc.type = "square";
+          osc.frequency.value = 1400;
+
+          // envelope
+          const now = s.ctx.currentTime;
+          g.gain.setValueAtTime(0.0001, now);
+          g.gain.exponentialRampToValueAtTime(0.9, now + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+
+          osc.connect(g);
+          g.connect(s.master);
+
+          osc.start(now);
+          osc.stop(now + 0.10);
+        };
+
+        tick();
+        st.timer = setInterval(tick, 180);
+      };
+
+      const stop = () => {
+        const st = audioRef.current;
+        st.running = false;
+        if (st.timer) clearInterval(st.timer);
+        st.timer = null;
+      };
+
+      useEffect(() => () => stop(), []);
+      return { start, stop, ensure };
+    };
+
+    const NewOrderOverlay = ({ open, orderPreview, onAcknowledge }) => {
+      const [flash, setFlash] = useState(false);
+      const flashRef = useRef(null);
+      const { start, stop, ensure } = useBeep();
+
+      useEffect(() => {
+        if (!open) {
+          setFlash(false);
+          if (flashRef.current) clearInterval(flashRef.current);
+          flashRef.current = null;
+          stop();
+          return;
+        }
+
+        // start flash
+        setFlash(false);
+        if (flashRef.current) clearInterval(flashRef.current);
+        flashRef.current = setInterval(() => setFlash(f => !f), 100);
+
+        // start beep (attempt)
+        start();
+
+        return () => {
+          if (flashRef.current) clearInterval(flashRef.current);
+          flashRef.current = null;
+          stop();
+        };
+      }, [open]);
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [open, flash]);
+
+      if (!open) return null;
+
+      const bgClass = flash ? "flash-yellow" : "flash-white";
+
+      const id = orderPreview?.id || orderPreview?.orderId || orderPreview?.extOrderId || orderPreview?._id || "—";
+      const name = orderPreview?.customer?.imieNazwisko || orderPreview?.customer?.name || orderPreview?.name || "—";
+      const phone = orderPreview?.customer?.telefon || orderPreview?.customer?.phone || orderPreview?.telefon || "—";
+      const total = orderPreview?.total ?? orderPreview?.totalAmount ?? orderPreview?.amount ?? 0;
+
+      return (
+        <div className={`fixed inset-0 z-[999] ${bgClass}`}>
+          {/* blokada interakcji */}
+          <div className="absolute inset-0"></div>
+
+          <div className="relative h-full w-full flex items-center justify-center px-4">
+            <div className="w-full max-w-2xl bg-white/90 border border-black/10 shadow-kiosk rounded-3xl p-6 md:p-8">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.18em] font-black text-gray-700">
+                    NOWE ZAMÓWIENIE
+                  </div>
+                  <div className="text-3xl md:text-4xl font-black mt-2 leading-tight">
+                    Wpadło nowe zamówienie!
+                  </div>
+                  <div className="text-sm text-gray-700 mt-3">
+                    Dopóki nie klikniesz <span className="font-black">OK</span>, nie da się zamknąć tego ekranu.
+                  </div>
+                </div>
+
+                <div className="w-14 h-14 rounded-3xl bg-brand-yellow/30 border border-black/10 grid place-items-center shrink-0">
+                  <Icon name="bell-ring" className="w-8 h-8 text-gray-900" />
+                </div>
+              </div>
+
+              <div className="mt-6 grid md:grid-cols-3 gap-3">
+                <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 font-black">ID</div>
+                  <div className="mt-2 font-mono text-sm break-all">{String(id)}</div>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 font-black">Klient</div>
+                  <div className="mt-2 font-extrabold text-gray-900">{name}</div>
+                  <div className="mt-1 text-xs text-gray-600 font-mono">{phone}</div>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 font-black">Kwota</div>
+                  <div className="mt-2 text-2xl font-black">{currency(total)}</div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+                <button
+                  type="button"
+                  onClick={async () => { await ensure(); onAcknowledge?.(); }}
+                  className="w-full md:w-auto inline-flex items-center justify-center gap-2 bg-gray-900 text-white font-black rounded-2xl px-7 py-5 shadow-glass hover:ring-2 hover:ring-black/20 transition text-lg"
+                >
+                  <Icon name="check" className="w-6 h-6" />
+                  OK
+                </button>
+
+                <div className="text-xs text-gray-700">
+                  Tip: po kliknięciu OK przejdź do zakładki <span className="font-black">Zamówienia</span>.
+                </div>
+              </div>
+
+              <div className="mt-5 text-[11px] text-gray-600">
+                Uwaga: jeśli przeglądarka blokuje auto-dźwięk, kliknij OK — i tak musisz potwierdzić.
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
 
     /* =======================
       Login: ekranowa klawiatura + PIN 4 cyfry
@@ -487,7 +665,6 @@
       };
 
       useEffect(() => { load(); }, []);
-
       useEffect(() => { window.lucide?.createIcons?.(); });
 
       return (
@@ -584,200 +761,6 @@
               {children}
             </div>
           </div>
-        </div>
-      );
-    };
-
-    const Orders = ({ token }) => {
-      const toast = useToast();
-      const [loading, setLoading] = useState(true);
-      const [orders, setOrders] = useState([]);
-      const [query, setQuery] = useState("");
-      const [selected, setSelected] = useState(null);
-
-      const load = async () => {
-        setLoading(true);
-        try {
-          const url = new URL(API.orders, window.location.origin);
-          if (query.trim()) url.searchParams.set("query", query.trim());
-
-          const r = await fetch(url.toString(), { headers: { ...authHeader(token) } });
-          const data = await safeJson(r);
-          if (!r.ok) {
-            toast.show("error", "Zamówienia", data.error || "Nie udało się pobrać zamówień.");
-            setLoading(false);
-            return;
-          }
-          setOrders(Array.isArray(data.orders) ? data.orders : []);
-        } catch (e) {
-          console.log(e);
-          toast.show("error", "Zamówienia", "Błąd połączenia z serwerem.");
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      useEffect(() => { load(); }, []);
-      useEffect(() => { window.lucide?.createIcons?.(); });
-
-      const rows = useMemo(() => {
-        const q = query.trim().toLowerCase();
-        if (!q) return orders;
-        return orders.filter((o) => {
-          const blob = JSON.stringify(o || {}).toLowerCase();
-          return blob.includes(q);
-        });
-      }, [orders, query]);
-
-      const fmtDate = (iso) => {
-        if (!iso) return "—";
-        try {
-          const d = new Date(iso);
-          return d.toLocaleString("pl-PL");
-        } catch { return String(iso); }
-      };
-
-      const sumOrder = (o) => {
-        const total = o?.total ?? o?.totalAmount ?? o?.amount ?? 0;
-        return currency(total);
-      };
-
-      return (
-        <div className="p-4 md:p-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div className="flex-1">
-              <div className="text-sm text-gray-600">
-                Lista zamówień z pełnymi danymi klienta (wg backendu).
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  <Icon name="search" className="w-4 h-4" />
-                </span>
-                <input
-                  className="input-focus w-full sm:w-[320px] bg-white border border-gray-200 rounded-2xl pl-9 pr-4 py-3 shadow-soft"
-                  placeholder="Szukaj (ID, email, telefon, produkt...)"
-                  value={query}
-                  onChange={(e)=>setQuery(e.target.value)}
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={load}
-                className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
-              >
-                <Icon name="refresh-cw" className="w-4 h-4" />
-                Odśwież
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-4 bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-              <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">
-                Zamówienia
-              </div>
-              <div className="text-xs text-gray-500 font-semibold">
-                {loading ? "Ładowanie..." : `${rows.length} pozycji`}
-              </div>
-            </div>
-
-            <div className="overflow-auto">
-              <table className="min-w-[920px] w-full">
-                <thead className="bg-gray-50">
-                  <tr className="text-left text-xs uppercase tracking-widest text-gray-500">
-                    <th className="px-4 py-3 font-extrabold">ID</th>
-                    <th className="px-4 py-3 font-extrabold">Data</th>
-                    <th className="px-4 py-3 font-extrabold">Klient</th>
-                    <th className="px-4 py-3 font-extrabold">Kontakt</th>
-                    <th className="px-4 py-3 font-extrabold">Status</th>
-                    <th className="px-4 py-3 font-extrabold text-right">Kwota</th>
-                    <th className="px-4 py-3 font-extrabold"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    Array.from({ length: 6 }).map((_, i) => (
-                      <tr key={i} className="border-t border-gray-100">
-                        <td className="px-4 py-4"><Skeleton className="h-5 w-32" /></td>
-                        <td className="px-4 py-4"><Skeleton className="h-5 w-40" /></td>
-                        <td className="px-4 py-4"><Skeleton className="h-5 w-44" /></td>
-                        <td className="px-4 py-4"><Skeleton className="h-5 w-56" /></td>
-                        <td className="px-4 py-4"><Skeleton className="h-6 w-28" /></td>
-                        <td className="px-4 py-4 text-right"><Skeleton className="h-5 w-24 ml-auto" /></td>
-                        <td className="px-4 py-4"><Skeleton className="h-10 w-28" /></td>
-                      </tr>
-                    ))
-                  ) : rows.length === 0 ? (
-                    <tr>
-                      <td colSpan="7" className="px-4 py-10 text-center text-gray-600">
-                        Brak zamówień do wyświetlenia.
-                      </td>
-                    </tr>
-                  ) : (
-                    rows.map((o, idx) => {
-                      const id = o.id || o.orderId || o.extOrderId || o._id || String(idx+1);
-                      const name = o.customer?.imieNazwisko || o.customer?.name || o.name || "—";
-                      const email = o.customer?.email || o.email || "—";
-                      const phone = o.customer?.telefon || o.customer?.phone || o.telefon || "—";
-                      const status = o.status || o.paymentStatus || o.payuStatus || "—";
-                      const created = o.createdAt || o.created_at || o.date || o.timestamp || o.orderDate;
-
-                      return (
-                        <tr key={id} className="border-t border-gray-100 hover:bg-gray-50/60">
-                          <td className="px-4 py-4">
-                            <div className="font-mono text-xs text-gray-700">{String(id)}</div>
-                          </td>
-                          <td className="px-4 py-4 text-sm text-gray-700 whitespace-nowrap">
-                            {fmtDate(created)}
-                          </td>
-                          <td className="px-4 py-4">
-                            <div className="font-extrabold text-sm text-gray-900">{name}</div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              {o.customer?.miasto ? `${o.customer.miasto}` : "—"}
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 text-sm text-gray-700">
-                            <div>{email}</div>
-                            <div className="text-xs text-gray-500 mt-1">{phone}</div>
-                          </td>
-                          <td className="px-4 py-4">
-                            <StatusPill status={status} />
-                          </td>
-                          <td className="px-4 py-4 text-right font-extrabold whitespace-nowrap">
-                            {sumOrder(o)}
-                          </td>
-                          <td className="px-4 py-4">
-                            <button
-                              type="button"
-                              onClick={() => setSelected(o)}
-                              className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2.5 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
-                            >
-                              <Icon name="eye" className="w-4 h-4" />
-                              Szczegóły
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <Drawer
-            open={!!selected}
-            onClose={() => setSelected(null)}
-            title={selected ? `Zamówienie: ${selected.id || selected.orderId || selected.extOrderId || selected._id || "—"}` : ""}
-          >
-            {selected && (
-              <OrderDetails order={selected} />
-            )}
-          </Drawer>
         </div>
       );
     };
@@ -884,8 +867,228 @@
       );
     };
 
+    const STORAGE_LAST_ACK = "eatmi-admin-last-ack"; // { lastSeenKey: string, ts: number }
+
+    const Orders = ({ token, onNewOrderDetected, setOrdersCount }) => {
+      const toast = useToast();
+      const [loading, setLoading] = useState(true);
+      const [orders, setOrders] = useState([]);
+      const [query, setQuery] = useState("");
+      const [selected, setSelected] = useState(null);
+
+      const load = async (opts = {}) => {
+        const { silent = false } = opts;
+        if (!silent) setLoading(true);
+
+        try {
+          const url = new URL(API.orders, window.location.origin);
+          if (query.trim()) url.searchParams.set("query", query.trim());
+
+          const r = await fetch(url.toString(), { headers: { ...authHeader(token) } });
+          const data = await safeJson(r);
+          if (!r.ok) {
+            toast.show("error", "Zamówienia", data.error || "Nie udało się pobrać zamówień.");
+            if (!silent) setLoading(false);
+            return;
+          }
+
+          const list = Array.isArray(data.orders) ? data.orders : [];
+          setOrders(list);
+          setOrdersCount?.(list.length);
+
+          // Detekcja nowego zamówienia (fallback, gdy SSE nie działa)
+          // Zakładamy: list[0] to najnowsze.
+          const newest = list[0];
+          if (newest) {
+            const newestId = pickOrderId(newest, 0);
+            const newestCreated = pickCreatedAt(newest) || "";
+            const newestKey = `${newestId}|${newestCreated}`;
+
+            const rawAck = localStorage.getItem(STORAGE_LAST_ACK) || "";
+            let ack = null;
+            try { ack = rawAck ? JSON.parse(rawAck) : null; } catch { ack = null; }
+            const lastSeenKey = ack?.lastSeenKey || "";
+
+            if (newestKey && newestKey !== lastSeenKey) {
+              // Nie ustawiamy ACK automatycznie — pokazujemy overlay, dopóki OK nie kliknięte
+              onNewOrderDetected?.(newest);
+            }
+          }
+        } catch (e) {
+          console.log(e);
+          if (!silent) toast.show("error", "Zamówienia", "Błąd połączenia z serwerem.");
+        } finally {
+          if (!silent) setLoading(false);
+        }
+      };
+
+      useEffect(() => { load(); }, []);
+      useEffect(() => { window.lucide?.createIcons?.(); });
+
+      const rows = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return orders;
+        return orders.filter((o) => {
+          const blob = JSON.stringify(o || {}).toLowerCase();
+          return blob.includes(q);
+        });
+      }, [orders, query]);
+
+      const fmtDate = (iso) => {
+        if (!iso) return "—";
+        try {
+          const d = new Date(iso);
+          return d.toLocaleString("pl-PL");
+        } catch { return String(iso); }
+      };
+
+      const sumOrder = (o) => {
+        const total = o?.total ?? o?.totalAmount ?? o?.amount ?? 0;
+        return currency(total);
+      };
+
+      return (
+        <div className="p-4 md:p-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex-1">
+              <div className="text-sm text-gray-600">
+                Lista zamówień z pełnymi danymi klienta (wg backendu).
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  <Icon name="search" className="w-4 h-4" />
+                </span>
+                <input
+                  className="input-focus w-full sm:w-[320px] bg-white border border-gray-200 rounded-2xl pl-9 pr-4 py-3 shadow-soft"
+                  placeholder="Szukaj (ID, email, telefon, produkt...)"
+                  value={query}
+                  onChange={(e)=>setQuery(e.target.value)}
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => load({ silent: false })}
+                className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
+              >
+                <Icon name="refresh-cw" className="w-4 h-4" />
+                Odśwież
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+              <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">
+                Zamówienia
+              </div>
+              <div className="text-xs text-gray-500 font-semibold">
+                {loading ? "Ładowanie..." : `${rows.length} pozycji`}
+              </div>
+            </div>
+
+            <div className="overflow-auto">
+              <table className="min-w-[920px] w-full">
+                <thead className="bg-gray-50">
+                  <tr className="text-left text-xs uppercase tracking-widest text-gray-500">
+                    <th className="px-4 py-3 font-extrabold">ID</th>
+                    <th className="px-4 py-3 font-extrabold">Data</th>
+                    <th className="px-4 py-3 font-extrabold">Klient</th>
+                    <th className="px-4 py-3 font-extrabold">Kontakt</th>
+                    <th className="px-4 py-3 font-extrabold">Status</th>
+                    <th className="px-4 py-3 font-extrabold text-right">Kwota</th>
+                    <th className="px-4 py-3 font-extrabold"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    Array.from({ length: 6 }).map((_, i) => (
+                      <tr key={i} className="border-t border-gray-100">
+                        <td className="px-4 py-4"><Skeleton className="h-5 w-32" /></td>
+                        <td className="px-4 py-4"><Skeleton className="h-5 w-40" /></td>
+                        <td className="px-4 py-4"><Skeleton className="h-5 w-44" /></td>
+                        <td className="px-4 py-4"><Skeleton className="h-5 w-56" /></td>
+                        <td className="px-4 py-4"><Skeleton className="h-6 w-28" /></td>
+                        <td className="px-4 py-4 text-right"><Skeleton className="h-5 w-24 ml-auto" /></td>
+                        <td className="px-4 py-4"><Skeleton className="h-10 w-28" /></td>
+                      </tr>
+                    ))
+                  ) : rows.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="px-4 py-10 text-center text-gray-600">
+                        Brak zamówień do wyświetlenia.
+                      </td>
+                    </tr>
+                  ) : (
+                    rows.map((o, idx) => {
+                      const id = pickOrderId(o, idx);
+                      const name = o.customer?.imieNazwisko || o.customer?.name || o.name || "—";
+                      const email = o.customer?.email || o.email || "—";
+                      const phone = o.customer?.telefon || o.customer?.phone || o.telefon || "—";
+                      const status = o.status || o.paymentStatus || o.payuStatus || "—";
+                      const created = pickCreatedAt(o);
+
+                      return (
+                        <tr key={id} className="border-t border-gray-100 hover:bg-gray-50/60">
+                          <td className="px-4 py-4">
+                            <div className="font-mono text-xs text-gray-700">{String(id)}</div>
+                          </td>
+                          <td className="px-4 py-4 text-sm text-gray-700 whitespace-nowrap">
+                            {fmtDate(created)}
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="font-extrabold text-sm text-gray-900">{name}</div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {o.customer?.miasto ? `${o.customer.miasto}` : "—"}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 text-sm text-gray-700">
+                            <div>{email}</div>
+                            <div className="text-xs text-gray-500 mt-1">{phone}</div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <StatusPill status={status} />
+                          </td>
+                          <td className="px-4 py-4 text-right font-extrabold whitespace-nowrap">
+                            {sumOrder(o)}
+                          </td>
+                          <td className="px-4 py-4">
+                            <button
+                              type="button"
+                              onClick={() => setSelected(o)}
+                              className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2.5 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
+                            >
+                              <Icon name="eye" className="w-4 h-4" />
+                              Szczegóły
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <Drawer
+            open={!!selected}
+            onClose={() => setSelected(null)}
+            title={selected ? `Zamówienie: ${pickOrderId(selected)}` : ""}
+          >
+            {selected && (
+              <OrderDetails order={selected} />
+            )}
+          </Drawer>
+        </div>
+      );
+    };
+
     /* =======================
-      Pages: Push notifications
+      Pages: Push notifications (zostawione, jeśli masz backend)
     ======================= */
     const Push = ({ token }) => {
       const toast = useToast();
@@ -936,7 +1139,7 @@
                 <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Wysyłka push</div>
                 <div className="text-xl font-extrabold mt-1">Powiadomienia push</div>
                 <div className="text-sm text-gray-600 mt-2">
-                  Wpisz treść i wyślij — każdy użytkownik aplikacji otrzyma powiadomienie na telefon (wg backendu).
+                  Wpisz treść i wyślij — każdy użytkownik aplikacji otrzyma powiadomienie (wg backendu).
                 </div>
               </div>
               <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 border border-brand-yellow/30 grid place-items-center">
@@ -984,7 +1187,7 @@
     };
 
     /* =======================
-      Pages: Staff / Obsługa
+      Pages: Staff (zostawione, jeśli masz backend)
     ======================= */
     const Staff = ({ token }) => {
       const toast = useToast();
@@ -1185,14 +1388,109 @@
     };
 
     /* =======================
+      Realtime: SSE + fallback polling
+      - SSE: /api/admin/events (message {type:"new_order"...})
+      - fallback: co 4s pobiera /api/admin/orders (silent)
+    ======================= */
+    const useOrdersRealtime = ({ token, enabled, onNewOrder, getLatestOrder }) => {
+      const toast = useToast();
+      const esRef = useRef(null);
+      const pollRef = useRef(null);
+
+      const stopAll = () => {
+        if (esRef.current) {
+          try { esRef.current.close(); } catch {}
+          esRef.current = null;
+        }
+        if (pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
+      };
+
+      useEffect(() => {
+        if (!enabled || !token) {
+          stopAll();
+          return;
+        }
+
+        // 1) SSE attempt
+        try {
+          const es = new EventSource(API.events, { withCredentials: false });
+          esRef.current = es;
+
+          es.onmessage = (ev) => {
+            let data = null;
+            try { data = JSON.parse(ev.data); } catch { data = null; }
+            if (!data) return;
+            if (data.type === "new_order") {
+              // jeśli backend nie wysyła pełnego obiektu, spróbujemy wziąć "latest" z pamięci
+              const latest = getLatestOrder?.() || null;
+              onNewOrder?.(latest, data);
+            }
+          };
+
+          es.onerror = () => {
+            // SSE padło -> przechodzimy na polling
+            try { es.close(); } catch {}
+            esRef.current = null;
+
+            if (!pollRef.current) {
+              pollRef.current = setInterval(async () => {
+                try {
+                  // silent fetch orders
+                  const url = new URL(API.orders, window.location.origin);
+                  const r = await fetch(url.toString(), { headers: { ...authHeader(token) } });
+                  const data = await safeJson(r);
+                  if (!r.ok) return;
+
+                  const list = Array.isArray(data.orders) ? data.orders : [];
+                  const newest = list[0];
+                  if (newest) onNewOrder?.(newest, { type: "new_order", via: "poll" });
+                } catch {}
+              }, 4000);
+            }
+          };
+        } catch (e) {
+          // brak SSE -> polling
+          if (!pollRef.current) {
+            pollRef.current = setInterval(async () => {
+              try {
+                const url = new URL(API.orders, window.location.origin);
+                const r = await fetch(url.toString(), { headers: { ...authHeader(token) } });
+                const data = await safeJson(r);
+                if (!r.ok) return;
+
+                const list = Array.isArray(data.orders) ? data.orders : [];
+                const newest = list[0];
+                if (newest) onNewOrder?.(newest, { type: "new_order", via: "poll" });
+              } catch {}
+            }, 4000);
+          }
+        }
+
+        return () => stopAll();
+      }, [token, enabled]);
+    };
+
+    /* =======================
       App: main
     ======================= */
     const STORAGE_KEY = "eatmi-admin-token";
 
     const AppShell = ({ token, onLogout }) => {
+      const toast = useToast();
       const [tab, setTab] = useState("dashboard");
+      const [ordersCount, setOrdersCount] = useState(0);
 
-      useEffect(() => { window.lucide?.createIcons?.(); }, [tab]);
+      // overlay state
+      const [alertOpen, setAlertOpen] = useState(false);
+      const [alertOrder, setAlertOrder] = useState(null);
+
+      // cache last known newest order (helpful for SSE events that don't include full object)
+      const latestOrderRef = useRef(null);
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [tab, ordersCount, alertOpen]);
 
       const title = tab === "dashboard" ? "Dashboard" :
                     tab === "orders" ? "Zamówienia" :
@@ -1206,112 +1504,185 @@
         tab === "staff" ? "Zarządzaj dostępem pracowników." :
         "";
 
+      const acknowledge = () => {
+        // zapisujemy ACK na podstawie tego co pokazaliśmy (najlepiej newest)
+        const o = alertOrder;
+        if (o) {
+          const key = `${pickOrderId(o, 0)}|${pickCreatedAt(o) || ""}`;
+          localStorage.setItem(STORAGE_LAST_ACK, JSON.stringify({ lastSeenKey: key, ts: Date.now() }));
+        } else {
+          localStorage.setItem(STORAGE_LAST_ACK, JSON.stringify({ lastSeenKey: "ack", ts: Date.now() }));
+        }
+
+        setAlertOpen(false);
+        setAlertOrder(null);
+
+        // pro tip: przełącz na zamówienia
+        setTab("orders");
+        toast.show("ok", "Powiadomienie", "Potwierdzono nowe zamówienie.");
+      };
+
+      const handleNewOrder = (orderObj, meta) => {
+        const o = orderObj || latestOrderRef.current;
+        if (!o) return;
+
+        const newestKey = `${pickOrderId(o, 0)}|${pickCreatedAt(o) || ""}`;
+
+        // sprawdź czy już ACK
+        const rawAck = localStorage.getItem(STORAGE_LAST_ACK) || "";
+        let ack = null;
+        try { ack = rawAck ? JSON.parse(rawAck) : null; } catch { ack = null; }
+        const lastSeenKey = ack?.lastSeenKey || "";
+
+        if (!newestKey || newestKey === lastSeenKey) return;
+
+        // nie nadpisuj jeśli już jest aktywny alert (blokuje UI)
+        if (alertOpen) return;
+
+        setAlertOrder(o);
+        setAlertOpen(true);
+      };
+
+      // Realtime: SSE/poll (zawsze aktywne po zalogowaniu)
+      useOrdersRealtime({
+        token,
+        enabled: true,
+        onNewOrder: (orderObj, meta) => handleNewOrder(orderObj, meta),
+        getLatestOrder: () => latestOrderRef.current,
+      });
+
+      const OrdersWithBridge = () => (
+        <Orders
+          token={token}
+          setOrdersCount={(n)=>setOrdersCount(n)}
+          onNewOrderDetected={(newest) => {
+            latestOrderRef.current = newest || null;
+            handleNewOrder(newest, { type: "new_order", via: "orders_load" });
+          }}
+        />
+      );
+
       return (
         <div className="min-h-screen">
+          {/* overlay blokuje CAŁY panel */}
+          <NewOrderOverlay
+            open={alertOpen}
+            orderPreview={alertOrder}
+            onAcknowledge={acknowledge}
+          />
+
           {/* Desktop layout */}
-          <div className="hidden md:flex">
-            <aside className="fixed top-0 left-0 bottom-0 w-[var(--sidebar-w)] p-4">
-              <div className="bg-white/85 border border-white/60 shadow-glass rounded-3xl p-4 h-full flex flex-col">
-                <Logo />
+          <div className={alertOpen ? "no-interact" : ""}>
+            <div className="hidden md:flex">
+              <aside className="fixed top-0 left-0 bottom-0 w-[var(--sidebar-w)] p-4">
+                <div className="bg-white/85 border border-white/60 shadow-glass rounded-3xl p-4 h-full flex flex-col">
+                  <Logo />
 
-                <div className="mt-5 space-y-2">
-                  <NavItem
-                    active={tab === "dashboard"}
-                    icon="layout-dashboard"
-                    label="Dashboard"
-                    onClick={() => setTab("dashboard")}
-                  />
-                  <NavItem
-                    active={tab === "orders"}
-                    icon="shopping-bag"
-                    label="Zamówienia"
-                    onClick={() => setTab("orders")}
-                  />
-                  <NavItem
-                    active={tab === "push"}
-                    icon="bell"
-                    label="Powiadomienia push"
-                    onClick={() => setTab("push")}
-                  />
-                  <NavItem
-                    active={tab === "staff"}
-                    icon="users"
-                    label="Obsługa"
-                    onClick={() => setTab("staff")}
-                  />
-                </div>
+                  <div className="mt-5 space-y-2">
+                    <NavItem
+                      active={tab === "dashboard"}
+                      icon="layout-dashboard"
+                      label="Dashboard"
+                      onClick={() => setTab("dashboard")}
+                    />
+                    <NavItem
+                      active={tab === "orders"}
+                      icon="shopping-bag"
+                      label="Zamówienia"
+                      badge={ordersCount}
+                      onClick={() => setTab("orders")}
+                    />
+                    <NavItem
+                      active={tab === "push"}
+                      icon="bell"
+                      label="Powiadomienia push"
+                      onClick={() => setTab("push")}
+                    />
+                    <NavItem
+                      active={tab === "staff"}
+                      icon="users"
+                      label="Obsługa"
+                      onClick={() => setTab("staff")}
+                    />
+                  </div>
 
-                <div className="mt-auto pt-3">
-                  <button
-                    type="button"
-                    onClick={onLogout}
-                    className="w-full inline-flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
-                  >
-                    <Icon name="log-out" className="w-4 h-4" />
-                    Wyloguj
-                  </button>
+                  <div className="mt-auto pt-3">
+                    <button
+                      type="button"
+                      onClick={onLogout}
+                      className="w-full inline-flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
+                    >
+                      <Icon name="log-out" className="w-4 h-4" />
+                      Wyloguj
+                    </button>
 
-                  <div className="mt-3 text-xs text-gray-500 text-center">
-                    eatmi.pl • panel administratora
+                    <div className="mt-3 text-xs text-gray-500 text-center">
+                      eatmi.pl • panel administratora
+                    </div>
                   </div>
                 </div>
-              </div>
-            </aside>
+              </aside>
 
-            <main className="ml-[var(--sidebar-w)] w-full">
-              <Topbar title={title} subtitle={subtitle} onLogout={onLogout} />
-              {tab === "dashboard" && <Dashboard token={token} />}
-              {tab === "orders" && <Orders token={token} />}
-              {tab === "push" && <Push token={token} />}
-              {tab === "staff" && <Staff token={token} />}
-            </main>
-          </div>
-
-          {/* Mobile layout */}
-          <div className="md:hidden">
-            <Topbar title={title} subtitle={subtitle} onLogout={onLogout} />
-
-            <div className="px-4 pt-4">
-              <div className="bg-white/85 border border-white/60 shadow-glass rounded-3xl p-3 grid grid-cols-2 gap-2">
-                <button
-                  className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${
-                    tab==="dashboard" ? "bg-brand-yellow/20 border-brand-yellow/30" : "bg-white border-gray-200"
-                  }`}
-                  onClick={()=>setTab("dashboard")}
-                >
-                  <Icon name="layout-dashboard" className="w-4 h-4" /> Dashboard
-                </button>
-                <button
-                  className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${
-                    tab==="orders" ? "bg-brand-yellow/20 border-brand-yellow/30" : "bg-white border-gray-200"
-                  }`}
-                  onClick={()=>setTab("orders")}
-                >
-                  <Icon name="shopping-bag" className="w-4 h-4" /> Zamówienia
-                </button>
-                <button
-                  className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${
-                    tab==="push" ? "bg-brand-yellow/20 border-brand-yellow/30" : "bg-white border-gray-200"
-                  }`}
-                  onClick={()=>setTab("push")}
-                >
-                  <Icon name="bell" className="w-4 h-4" /> Push
-                </button>
-                <button
-                  className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${
-                    tab==="staff" ? "bg-brand-yellow/20 border-brand-yellow/30" : "bg-white border-gray-200"
-                  }`}
-                  onClick={()=>setTab("staff")}
-                >
-                  <Icon name="users" className="w-4 h-4" /> Obsługa
-                </button>
-              </div>
+              <main className="ml-[var(--sidebar-w)] w-full">
+                <Topbar title={title} subtitle={subtitle} onLogout={onLogout} />
+                {tab === "dashboard" && <Dashboard token={token} />}
+                {tab === "orders" && <OrdersWithBridge />}
+                {tab === "push" && <Push token={token} />}
+                {tab === "staff" && <Staff token={token} />}
+              </main>
             </div>
 
-            {tab === "dashboard" && <Dashboard token={token} />}
-            {tab === "orders" && <Orders token={token} />}
-            {tab === "push" && <Push token={token} />}
-            {tab === "staff" && <Staff token={token} />}
+            {/* Mobile layout */}
+            <div className="md:hidden">
+              <Topbar title={title} subtitle={subtitle} onLogout={onLogout} />
+
+              <div className="px-4 pt-4">
+                <div className="bg-white/85 border border-white/60 shadow-glass rounded-3xl p-3 grid grid-cols-2 gap-2">
+                  <button
+                    className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${
+                      tab==="dashboard" ? "bg-brand-yellow/20 border-brand-yellow/30" : "bg-white border-gray-200"
+                    }`}
+                    onClick={()=>setTab("dashboard")}
+                  >
+                    <Icon name="layout-dashboard" className="w-4 h-4" /> Dashboard
+                  </button>
+                  <button
+                    className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${
+                      tab==="orders" ? "bg-brand-yellow/20 border-brand-yellow/30" : "bg-white border-gray-200"
+                    }`}
+                    onClick={()=>setTab("orders")}
+                  >
+                    <Icon name="shopping-bag" className="w-4 h-4" /> Zamówienia
+                    {ordersCount > 0 && (
+                      <span className="ml-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-gray-900 text-white">
+                        {ordersCount > 99 ? "99+" : ordersCount}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${
+                      tab==="push" ? "bg-brand-yellow/20 border-brand-yellow/30" : "bg-white border-gray-200"
+                    }`}
+                    onClick={()=>setTab("push")}
+                  >
+                    <Icon name="bell" className="w-4 h-4" /> Push
+                  </button>
+                  <button
+                    className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${
+                      tab==="staff" ? "bg-brand-yellow/20 border-brand-yellow/30" : "bg-white border-gray-200"
+                    }`}
+                    onClick={()=>setTab("staff")}
+                  >
+                    <Icon name="users" className="w-4 h-4" /> Obsługa
+                  </button>
+                </div>
+              </div>
+
+              {tab === "dashboard" && <Dashboard token={token} />}
+              {tab === "orders" && <OrdersWithBridge />}
+              {tab === "push" && <Push token={token} />}
+              {tab === "staff" && <Staff token={token} />}
+            </div>
           </div>
         </div>
       );
