@@ -22,21 +22,21 @@ app.use(express.static(__dirname));
 // ====== PayU + ADMIN + AUTH + RESEND + MONGO ENV ======
 const {
   // ====== PAYU ======
-  PAYU_ENV = "prod",            // "prod" albo "sandbox"
-  PAYU_POS_ID,                  // pos_id (merchantPosId)
-  PAYU_CLIENT_ID,               // OAuth client_id
-  PAYU_CLIENT_SECRET,           // OAuth client_secret
-  PAYU_MD5_SECOND_KEY,          // (na start nie używamy)
-  PAYU_NOTIFY_URL,              // np. https://www.eatmi.pl/api/payu/notify
-  PAYU_CONTINUE_URL,            // np. https://www.eatmi.pl/#/zamowienie?paid=1
+  PAYU_ENV = "prod", // "prod" albo "sandbox"
+  PAYU_POS_ID, // pos_id (merchantPosId)
+  PAYU_CLIENT_ID, // OAuth client_id
+  PAYU_CLIENT_SECRET, // OAuth client_secret
+  PAYU_MD5_SECOND_KEY, // (na start nie używamy)
+  PAYU_NOTIFY_URL, // np. https://www.eatmi.pl/api/payu/notify
+  PAYU_CONTINUE_URL, // np. https://www.eatmi.pl/#/zamowienie?paid=1
 
   // ====== ADMIN ======
-  ADMIN_PIN,                    // np. "0051" (4 cyfry) - główny admin
+  ADMIN_PIN, // np. "0051" (4 cyfry) - główny admin
   ADMIN_TOKEN_SECRET = "CHANGE_ME_LONG_SECRET_64CHARS_MIN",
   ADMIN_PIN_SALT = "CHANGE_ME_SALT",
 
   // ====== AUTH (USER ACCOUNTS) ======
-  MONGO_URI,
+  // (Railway masz MONGO_URL — mapujemy niżej)
   JWT_SECRET,
 
   // ====== RESEND ======
@@ -46,6 +46,9 @@ const {
   // ====== VERIFY SETTINGS ======
   VERIFY_CODE_TTL_MIN = "15"
 } = process.env;
+
+// Railway daje MONGO_URL (nie MONGO_URI) — mapujemy do jednego źródła prawdy
+const MONGO_URI_EFFECTIVE = process.env.MONGO_URI || process.env.MONGO_URL;
 
 const PAYU_BASE =
   PAYU_ENV === "sandbox" ? "https://secure.snd.payu.com" : "https://secure.payu.com";
@@ -57,11 +60,11 @@ function requireEnv(name, value) {
 // ===============================
 // MONGO CONNECT + USER MODEL (IN THIS FILE)
 // ===============================
-requireEnv("MONGO_URI", MONGO_URI);
+requireEnv("MONGO_URL", MONGO_URI_EFFECTIVE);
 requireEnv("JWT_SECRET", JWT_SECRET);
 
 mongoose.set("strictQuery", true);
-await mongoose.connect(MONGO_URI);
+await mongoose.connect(MONGO_URI_EFFECTIVE);
 console.log("Mongo connected");
 
 const UserSchema = new mongoose.Schema(
@@ -188,6 +191,11 @@ app.post("/api/auth/register", async (req, res) => {
       ttlMin
     });
   } catch (e) {
+    // jeśli email unique, mongo może zwrócić E11000
+    const msg = String(e?.message || "");
+    if (msg.includes("E11000") || msg.toLowerCase().includes("duplicate")) {
+      return res.status(409).json({ error: "Email already in use" });
+    }
     console.log("REGISTER ERROR:", e);
     return res.status(500).json({ error: "Server error" });
   }
@@ -315,7 +323,7 @@ app.get("/api/auth/me", authRequired, async (req, res) => {
   }
 });
 
-// ===============================
+// =======================================================
 // FILE STORAGE (orders + staff)  [na VPS działa od razu]
 // Jeśli hostujesz na platformie bez trwałego dysku -> DB.
 // =======================================================
@@ -353,7 +361,7 @@ function writeOrders(orders) {
 }
 function upsertOrder(patch) {
   const orders = readOrders();
-  const idx = orders.findIndex(o => o.extOrderId === patch.extOrderId);
+  const idx = orders.findIndex((o) => o.extOrderId === patch.extOrderId);
   const now = new Date().toISOString();
 
   if (idx >= 0) {
@@ -388,7 +396,7 @@ function addStaff({ name, pin }) {
 }
 function removeStaff(id) {
   const list = readStaff();
-  const next = list.filter(x => String(x.id) !== String(id));
+  const next = list.filter((x) => String(x.id) !== String(id));
   writeStaff(next);
 }
 
@@ -396,7 +404,10 @@ function removeStaff(id) {
 function signToken(payload) {
   const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const sig = crypto.createHmac("sha256", ADMIN_TOKEN_SECRET).update(`${header}.${body}`).digest("base64url");
+  const sig = crypto
+    .createHmac("sha256", ADMIN_TOKEN_SECRET)
+    .update(`${header}.${body}`)
+    .digest("base64url");
   return `${header}.${body}.${sig}`;
 }
 function verifyToken(token) {
@@ -404,8 +415,11 @@ function verifyToken(token) {
   if (!h || !b || !s) return null;
   const sig = crypto.createHmac("sha256", ADMIN_TOKEN_SECRET).update(`${h}.${b}`).digest("base64url");
   if (sig !== s) return null;
-  try { return JSON.parse(Buffer.from(b, "base64url").toString("utf8")); }
-  catch { return null; }
+  try {
+    return JSON.parse(Buffer.from(b, "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
 }
 function getBearer(req) {
   const auth = req.headers.authorization || "";
@@ -440,7 +454,9 @@ const sseClients = new Set();
 function sseBroadcast(event, data) {
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   for (const res of sseClients) {
-    try { res.write(payload); } catch {}
+    try {
+      res.write(payload);
+    } catch {}
   }
 }
 
@@ -574,7 +590,11 @@ async function getPayuToken() {
   }
 
   let data;
-  try { data = JSON.parse(raw); } catch { data = {}; }
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    data = {};
+  }
   if (!data?.access_token) {
     console.log("PAYU OAUTH BAD JSON:", raw);
     throw new Error("PayU OAuth: missing access_token");
@@ -637,10 +657,7 @@ app.post("/api/payu/order", async (req, res) => {
       };
     });
 
-    const totalAmount = products.reduce(
-      (sum, p) => sum + Number(p.unitPrice) * Number(p.quantity),
-      0
-    );
+    const totalAmount = products.reduce((sum, p) => sum + Number(p.unitPrice) * Number(p.quantity), 0);
 
     const { access_token } = await getPayuToken();
 
@@ -689,7 +706,11 @@ app.post("/api/payu/order", async (req, res) => {
     const raw = await r.text().catch(() => "");
     let data = null;
     if (raw) {
-      try { data = JSON.parse(raw); } catch { data = { raw }; }
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        data = { raw };
+      }
     }
 
     if (data?.orderId) {
@@ -716,7 +737,6 @@ app.post("/api/payu/order", async (req, res) => {
       location: location || null,
       details: data
     });
-
   } catch (e) {
     console.log("PAYU ORDER ERROR:", e);
     return res.status(500).json({ error: e.message || "Server error" });
@@ -776,25 +796,27 @@ app.post("/api/admin/login", (req, res) => {
 
     if (!ADMIN_PIN) return res.status(500).json({ error: "ADMIN_PIN not set" });
 
+    // admin
     if (pin === String(ADMIN_PIN)) {
       const token = signToken({ role: "admin", name: "Administrator", iat: Date.now() });
       return res.json({ token });
     }
 
+    // staff
     const list = readStaff();
     const h = hashPin(pin);
-    const found = list.find(x => x.pinHash === h);
+    const found = list.find((x) => x.pinHash === h);
     if (!found) return res.status(401).json({ error: "Bad PIN" });
 
     const token = signToken({ role: "staff", name: found.name || "Pracownik", staffId: found.id, iat: Date.now() });
     return res.json({ token });
-
   } catch (e) {
     console.log("ADMIN LOGIN ERROR:", e);
     return res.status(500).json({ error: "Server error" });
   }
 });
 
+// SSE stream
 app.get("/api/admin/stream", requireStaffForStream, (req, res) => {
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -809,37 +831,41 @@ app.get("/api/admin/stream", requireStaffForStream, (req, res) => {
   });
 });
 
+// Stats
 app.get("/api/admin/stats", requireStaff, (req, res) => {
   const orders = readOrders();
   const ordersTotal = orders.length;
 
+  // today (local server day)
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
   const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
 
-  const ordersToday = orders.filter(o => {
+  const ordersToday = orders.filter((o) => {
     const t = new Date(o.createdAt || 0).getTime();
     return t >= start && t <= end;
   }).length;
 
   const revenueTotal = orders
-    .filter(o => isPaidStatus(o.status))
+    .filter((o) => isPaidStatus(o.status))
     .reduce((sum, o) => sum + Number(o.totalPLN || 0), 0);
 
   res.json({ ordersTotal, ordersToday, revenueTotal });
 });
 
+// Orders list
 app.get("/api/admin/orders", requireStaff, (req, res) => {
   const q = String(req.query.query || "").trim().toLowerCase();
   let orders = readOrders();
 
   if (q) {
-    orders = orders.filter(o => JSON.stringify(o || {}).toLowerCase().includes(q));
+    orders = orders.filter((o) => JSON.stringify(o || {}).toLowerCase().includes(q));
   }
 
   res.json({ orders });
 });
 
+// Push (placeholder)
 app.post("/api/admin/push", requireStaff, (req, res) => {
   const title = String(req.body?.title || "").trim();
   const body = String(req.body?.body || "").trim();
@@ -849,8 +875,9 @@ app.post("/api/admin/push", requireStaff, (req, res) => {
   res.json({ ok: true });
 });
 
+// Staff CRUD (tylko ADMIN)
 app.get("/api/admin/staff", requireAdminOnly, (req, res) => {
-  const list = readStaff().map(x => ({ id: x.id, name: x.name, role: x.role, createdAt: x.createdAt }));
+  const list = readStaff().map((x) => ({ id: x.id, name: x.name, role: x.role, createdAt: x.createdAt }));
   res.json({ staff: list });
 });
 
@@ -862,9 +889,10 @@ app.post("/api/admin/staff", requireAdminOnly, (req, res) => {
   if (!/^\d{4}$/.test(pin)) return res.status(400).json({ error: "PIN must be 4 digits" });
   if (pin === String(ADMIN_PIN)) return res.status(400).json({ error: "This PIN is reserved" });
 
+  // nie pozwalaj na duplikaty PIN
   const list = readStaff();
   const h = hashPin(pin);
-  if (list.some(x => x.pinHash === h)) return res.status(409).json({ error: "PIN already in use" });
+  if (list.some((x) => x.pinHash === h)) return res.status(409).json({ error: "PIN already in use" });
 
   const item = addStaff({ name, pin });
   res.json({ ok: true, staff: { id: item.id, name: item.name, role: item.role, createdAt: item.createdAt } });
