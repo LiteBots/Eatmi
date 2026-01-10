@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#FFC107" />
-  <title>Panel Administratora — eatmi.pl</title>
-  <meta name="description" content="Panel administratora: dashboard, zamówienia, użytkownicy, pasek info." />
+  <title>eatmi.pl — Panel Administratora</title>
+  <meta name="description" content="Panel administratora eatmi.pl" />
 
   <!-- Tailwind config MUST be before tailwindcdn script -->
   <script>
@@ -14,30 +14,61 @@
       theme: {
         extend: {
           colors: {
-            brand: { yellow: "#FFC107", dark: "#111827", light: "#F9FAFB" },
-            kiosk: {
-              bg: "#0B0F1A",
-              card: "#0F1629",
-              card2: "#111B34",
-              green: "#22C55E",
-              red: "#EF4444",
-              blue: "#3B82F6",
-              violet: "#8B5CF6",
-              orange: "#F59E0B",
-              gray: "#94A3B8",
+            brand: {
+              yellow: '#FFC107',
+              dark: '#111827',
+              light: '#F9FAFB'
             },
+            kiosk: {
+              bg: '#0B0F1A',
+              card: '#0F1629',
+              card2: '#111B34',
+              green: '#22C55E',
+              red: '#EF4444',
+              blue: '#3B82F6',
+              violet: '#8B5CF6',
+              orange: '#F59E0B',
+              gray: '#94A3B8'
+            }
           },
           boxShadow: {
-            soft: "0 10px 30px rgba(0,0,0,.08)",
-            glass: "0 8px 25px rgba(0,0,0,.12)",
-            kiosk: "0 14px 50px rgba(0,0,0,.20)",
+            soft: '0 10px 30px rgba(0,0,0,.08)',
+            glass: '0 8px 25px rgba(0,0,0,.12)',
+            kiosk: '0 14px 50px rgba(0,0,0,.35)'
           },
-          borderRadius: { xl2: "1.25rem" },
-        },
-      },
+          borderRadius: { xl2: '1.25rem' }
+        }
+      }
     };
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    :root{
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-t: env(safe-area-inset-top, 0px);
+      --sidebar-w: 280px;
+    }
+    html, body { height: 100%; }
+    body { overscroll-behavior-y: none; }
+    .liquid { background: rgba(255,255,255,.75); backdrop-filter: blur(12px); }
+    .input-focus { outline: none; }
+    .input-focus:focus { box-shadow: 0 0 0 3px rgba(255,193,7,.35); border-color: rgba(255,193,7,.75); }
+    .toast-enter { animation: toastIn .18s ease-out; }
+    @keyframes toastIn { from { transform: translateY(8px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+
+    /* Subtle background */
+    .bg-soft {
+      background:
+        radial-gradient(900px 500px at 20% -10%, rgba(255,193,7,.22), transparent 55%),
+        radial-gradient(700px 450px at 95% 20%, rgba(59,130,246,.14), transparent 55%),
+        radial-gradient(600px 400px at 30% 110%, rgba(34,197,94,.12), transparent 55%),
+        linear-gradient(#fff, #f7f8fb);
+    }
+
+    /* Drawer scroll */
+    .drawer-scroll { max-height: calc(100vh - 140px); overflow: auto; }
+  </style>
 
   <!-- React 18 + ReactDOM 18 -->
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
@@ -48,117 +79,111 @@
 
   <!-- Lucide icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
-
-  <style>
-    :root{
-      --safe-b: env(safe-area-inset-bottom, 0px);
-      --safe-t: env(safe-area-inset-top, 0px);
-    }
-    html, body { height: 100%; }
-    body { overscroll-behavior-y: none; background: #F9FAFB; }
-    .liquid { background: rgba(255,255,255,.78); backdrop-filter: blur(12px); }
-    .logo-glow { box-shadow: 0 12px 30px rgba(255,193,7,.18); }
-    .input-focus { outline: none; }
-    .input-focus:focus { box-shadow: 0 0 0 3px rgba(255,193,7,.35); border-color: rgba(255,193,7,.75); }
-    .toast-enter { animation: toastIn .18s ease-out; }
-    .toast-bar { animation: toastBar 2.4s linear; transform-origin: left; }
-    @keyframes toastIn { from { transform: translateY(8px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
-    @keyframes toastBar { from { transform: scaleX(1) } to { transform: scaleX(0) } }
-
-    /* Subtelne tło jak “kiosk” */
-    .bg-noise {
-      background:
-        radial-gradient(1000px 500px at 10% -10%, rgba(255,193,7,.18), transparent 55%),
-        radial-gradient(900px 500px at 110% 10%, rgba(59,130,246,.12), transparent 55%),
-        radial-gradient(700px 500px at 40% 110%, rgba(139,92,246,.10), transparent 55%),
-        linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(249,250,251,1) 70%, rgba(249,250,251,1) 100%);
-    }
-
-    /* Scrollbar: lekko */
-    ::-webkit-scrollbar{ height:10px; width:10px; }
-    ::-webkit-scrollbar-thumb{ background: rgba(17,24,39,.18); border-radius: 999px; }
-    ::-webkit-scrollbar-track{ background: rgba(17,24,39,.04); }
-
-    /* “Piguły” statusu */
-    .chip { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; font-weight: 800; padding: .35rem .6rem; border-radius: 999px; border: 1px solid rgba(17,24,39,.12); }
-  </style>
 </head>
 
-<body class="text-gray-900 bg-noise">
+<body class="bg-soft text-gray-900">
   <div id="root"></div>
 
   <script type="text/babel">
     const { useEffect, useMemo, useRef, useState } = React;
 
-    /* =======================
-       UTILS
-    ======================= */
-    const currency = (n) => new Intl.NumberFormat("pl-PL", { style:"currency", currency:"PLN" }).format(n || 0);
-    const fmtDate = (d) => new Intl.DateTimeFormat("pl-PL", { dateStyle:"medium", timeStyle:"short" }).format(d);
-    const cn = (...a) => a.filter(Boolean).join(" ");
-    const uid = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+    /* =========================================================
+      KONTRAKT API (backend)
+      - Login (PIN 4 cyfry):
+          POST /api/admin/login
+          body: { pin: "1234" }
+          response: { token: "..." }  (JWT / session token)
+      - Stats:
+          GET /api/admin/stats
+          response: { ordersTotal, ordersToday, revenueTotal }  // revenue w PLN lub groszach (ustal po swojej stronie)
+      - Orders list:
+          GET /api/admin/orders?query=&from=&to=
+          response: { orders: [...] }
+      - Push:
+          POST /api/admin/push
+          body: { title?: string, body: string }
+          response: { ok: true }
+      - Staff (pracownicy):
+          GET /api/admin/staff
+          POST /api/admin/staff  body: { name: "Imię Nazwisko", pin: "1234" }
+          DELETE /api/admin/staff/:id
 
-    const todayKey = () => {
-      const d = new Date();
-      const y = d.getFullYear();
-      const m = String(d.getMonth()+1).padStart(2,"0");
-      const da = String(d.getDate()).padStart(2,"0");
-      return `${y}-${m}-${da}`;
+      Autoryzacja:
+        Authorization: Bearer <token>
+      PIN głównego admina trzymaj na Railway jako ENV (np. ADMIN_PIN) i weryfikuj w /api/admin/login.
+    ========================================================= */
+
+    const API = {
+      login: "/api/admin/login",
+      stats: "/api/admin/stats",
+      orders: "/api/admin/orders",
+      push: "/api/admin/push",
+      staff: "/api/admin/staff",
     };
 
     /* =======================
-       TOAST
+      Utils
+    ======================= */
+    const currency = (n) => {
+      const num = Number(n || 0);
+      return new Intl.NumberFormat('pl-PL', { style:'currency', currency:'PLN' }).format(num);
+    };
+
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const safeJson = async (r) => {
+      try { return await r.json(); } catch { return {}; }
+    };
+
+    const authHeader = (token) => token ? { Authorization: `Bearer ${token}` } : {};
+
+    /* =======================
+      Toast
     ======================= */
     const ToastContext = React.createContext();
     const useToast = () => React.useContext(ToastContext);
 
-    const ToastProvider = ({children}) => {
+    const ToastProvider = ({ children }) => {
       const [toast, setToast] = useState(null);
-      const timer = useRef(null);
+      const tRef = useRef(null);
 
-      const show = (message, variant="ok") => {
-        setToast({ message, variant });
-        if (timer.current) clearTimeout(timer.current);
-        timer.current = setTimeout(() => setToast(null), 2500);
+      const show = (type, title, msg) => {
+        setToast({ type, title, msg });
+        if (tRef.current) clearTimeout(tRef.current);
+        tRef.current = setTimeout(() => setToast(null), 2600);
       };
 
       const close = () => {
-        if (timer.current) clearTimeout(timer.current);
+        if (tRef.current) clearTimeout(tRef.current);
         setToast(null);
       };
-
-      const styles = toast?.variant === "error"
-        ? { ring: "border-red-200", iconBg:"bg-red-100", iconTx:"text-red-600", bar:"bg-red-400", label:"Błąd" }
-        : toast?.variant === "warn"
-          ? { ring: "border-amber-200", iconBg:"bg-amber-100", iconTx:"text-amber-700", bar:"bg-amber-400", label:"Uwaga" }
-          : { ring: "border-emerald-200", iconBg:"bg-emerald-100", iconTx:"text-emerald-600", bar:"bg-emerald-400", label:"OK" };
 
       return (
         <ToastContext.Provider value={{ show }}>
           {children}
           {toast && (
-            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] pointer-events-none">
-              <div className={cn("relative pointer-events-auto toast-enter bg-white/95 border shadow-glass rounded-2xl px-4 py-3 min-w-[280px] max-w-[92vw] flex items-start gap-3", styles.ring)}>
-                <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-lg", styles.iconBg, styles.iconTx)}>
-                  {toast.variant === "error" ? "!" : "✓"}
+            <div className="fixed bottom-[calc(18px+var(--safe-b))] left-1/2 -translate-x-1/2 z-[200] pointer-events-none">
+              <div className="pointer-events-auto toast-enter bg-white/95 border border-gray-200 shadow-glass rounded-2xl px-4 py-3 min-w-[280px] max-w-[92vw] flex items-start gap-3">
+                <div className={`w-9 h-9 rounded-full grid place-items-center text-lg ${
+                  toast.type === "ok" ? "bg-emerald-100 text-emerald-700" :
+                  toast.type === "error" ? "bg-red-100 text-red-700" :
+                  "bg-gray-100 text-gray-700"
+                }`}>
+                  {toast.type === "ok" ? "✓" : toast.type === "error" ? "!" : "i"}
                 </div>
                 <div className="flex-1">
-                  <div className={cn("text-[10px] font-semibold uppercase tracking-[0.12em]", styles.iconTx)}>
-                    {styles.label}
+                  <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
+                    {toast.title || (toast.type === "ok" ? "Sukces" : toast.type === "error" ? "Błąd" : "Info")}
                   </div>
-                  <div className="text-sm text-gray-900 mt-0.5">{toast.message}</div>
+                  <div className="text-sm text-gray-900 mt-0.5">{toast.msg}</div>
                 </div>
                 <button
                   type="button"
                   onClick={close}
-                  className="ml-2 text-gray-400 hover:text-gray-600 text-xl leading-none"
-                  aria-label="Zamknij powiadomienie"
+                  className="ml-2 text-gray-400 hover:text-gray-700 text-xl leading-none"
+                  aria-label="Zamknij"
                 >
                   ×
                 </button>
-                <div className="absolute left-4 right-4 -bottom-1.5 h-1 rounded-full overflow-hidden bg-gray-50">
-                  <div className={cn("toast-bar h-full", styles.bar)}></div>
-                </div>
               </div>
             </div>
           )}
@@ -167,1178 +192,1152 @@
     };
 
     /* =======================
-       MOCK DATA (demo)
-    ======================= */
-    const seedOrders = () => {
-      const t = todayKey();
-      const now = Date.now();
-      return [
-        {
-          id: "ORD-10021",
-          createdAt: new Date(now - 12*60*1000).toISOString(),
-          dayKey: t,
-          customer: { name: "Jan Kowalski", phone:"600 123 456", city:"Warszawa" },
-          items: [
-            { name:"Lunch tygodnia", qty: 1, price: 49 },
-            { name:"Domowa lemoniada 250 ml", qty: 2, price: 12 },
-          ],
-          total: 49 + 2*12,
-          status: "new", // new | accepted | done | rejected
-          channel: "www",
-        },
-        {
-          id: "ORD-10020",
-          createdAt: new Date(now - 49*60*1000).toISOString(),
-          dayKey: t,
-          customer: { name: "Ala Nowak", phone:"502 555 444", city:"Warszawa" },
-          items: [
-            { name:"Box śniadaniowy średni VEGE", qty: 1, price: 52 },
-          ],
-          total: 52,
-          status: "accepted",
-          channel: "www",
-        },
-        {
-          id: "ORD-10019",
-          createdAt: new Date(now - 4*60*60*1000).toISOString(),
-          dayKey: t,
-          customer: { name: "Kamil Zieliński", phone:"789 222 111", city:"Piaseczno" },
-          items: [
-            { name:"Pancakes (2 szt.) z Nutellą i owocami", qty: 1, price: 19 },
-            { name:"Latte 300 ml", qty: 1, price: 12 },
-          ],
-          total: 31,
-          status: "done",
-          channel: "www",
-        },
-        {
-          id: "ORD-10018",
-          createdAt: new Date(now - 26*60*60*1000).toISOString(),
-          dayKey: "yesterday",
-          customer: { name: "Michał K.", phone:"700 100 100", city:"Warszawa" },
-          items: [{ name:"Box śniadaniowy duży nr 1", qty: 1, price: 80 }],
-          total: 80,
-          status: "done",
-          channel: "telefon",
-        },
-      ];
-    };
-
-    const seedUsers = () => ([
-      { id:"USR-2001", name:"Jan Kowalski", email:"jan.kowalski@example.com", role:"user", createdAt:"2025-12-19", orders: 5, status:"active" },
-      { id:"USR-2002", name:"Ala Nowak", email:"ala.nowak@example.com", role:"user", createdAt:"2025-12-28", orders: 2, status:"active" },
-      { id:"USR-2003", name:"Kamil Zieliński", email:"kamil.z@example.com", role:"user", createdAt:"2026-01-02", orders: 1, status:"active" },
-      { id:"ADM-0001", name:"Admin", email:"admin@eatmi.pl", role:"admin", createdAt:"2025-10-01", orders: 0, status:"active" },
-    ]);
-
-    /* =======================
-       STORAGE HOOK
-    ======================= */
-    const useLocalStorage = (key, initial) => {
-      const [state, setState] = useState(() => {
-        try { return JSON.parse(localStorage.getItem(key)) ?? initial; } catch { return initial; }
-      });
-      useEffect(() => { localStorage.setItem(key, JSON.stringify(state)); }, [key, state]);
-      return [state, setState];
-    };
-
-    /* =======================
-       LAYOUT: LOGO / HEADER
+      Components: Shell
     ======================= */
     const Logo = () => (
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center border border-gray-100 overflow-hidden shadow-soft logo-glow">
-          <div className="w-9 h-9 rounded-2xl bg-brand-yellow/25 grid place-items-center">
-            <i data-lucide="shield" className="w-5 h-5 text-gray-900"></i>
-          </div>
+        <div className="w-10 h-10 rounded-2xl bg-white border border-gray-200 shadow-soft grid place-items-center overflow-hidden">
+          <img
+            src="https://i.imgur.com/f9TN0Gh.png"
+            alt="eatmi"
+            className="w-8 h-8 object-contain"
+            loading="lazy"
+          />
         </div>
         <div className="leading-tight">
           <div className="font-extrabold tracking-tight">
-            eatmi<span className="text-brand-yellow">.pl</span> <span className="text-gray-400">/</span> Admin
+            eatmi<span className="text-brand-yellow">.pl</span>
           </div>
           <div className="text-xs text-gray-500 font-semibold">Panel administratora</div>
         </div>
       </div>
     );
 
-    const TopBar = ({ title, subtitle, right }) => (
-      <div className="sticky top-0 z-40">
-        <div className="px-4 md:px-6 pt-4" style={{ paddingTop: "calc(var(--safe-t) + 16px)" }}>
-          <div className="liquid border border-white/60 shadow-glass rounded-3xl px-4 py-4 md:px-5 md:py-5 flex items-start gap-4 justify-between">
-            <div className="min-w-0">
-              <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">
-                Administracja
-              </div>
-              <h1 className="text-xl md:text-2xl font-extrabold mt-1">{title}</h1>
-              {subtitle && <p className="text-sm text-gray-600 mt-1 max-w-2xl">{subtitle}</p>}
-            </div>
-            {right && <div className="shrink-0">{right}</div>}
-          </div>
-        </div>
-      </div>
+    const Pill = ({ children }) => (
+      <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 border border-gray-200 shadow-soft text-xs font-extrabold">
+        {children}
+      </span>
+    );
+
+    const Skeleton = ({ className="" }) => (
+      <div className={`animate-pulse bg-gray-200/70 rounded-xl ${className}`} />
+    );
+
+    const Icon = ({ name, className="" }) => (
+      <i data-lucide={name} className={className}></i>
     );
 
     /* =======================
-       SIDEBAR NAV
+      Login: ekranowa klawiatura + PIN 4 cyfry
+    ======================= */
+    const Key = ({ label, onClick, variant="default" }) => {
+      const base =
+        "w-full h-14 rounded-2xl border shadow-soft font-extrabold text-lg active:scale-[0.99] transition";
+      const styles =
+        variant === "primary"
+          ? "bg-brand-yellow text-gray-900 border-black/5 hover:ring-2 hover:ring-brand-yellow/40"
+          : variant === "ghost"
+          ? "bg-white text-gray-800 border-gray-200 hover:ring-2 hover:ring-brand-yellow/25"
+          : "bg-white text-gray-900 border-gray-200 hover:ring-2 hover:ring-brand-yellow/25";
+      return (
+        <button type="button" onClick={onClick} className={`${base} ${styles}`}>
+          {label}
+        </button>
+      );
+    };
+
+    const PinDots = ({ value, max=4 }) => {
+      const filled = value.length;
+      return (
+        <div className="flex items-center justify-center gap-2">
+          {Array.from({ length: max }).map((_, i) => (
+            <div
+              key={i}
+              className={`w-3.5 h-3.5 rounded-full border ${
+                i < filled ? "bg-gray-900 border-gray-900" : "bg-white border-gray-300"
+              }`}
+            />
+          ))}
+        </div>
+      );
+    };
+
+    const Login = ({ onAuth }) => {
+      const [pin, setPin] = useState("");
+      const [loading, setLoading] = useState(false);
+      const toast = useToast();
+
+      useEffect(() => {
+        const onKeyDown = (e) => {
+          const k = e.key;
+          if (/^\d$/.test(k)) setPin((p) => (p.length < 4 ? p + k : p));
+          if (k === "Backspace") setPin((p) => p.slice(0, -1));
+          if (k === "Escape") setPin("");
+          if (k === "Enter" && pin.length === 4) submit(pin);
+        };
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+      }, [pin]);
+
+      const addDigit = (d) => setPin((p) => (p.length < 4 ? p + d : p));
+      const back = () => setPin((p) => p.slice(0, -1));
+      const clear = () => setPin("");
+
+      const submit = async (currentPin) => {
+        const v = (currentPin ?? pin).trim();
+        if (v.length !== 4) return;
+
+        setLoading(true);
+        try {
+          const r = await fetch(API.login, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pin: v }),
+          });
+          const data = await safeJson(r);
+
+          if (!r.ok || !data.token) {
+            toast.show("error", "Logowanie", data.error || "Nieprawidłowy kod.");
+            setPin("");
+            setLoading(false);
+            return;
+          }
+
+          toast.show("ok", "Logowanie", "Zalogowano.");
+          onAuth(data.token);
+        } catch (e) {
+          console.log(e);
+          toast.show("error", "Logowanie", "Błąd połączenia z serwerem.");
+          setPin("");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const disabled = loading;
+
+      return (
+        <div className="min-h-screen flex items-center justify-center px-4 py-10">
+          <div className="w-full max-w-md">
+            <div className="bg-white/85 border border-white/60 shadow-glass rounded-3xl p-6 md:p-7">
+              <div className="flex items-center justify-between gap-3">
+                <Logo />
+                <Pill>
+                  <span className="text-[10px] uppercase tracking-[0.16em] text-gray-500">PIN</span>
+                  <span className="font-black text-gray-900">4 cyfry</span>
+                </Pill>
+              </div>
+
+              <div className="mt-6 text-center">
+                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">
+                  Dostęp do panelu
+                </div>
+                <div className="text-2xl font-extrabold mt-1">Wpisz kod</div>
+                <div className="text-sm text-gray-600 mt-2">
+                  Użyj klawiatury ekranowej lub klawiatury fizycznej.
+                </div>
+
+                <div className="mt-5">
+                  <PinDots value={pin} />
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-3 gap-3">
+                {["1","2","3","4","5","6","7","8","9"].map((d) => (
+                  <Key key={d} label={d} onClick={() => addDigit(d)} />
+                ))}
+                <Key label="Wyczyść" variant="ghost" onClick={clear} />
+                <Key label="0" onClick={() => addDigit("0")} />
+                <Key label="⌫" variant="ghost" onClick={back} />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => submit()}
+                disabled={disabled || pin.length !== 4}
+                className="mt-4 w-full bg-gray-900 text-white font-extrabold rounded-2xl px-5 py-4 shadow-glass hover:ring-2 hover:ring-brand-yellow/35 disabled:opacity-60 disabled:cursor-not-allowed transition"
+              >
+                {loading ? "Logowanie..." : "Zaloguj"}
+              </button>
+
+              <div className="mt-4 text-xs text-gray-500 text-center">
+                Jeśli kod jest błędny — wpisz ponownie.
+              </div>
+            </div>
+
+            <div className="mt-4 text-center text-xs text-gray-500">
+              <span className="inline-flex items-center gap-2">
+                <Icon name="shield" className="w-4 h-4" /> Bezpieczny dostęp
+              </span>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    /* =======================
+      Layout: Sidebar + Topbar
     ======================= */
     const NavItem = ({ active, icon, label, onClick, badge }) => (
       <button
         type="button"
         onClick={onClick}
-        className={cn(
-          "w-full text-left px-3 py-3 rounded-2xl border transition flex items-center justify-between gap-3 shadow-soft",
+        className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border transition text-left ${
           active
-            ? "bg-brand-yellow/20 border-brand-yellow/30 ring-1 ring-brand-yellow/20"
-            : "bg-white/90 border-gray-200 hover:ring-2 hover:ring-brand-yellow/25"
-        )}
+            ? "bg-brand-yellow/20 border-brand-yellow/30 ring-1 ring-brand-yellow/30"
+            : "bg-white border-gray-200 hover:ring-2 hover:ring-brand-yellow/20"
+        }`}
       >
-        <span className="flex items-center gap-3 min-w-0">
-          <span className={cn(
-            "w-10 h-10 rounded-2xl grid place-items-center border",
-            active ? "bg-brand-yellow/30 border-brand-yellow/30" : "bg-white border-gray-200"
-          )}>
-            <i data-lucide={icon} className="w-5 h-5 text-gray-900"></i>
+        <div className="flex items-center gap-3 min-w-0">
+          <span className={`w-10 h-10 rounded-2xl grid place-items-center border ${
+            active ? "bg-brand-yellow/25 border-brand-yellow/30" : "bg-gray-50 border-gray-200"
+          }`}>
+            <Icon name={icon} className="w-5 h-5" />
           </span>
-          <span className="font-extrabold text-sm truncate">{label}</span>
-        </span>
+          <div className="min-w-0">
+            <div className="font-extrabold text-sm text-gray-900">{label}</div>
+            <div className="text-xs text-gray-500 truncate">
+              {active ? "Aktywne" : "Otwórz"}
+            </div>
+          </div>
+        </div>
         {typeof badge === "number" && badge > 0 && (
-          <span className="px-2 py-1 rounded-full bg-brand-yellow text-gray-900 text-xs font-extrabold border border-black/5">
+          <span className="shrink-0 text-[11px] font-black px-2.5 py-1 rounded-full bg-gray-900 text-white">
             {badge > 99 ? "99+" : badge}
           </span>
         )}
       </button>
     );
 
-    const Sidebar = ({ route, setRoute, pendingCount, collapsed, setCollapsed }) => {
-      const is = (r) => route === r;
-      return (
-        <aside className={cn(
-          "h-[100dvh] sticky top-0 flex flex-col",
-          "border-r border-gray-200/70 bg-white/40 backdrop-blur",
-          collapsed ? "w-[88px]" : "w-[300px]"
-        )}>
-          <div className={cn("p-4", collapsed ? "pb-2" : "pb-3")} style={{ paddingTop: "calc(var(--safe-t) + 16px)" }}>
-            <div className={cn("flex items-center justify-between gap-2", collapsed && "justify-center")}>
-              <div className={cn("min-w-0", collapsed && "hidden")}>
-                <Logo />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setCollapsed(v => !v)}
-                className="w-11 h-11 rounded-2xl border border-gray-200 bg-white shadow-soft hover:ring-2 hover:ring-brand-yellow/30 grid place-items-center"
-                aria-label="Zwiń / rozwiń sidebar"
-                title="Zwiń / rozwiń"
-              >
-                <i data-lucide={collapsed ? "panel-right-open" : "panel-left-close"} className="w-5 h-5"></i>
-              </button>
-            </div>
-          </div>
-
-          <div className={cn("px-4 pb-4", collapsed && "hidden")}>
-            <div className="rounded-2xl border border-gray-200 bg-white/80 shadow-soft p-4">
-              <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Status</div>
-              <div className="mt-2 flex items-center justify-between gap-3">
-                <div className="font-extrabold">System OK</div>
-                <span className="chip bg-emerald-50 text-emerald-700 border-emerald-200">online</span>
-              </div>
-              <div className="mt-2 text-xs text-gray-600">
-                Ostatnia synchronizacja: <span className="font-mono">{fmtDate(new Date())}</span>
-              </div>
-            </div>
-          </div>
-
-          <nav className={cn("px-4 pb-4 grid gap-3", collapsed && "px-3")}>
-            <NavItem
-              active={is("dashboard")}
-              icon="layout-dashboard"
-              label={collapsed ? "" : "Dashboard"}
-              onClick={() => setRoute("dashboard")}
-            />
-            <NavItem
-              active={is("orders")}
-              icon="receipt"
-              label={collapsed ? "" : "Zamówienia"}
-              badge={pendingCount}
-              onClick={() => setRoute("orders")}
-            />
-            <NavItem
-              active={is("users")}
-              icon="users"
-              label={collapsed ? "" : "Użytkownicy"}
-              onClick={() => setRoute("users")}
-            />
-            <NavItem
-              active={is("infobar")}
-              icon="info"
-              label={collapsed ? "" : "Pasek info"}
-              onClick={() => setRoute("infobar")}
-            />
-          </nav>
-
-          <div className={cn("mt-auto p-4", collapsed && "p-3")} style={{ paddingBottom: "calc(var(--safe-b) + 16px)" }}>
-            <div className={cn("rounded-2xl border border-gray-200 bg-white/80 shadow-soft p-4", collapsed && "hidden")}>
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Konto</div>
-                  <div className="font-extrabold truncate">Admin</div>
-                  <div className="text-xs text-gray-600 truncate">admin@eatmi.pl</div>
+    const Topbar = ({ title, subtitle, onLogout }) => (
+      <div className="sticky top-0 z-40">
+        <div className="mx-auto w-full">
+          <div className="liquid border-b border-white/60">
+            <div className="px-4 md:px-6 py-4 flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">
+                  Panel
                 </div>
-                <button
-                  type="button"
-                  className="w-11 h-11 rounded-2xl border border-gray-200 bg-white shadow-soft hover:ring-2 hover:ring-brand-yellow/30 grid place-items-center"
-                  title="Wyloguj (demo)"
-                  onClick={() => alert("Demo UI — tu podłączysz logout.")}
-                >
-                  <i data-lucide="log-out" className="w-5 h-5"></i>
-                </button>
+                <div className="text-xl md:text-2xl font-extrabold mt-1 truncate">{title}</div>
+                {subtitle && <div className="text-sm text-gray-600 mt-1">{subtitle}</div>}
               </div>
-            </div>
 
-            {collapsed && (
               <button
                 type="button"
-                className="w-full h-12 rounded-2xl border border-gray-200 bg-white shadow-soft hover:ring-2 hover:ring-brand-yellow/30 grid place-items-center"
-                title="Wyloguj (demo)"
-                onClick={() => alert("Demo UI — tu podłączysz logout.")}
+                onClick={onLogout}
+                className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
               >
-                <i data-lucide="log-out" className="w-5 h-5"></i>
+                <Icon name="log-out" className="w-4 h-4" />
+                Wyloguj
               </button>
-            )}
+            </div>
           </div>
-        </aside>
-      );
-    };
+        </div>
+      </div>
+    );
+
+    const Card = ({ title, value, icon, hint, loading }) => (
+      <div className="bg-white border border-gray-200 rounded-3xl p-5 shadow-soft hover:shadow-md transition">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">
+              {title}
+            </div>
+            <div className="mt-2 text-3xl font-black tracking-tight">
+              {loading ? <Skeleton className="h-9 w-40" /> : value}
+            </div>
+            {hint && <div className="text-xs text-gray-500 mt-2">{hint}</div>}
+          </div>
+          <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 border border-brand-yellow/30 grid place-items-center">
+            <Icon name={icon} className="w-6 h-6" />
+          </div>
+        </div>
+      </div>
+    );
 
     /* =======================
-       COMPONENTS: STATS CARDS
+      Pages: Dashboard
     ======================= */
-    const StatCard = ({ label, value, icon, hint, tone="yellow" }) => {
-      const toneMap = {
-        yellow: { bg:"bg-brand-yellow/20", ring:"ring-brand-yellow/25", border:"border-brand-yellow/30" },
-        blue:   { bg:"bg-kiosk-blue/15", ring:"ring-kiosk-blue/20", border:"border-kiosk-blue/25" },
-        green:  { bg:"bg-kiosk-green/15", ring:"ring-kiosk-green/20", border:"border-kiosk-green/25" },
-        violet: { bg:"bg-kiosk-violet/15", ring:"ring-kiosk-violet/20", border:"border-kiosk-violet/25" },
+    const Dashboard = ({ token }) => {
+      const toast = useToast();
+      const [loading, setLoading] = useState(true);
+      const [stats, setStats] = useState({ ordersTotal: 0, ordersToday: 0, revenueTotal: 0 });
+
+      const load = async () => {
+        setLoading(true);
+        try {
+          const r = await fetch(API.stats, { headers: { ...authHeader(token) } });
+          const data = await safeJson(r);
+          if (!r.ok) {
+            toast.show("error", "Dashboard", data.error || "Nie udało się pobrać statystyk.");
+            setLoading(false);
+            return;
+          }
+          setStats({
+            ordersTotal: Number(data.ordersTotal || 0),
+            ordersToday: Number(data.ordersToday || 0),
+            revenueTotal: Number(data.revenueTotal || 0),
+          });
+        } catch (e) {
+          console.log(e);
+          toast.show("error", "Dashboard", "Błąd połączenia z serwerem.");
+        } finally {
+          setLoading(false);
+        }
       };
-      const t = toneMap[tone] || toneMap.yellow;
+
+      useEffect(() => { load(); }, []);
+
+      useEffect(() => { window.lucide?.createIcons?.(); });
 
       return (
-        <div className={cn("bg-white/90 border rounded-3xl shadow-soft hover:shadow-kiosk transition p-5 hover:ring-2", t.border, t.ring)}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">{label}</div>
-              <div className="text-2xl md:text-3xl font-extrabold mt-2">{value}</div>
-              {hint && <div className="text-xs text-gray-600 mt-1">{hint}</div>}
+        <div className="p-4 md:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm text-gray-600">
+              Podgląd kluczowych danych — bez zbędnych elementów.
             </div>
-            <div className={cn("w-12 h-12 rounded-2xl border grid place-items-center", t.bg, t.border)}>
-              <i data-lucide={icon} className="w-6 h-6 text-gray-900"></i>
-            </div>
-          </div>
-        </div>
-      );
-    };
-
-    const Chip = ({ children, variant="gray" }) => {
-      const v = {
-        gray:  "bg-gray-50 text-gray-700 border-gray-200",
-        ok:    "bg-emerald-50 text-emerald-700 border-emerald-200",
-        warn:  "bg-amber-50 text-amber-800 border-amber-200",
-        bad:   "bg-red-50 text-red-700 border-red-200",
-        blue:  "bg-blue-50 text-blue-700 border-blue-200",
-      }[variant] || "bg-gray-50 text-gray-700 border-gray-200";
-
-      return <span className={cn("chip", v)}>{children}</span>;
-    };
-
-    /* =======================
-       PAGES: DASHBOARD
-    ======================= */
-    const DashboardPage = ({ users, orders }) => {
-      const t = todayKey();
-
-      const stats = useMemo(() => {
-        const usersCount = users.length;
-        const todayOrders = orders.filter(o => o.dayKey === t);
-        const ordersTodayCount = todayOrders.length;
-        const ordersTotalCount = orders.length;
-
-        const earningsTotal = orders
-          .filter(o => o.status !== "rejected")
-          .reduce((s,o)=> s + (o.total||0), 0);
-
-        const earningsToday = todayOrders
-          .filter(o => o.status !== "rejected")
-          .reduce((s,o)=> s + (o.total||0), 0);
-
-        const pending = orders.filter(o => o.status === "new").length;
-
-        return { usersCount, ordersTodayCount, ordersTotalCount, earningsToday, earningsTotal, pending };
-      }, [users, orders, t]);
-
-      const recent = useMemo(() => {
-        return [...orders]
-          .sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt))
-          .slice(0, 6);
-      }, [orders]);
-
-      return (
-        <div className="px-4 md:px-6 py-6">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <StatCard label="Użytkownicy" value={stats.usersCount} icon="users" hint="Łącznie w systemie" tone="blue" />
-            <StatCard label="Zamówienia dziś" value={stats.ordersTodayCount} icon="calendar-check" hint={`Dzień: ${t}`} tone="yellow" />
-            <StatCard label="Zamówienia łącznie" value={stats.ordersTotalCount} icon="receipt-text" hint="Wszystkie statusy" tone="violet" />
-            <StatCard label="Zarobek" value={currency(stats.earningsTotal)} icon="wallet" hint={`${currency(stats.earningsToday)} dziś`} tone="green" />
+            <button
+              type="button"
+              onClick={load}
+              className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
+            >
+              <Icon name="refresh-cw" className="w-4 h-4" />
+              Odśwież
+            </button>
           </div>
 
-          <div className="mt-6 grid gap-6 lg:grid-cols-3 items-start">
-            <div className="lg:col-span-2 bg-white/90 border border-gray-200 rounded-3xl shadow-soft p-5 md:p-6">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Przegląd</div>
-                  <div className="text-xl font-extrabold mt-1">Ostatnie zamówienia</div>
-                  <div className="text-sm text-gray-600 mt-1">Szybki podgląd tego, co wpadło ostatnio.</div>
-                </div>
-                <a
-                  href="#"
-                  onClick={(e)=>e.preventDefault()}
-                  className="inline-flex items-center gap-2 text-sm font-extrabold px-4 py-2 rounded-2xl border border-gray-200 bg-white shadow-soft hover:ring-2 hover:ring-brand-yellow/30"
-                  title="Demo"
-                >
-                  <i data-lucide="sparkles" className="w-4 h-4"></i>
-                  Widok (demo)
-                </a>
-              </div>
-
-              <div className="mt-5 overflow-auto">
-                <table className="w-full min-w-[720px] text-sm">
-                  <thead>
-                    <tr className="text-xs uppercase tracking-wider text-gray-500">
-                      <th className="text-left py-3">ID</th>
-                      <th className="text-left py-3">Klient</th>
-                      <th className="text-left py-3">Miasto</th>
-                      <th className="text-left py-3">Kanał</th>
-                      <th className="text-left py-3">Status</th>
-                      <th className="text-right py-3">Suma</th>
-                      <th className="text-right py-3">Data</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recent.map(o => (
-                      <tr key={o.id} className="border-t border-gray-200">
-                        <td className="py-3 font-mono text-xs">{o.id}</td>
-                        <td className="py-3 font-semibold">{o.customer?.name || "-"}</td>
-                        <td className="py-3 text-gray-700">{o.customer?.city || "-"}</td>
-                        <td className="py-3">
-                          <Chip variant={o.channel === "www" ? "blue" : "gray"}>{o.channel}</Chip>
-                        </td>
-                        <td className="py-3">
-                          {o.status === "new" && <Chip variant="warn">new</Chip>}
-                          {o.status === "accepted" && <Chip variant="ok">accepted</Chip>}
-                          {o.status === "done" && <Chip variant="gray">done</Chip>}
-                          {o.status === "rejected" && <Chip variant="bad">rejected</Chip>}
-                        </td>
-                        <td className="py-3 text-right font-extrabold">{currency(o.total)}</td>
-                        <td className="py-3 text-right text-gray-600">{fmtDate(new Date(o.createdAt))}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="bg-white/90 border border-gray-200 rounded-3xl shadow-soft p-5 md:p-6">
-              <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Do ogarnięcia</div>
-              <div className="text-xl font-extrabold mt-1">Kolejka</div>
-
-              <div className="mt-4 space-y-3">
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="font-extrabold">Nowe zamówienia</div>
-                    <Chip variant="warn">{stats.pending}</Chip>
-                  </div>
-                  <div className="text-sm text-amber-900/70 mt-1">
-                    Przejdź do „Zamówienia” i zaakceptuj/odrzuć.
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-gray-200 bg-white p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="font-extrabold">Dzisiejszy obrót</div>
-                    <Chip variant="ok">{currency(stats.earningsToday)}</Chip>
-                  </div>
-                  <div className="text-sm text-gray-600 mt-1">
-                    Liczone z zamówień dzisiaj (bez odrzuconych).
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-gray-200 bg-white p-4">
-                  <div className="font-extrabold">Tip</div>
-                  <div className="text-sm text-gray-600 mt-1">
-                    Podepnij tu webhook / SSE / WS, żeby dashboard żył na żywo.
-                  </div>
-                  <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
-                    <i data-lucide="bolt" className="w-4 h-4"></i>
-                    Eventy: <span className="font-mono">order.created</span>, <span className="font-mono">order.status</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6 text-xs text-gray-500">
-            Demo UI • Dane są zapisane lokalnie (localStorage). Podłącz backend, gdy będziesz gotowy.
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            <Card
+              title="Zamówienia łącznie"
+              value={stats.ordersTotal.toLocaleString("pl-PL")}
+              icon="shopping-bag"
+              loading={loading}
+              hint="Suma wszystkich zamówień w systemie."
+            />
+            <Card
+              title="Zamówienia dziś"
+              value={stats.ordersToday.toLocaleString("pl-PL")}
+              icon="calendar"
+              loading={loading}
+              hint="Zamówienia z bieżącego dnia (wg backendu)."
+            />
+            <Card
+              title="Zarobek"
+              value={currency(stats.revenueTotal)}
+              icon="wallet"
+              loading={loading}
+              hint="Łączny przychód (wg backendu)."
+            />
           </div>
         </div>
       );
     };
 
     /* =======================
-       PAGES: ORDERS (accept/reject)
+      Pages: Orders
     ======================= */
-    const OrderRow = ({ o, onOpen, onAccept, onReject, onDone }) => {
-      const statusChip =
-        o.status === "new" ? <Chip variant="warn">new</Chip> :
-        o.status === "accepted" ? <Chip variant="ok">accepted</Chip> :
-        o.status === "done" ? <Chip variant="gray">done</Chip> :
-        <Chip variant="bad">rejected</Chip>;
-
+    const StatusPill = ({ status }) => {
+      const s = String(status || "").toLowerCase();
+      const cls =
+        s.includes("paid") || s.includes("completed") || s.includes("opłac") ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
+        s.includes("pending") || s.includes("oczek") ? "bg-amber-100 text-amber-800 border-amber-200" :
+        s.includes("cancel") || s.includes("anul") ? "bg-red-100 text-red-800 border-red-200" :
+        "bg-gray-100 text-gray-800 border-gray-200";
       return (
-        <tr className="border-t border-gray-200">
-          <td className="py-3 font-mono text-xs">{o.id}</td>
-          <td className="py-3">
-            <div className="font-semibold">{o.customer?.name || "-"}</div>
-            <div className="text-xs text-gray-500">{o.customer?.phone || ""}</div>
-          </td>
-          <td className="py-3 text-gray-700">{o.customer?.city || "-"}</td>
-          <td className="py-3">{statusChip}</td>
-          <td className="py-3 text-right font-extrabold">{currency(o.total)}</td>
-          <td className="py-3 text-right text-gray-600">{fmtDate(new Date(o.createdAt))}</td>
-          <td className="py-3 text-right">
-            <div className="flex items-center justify-end gap-2">
-              <button
-                className="px-3 py-2 rounded-xl border border-gray-200 bg-white shadow-soft hover:ring-2 hover:ring-brand-yellow/30 text-sm font-extrabold"
-                onClick={() => onOpen(o)}
-              >
-                Szczegóły
-              </button>
-
-              {o.status === "new" && (
-                <>
-                  <button
-                    className="px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 shadow-soft hover:ring-2 hover:ring-emerald-200 text-sm font-extrabold"
-                    onClick={() => onAccept(o.id)}
-                  >
-                    Przyjmij
-                  </button>
-                  <button
-                    className="px-3 py-2 rounded-xl border border-red-200 bg-red-50 text-red-700 shadow-soft hover:ring-2 hover:ring-red-200 text-sm font-extrabold"
-                    onClick={() => onReject(o.id)}
-                  >
-                    Odrzuć
-                  </button>
-                </>
-              )}
-
-              {o.status === "accepted" && (
-                <button
-                  className="px-3 py-2 rounded-xl border border-gray-900 bg-gray-900 text-white shadow-soft hover:ring-2 hover:ring-brand-yellow/30 text-sm font-extrabold"
-                  onClick={() => onDone(o.id)}
-                >
-                  Oznacz jako zrobione
-                </button>
-              )}
-            </div>
-          </td>
-        </tr>
+        <span className={`inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] px-2.5 py-1 rounded-full border ${cls}`}>
+          <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
+          {status || "—"}
+        </span>
       );
     };
 
-    const OrderDetailsModal = ({ open, order, onClose }) => {
+    const Drawer = ({ open, onClose, title, children }) => {
       useEffect(() => {
         const onKey = (e) => { if (open && e.key === "Escape") onClose?.(); };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
       }, [open, onClose]);
 
-      useEffect(()=> { window.lucide?.createIcons?.(); }, [open]);
+      useEffect(() => { window.lucide?.createIcons?.(); }, [open]);
 
-      if (!open || !order) return null;
-
-      return (
-        <div className="fixed inset-0 z-[120] bg-black/55 flex items-center justify-center px-4" onClick={onClose} role="dialog" aria-modal="true">
-          <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-glass border border-gray-200 p-6" onClick={(e)=>e.stopPropagation()}>
-            <button
-              type="button"
-              onClick={onClose}
-              className="absolute top-3 right-3 p-2 rounded-full bg-white border border-gray-200 shadow-soft hover:bg-gray-50 hover:ring-2 hover:ring-brand-yellow/40"
-              aria-label="Zamknij"
-            >
-              <i data-lucide="x" className="w-4 h-4"></i>
-            </button>
-
-            <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Zamówienie</div>
-            <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
-              <div className="text-2xl font-extrabold font-mono">{order.id}</div>
-              <div className="flex items-center gap-2">
-                <Chip variant="gray">{order.channel || "www"}</Chip>
-                {order.status === "new" && <Chip variant="warn">new</Chip>}
-                {order.status === "accepted" && <Chip variant="ok">accepted</Chip>}
-                {order.status === "done" && <Chip variant="gray">done</Chip>}
-                {order.status === "rejected" && <Chip variant="bad">rejected</Chip>}
-              </div>
-            </div>
-
-            <div className="mt-5 grid md:grid-cols-2 gap-4">
-              <div className="rounded-2xl border border-gray-200 bg-gray-50/60 p-4">
-                <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Klient</div>
-                <div className="mt-2 font-extrabold">{order.customer?.name || "-"}</div>
-                <div className="text-sm text-gray-700 mt-1">{order.customer?.phone || "-"}</div>
-                <div className="text-sm text-gray-700">{order.customer?.city || "-"}</div>
-                <div className="text-xs text-gray-500 mt-2">Utworzono: <span className="font-mono">{fmtDate(new Date(order.createdAt))}</span></div>
-              </div>
-
-              <div className="rounded-2xl border border-gray-200 bg-gray-50/60 p-4">
-                <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Podsumowanie</div>
-                <div className="mt-2 space-y-2 max-h-44 overflow-auto pr-2">
-                  {order.items?.map((it, idx) => (
-                    <div key={idx} className="flex items-start justify-between gap-3 text-sm">
-                      <div className="min-w-0">
-                        <div className="font-semibold">{it.name}</div>
-                        <div className="text-xs text-gray-600">× {it.qty} • {currency(it.price)} / szt.</div>
-                      </div>
-                      <div className="font-extrabold whitespace-nowrap">{currency((it.price||0)*(it.qty||1))}</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-3 border-t border-gray-200 pt-3 flex items-center justify-between">
-                  <div className="font-extrabold">Suma</div>
-                  <div className="text-lg font-extrabold">{currency(order.total)}</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-5 text-xs text-gray-500">
-              Tu podepniesz: adres dostawy, notatki, płatność, integracje (PayU), itd.
-            </div>
-          </div>
-        </div>
-      );
-    };
-
-    const OrdersPage = ({ orders, setOrders }) => {
-      const toast = useToast();
-      const [q, setQ] = useState("");
-      const [status, setStatus] = useState("all"); // all/new/accepted/done/rejected
-      const [selected, setSelected] = useState(null);
-      const [detailsOpen, setDetailsOpen] = useState(false);
-
-      const filtered = useMemo(() => {
-        const qq = (q || "").trim().toLowerCase();
-        return orders
-          .filter(o => status === "all" ? true : o.status === status)
-          .filter(o => {
-            if (!qq) return true;
-            const hay = `${o.id} ${o.customer?.name||""} ${o.customer?.phone||""} ${o.customer?.city||""}`.toLowerCase();
-            return hay.includes(qq);
-          })
-          .sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
-      }, [orders, q, status]);
-
-      const counts = useMemo(() => {
-        const m = { all: orders.length, new: 0, accepted: 0, done: 0, rejected: 0 };
-        orders.forEach(o => { m[o.status] = (m[o.status]||0) + 1; });
-        return m;
-      }, [orders]);
-
-      const updateStatus = (id, next) => {
-        setOrders(prev => prev.map(o => o.id === id ? { ...o, status: next } : o));
-      };
-
-      const accept = (id) => { updateStatus(id, "accepted"); toast?.show(`Zamówienie ${id} przyjęte.`); };
-      const reject = (id) => { updateStatus(id, "rejected"); toast?.show(`Zamówienie ${id} odrzucone.`, "warn"); };
-      const done   = (id) => { updateStatus(id, "done"); toast?.show(`Zamówienie ${id} oznaczone jako zrobione.`); };
-
-      const openDetails = (o) => { setSelected(o); setDetailsOpen(true); };
-
-      useEffect(()=> { window.lucide?.createIcons?.(); }, [q, status, orders.length]);
-
-      const tab = (key, label) => (
-        <button
-          type="button"
-          onClick={() => setStatus(key)}
-          className={cn(
-            "px-3 py-2 rounded-2xl border text-sm font-extrabold shadow-soft transition",
-            status === key
-              ? "bg-brand-yellow/20 border-brand-yellow/30 ring-1 ring-brand-yellow/20"
-              : "bg-white border-gray-200 hover:ring-2 hover:ring-brand-yellow/25"
-          )}
-        >
-          {label} <span className="ml-2 px-2 py-0.5 rounded-full bg-gray-900 text-white text-xs">{counts[key] ?? 0}</span>
-        </button>
-      );
+      if (!open) return null;
 
       return (
-        <div className="px-4 md:px-6 py-6">
-          <div className="bg-white/90 border border-gray-200 rounded-3xl shadow-soft p-5 md:p-6">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="fixed inset-0 z-[160]">
+          <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true"></div>
+          <div className="absolute right-0 top-0 bottom-0 w-full max-w-2xl bg-white border-l border-gray-200 shadow-kiosk">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Zamówienia</div>
-                <div className="text-xl font-extrabold mt-1">Przyjmowanie zamówień</div>
-                <div className="text-sm text-gray-600 mt-1">
-                  Akcje: <span className="font-mono">Przyjmij</span>, <span className="font-mono">Odrzuć</span>, <span className="font-mono">Zrobione</span>.
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative">
-                  <i data-lucide="search" className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
-                  <input
-                    value={q}
-                    onChange={(e)=>setQ(e.target.value)}
-                    className="input-focus w-full sm:w-[320px] pl-9 pr-3 py-3 rounded-2xl border border-gray-200 bg-white shadow-soft"
-                    placeholder="Szukaj: ID, klient, telefon..."
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => toast?.show("Odświeżanie (demo) — podepnij fetch/WS.", "ok")}
-                  className="px-4 py-3 rounded-2xl border border-gray-200 bg-white shadow-soft hover:ring-2 hover:ring-brand-yellow/30 font-extrabold"
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <i data-lucide="refresh-cw" className="w-4 h-4"></i>
-                    Odśwież
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-2">
-              {tab("all", "Wszystkie")}
-              {tab("new", "Nowe")}
-              {tab("accepted", "Przyjęte")}
-              {tab("done", "Zrobione")}
-              {tab("rejected", "Odrzucone")}
-            </div>
-
-            <div className="mt-5 overflow-auto">
-              <table className="w-full min-w-[900px] text-sm">
-                <thead>
-                  <tr className="text-xs uppercase tracking-wider text-gray-500">
-                    <th className="text-left py-3">ID</th>
-                    <th className="text-left py-3">Klient</th>
-                    <th className="text-left py-3">Miasto</th>
-                    <th className="text-left py-3">Status</th>
-                    <th className="text-right py-3">Suma</th>
-                    <th className="text-right py-3">Data</th>
-                    <th className="text-right py-3">Akcje</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map(o => (
-                    <OrderRow
-                      key={o.id}
-                      o={o}
-                      onOpen={openDetails}
-                      onAccept={accept}
-                      onReject={reject}
-                      onDone={done}
-                    />
-                  ))}
-                  {filtered.length === 0 && (
-                    <tr>
-                      <td colSpan="7" className="py-10 text-center text-gray-600">
-                        Brak wyników. Zmień filtr lub wyszukiwanie.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <OrderDetailsModal
-            open={detailsOpen}
-            order={orders.find(x => x.id === selected?.id) || selected}
-            onClose={() => { setDetailsOpen(false); setSelected(null); }}
-          />
-        </div>
-      );
-    };
-
-    /* =======================
-       PAGES: USERS
-    ======================= */
-    const UsersPage = ({ users, setUsers }) => {
-      const toast = useToast();
-      const [q, setQ] = useState("");
-      const [role, setRole] = useState("all"); // all/user/admin
-      const [status, setStatus] = useState("all"); // all/active/blocked
-
-      const filtered = useMemo(() => {
-        const qq = (q || "").trim().toLowerCase();
-        return users
-          .filter(u => role === "all" ? true : u.role === role)
-          .filter(u => status === "all" ? true : u.status === status)
-          .filter(u => {
-            if (!qq) return true;
-            const hay = `${u.id} ${u.name} ${u.email}`.toLowerCase();
-            return hay.includes(qq);
-          });
-      }, [users, q, role, status]);
-
-      const toggleBlock = (id) => {
-        setUsers(prev => prev.map(u => u.id === id ? { ...u, status: u.status === "active" ? "blocked" : "active" } : u));
-        const u = users.find(x=>x.id===id);
-        toast?.show(`${u?.name || id}: zmieniono status.`, "ok");
-      };
-
-      useEffect(()=> { window.lucide?.createIcons?.(); }, [q, role, status, users.length]);
-
-      return (
-        <div className="px-4 md:px-6 py-6">
-          <div className="bg-white/90 border border-gray-200 rounded-3xl shadow-soft p-5 md:p-6">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-              <div className="min-w-0">
-                <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Użytkownicy</div>
-                <div className="text-xl font-extrabold mt-1">Lista użytkowników</div>
-                <div className="text-sm text-gray-600 mt-1">Filtry, statusy i proste akcje (demo).</div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative">
-                  <i data-lucide="search" className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
-                  <input
-                    value={q}
-                    onChange={(e)=>setQ(e.target.value)}
-                    className="input-focus w-full sm:w-[320px] pl-9 pr-3 py-3 rounded-2xl border border-gray-200 bg-white shadow-soft"
-                    placeholder="Szukaj: ID, imię, e-mail..."
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => toast?.show("Dodaj użytkownika (demo) — podepnij modal + API.", "ok")}
-                  className="px-4 py-3 rounded-2xl border border-gray-200 bg-white shadow-soft hover:ring-2 hover:ring-brand-yellow/30 font-extrabold"
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <i data-lucide="user-plus" className="w-4 h-4"></i>
-                    Dodaj
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-2">
-              <select className="input-focus px-4 py-3 rounded-2xl border border-gray-200 bg-white shadow-soft font-extrabold text-sm"
-                value={role} onChange={(e)=>setRole(e.target.value)}>
-                <option value="all">Rola: wszystkie</option>
-                <option value="user">Rola: user</option>
-                <option value="admin">Rola: admin</option>
-              </select>
-              <select className="input-focus px-4 py-3 rounded-2xl border border-gray-200 bg-white shadow-soft font-extrabold text-sm"
-                value={status} onChange={(e)=>setStatus(e.target.value)}>
-                <option value="all">Status: wszystkie</option>
-                <option value="active">Status: active</option>
-                <option value="blocked">Status: blocked</option>
-              </select>
-            </div>
-
-            <div className="mt-5 overflow-auto">
-              <table className="w-full min-w-[860px] text-sm">
-                <thead>
-                  <tr className="text-xs uppercase tracking-wider text-gray-500">
-                    <th className="text-left py-3">ID</th>
-                    <th className="text-left py-3">Użytkownik</th>
-                    <th className="text-left py-3">Rola</th>
-                    <th className="text-left py-3">Status</th>
-                    <th className="text-right py-3">Zamówienia</th>
-                    <th className="text-right py-3">Utworzono</th>
-                    <th className="text-right py-3">Akcje</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map(u => (
-                    <tr key={u.id} className="border-t border-gray-200">
-                      <td className="py-3 font-mono text-xs">{u.id}</td>
-                      <td className="py-3">
-                        <div className="font-extrabold">{u.name}</div>
-                        <div className="text-xs text-gray-600">{u.email}</div>
-                      </td>
-                      <td className="py-3">
-                        {u.role === "admin" ? <Chip variant="blue">admin</Chip> : <Chip variant="gray">user</Chip>}
-                      </td>
-                      <td className="py-3">
-                        {u.status === "active" ? <Chip variant="ok">active</Chip> : <Chip variant="bad">blocked</Chip>}
-                      </td>
-                      <td className="py-3 text-right font-extrabold">{u.orders ?? 0}</td>
-                      <td className="py-3 text-right text-gray-600">{u.createdAt}</td>
-                      <td className="py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            className="px-3 py-2 rounded-xl border border-gray-200 bg-white shadow-soft hover:ring-2 hover:ring-brand-yellow/30 text-sm font-extrabold"
-                            onClick={() => toast?.show(`Profil ${u.name} (demo).`, "ok")}
-                          >
-                            Profil
-                          </button>
-                          <button
-                            className={cn(
-                              "px-3 py-2 rounded-xl border shadow-soft text-sm font-extrabold hover:ring-2",
-                              u.status === "active"
-                                ? "border-red-200 bg-red-50 text-red-700 hover:ring-red-200"
-                                : "border-emerald-200 bg-emerald-50 text-emerald-800 hover:ring-emerald-200"
-                            )}
-                            onClick={() => toggleBlock(u.id)}
-                          >
-                            {u.status === "active" ? "Zablokuj" : "Odblokuj"}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-
-                  {filtered.length === 0 && (
-                    <tr>
-                      <td colSpan="7" className="py-10 text-center text-gray-600">
-                        Brak wyników.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="mt-4 text-xs text-gray-500">
-              Demo UI • Tu podepniesz paginację, uprawnienia i endpointy.
-            </div>
-          </div>
-        </div>
-      );
-    };
-
-    /* =======================
-       PAGES: INFOBAR (banner/message)
-    ======================= */
-    const InfoBarPage = ({ infoBar, setInfoBar }) => {
-      const toast = useToast();
-      const [draft, setDraft] = useState(infoBar);
-
-      useEffect(()=>setDraft(infoBar), [infoBar]);
-
-      useEffect(()=> { window.lucide?.createIcons?.(); }, [draft]);
-
-      const save = () => {
-        setInfoBar(draft);
-        toast?.show("Zapisano ustawienia paska info.");
-      };
-
-      const preset = (type) => {
-        const presets = {
-          promo: { enabled:true, type:"promo", text:"🔥 Promocja dnia: -10% na Lunche (12:00–16:00) — kod: LUNCH10", ctaLabel:"Sprawdź", ctaHref:"#/orders" },
-          maintenance: { enabled:true, type:"warn", text:"🚧 Przerwa techniczna 22:00–22:30 — zamówienia mogą chwilowo nie działać.", ctaLabel:"Szczegóły", ctaHref:"#/infobar" },
-          ok: { enabled:true, type:"info", text:"✅ Dziś dowóz działa normalnie. Dzięki za cierpliwość!", ctaLabel:"Zamówienia", ctaHref:"#/orders" },
-          off: { enabled:false, type:"info", text:"", ctaLabel:"", ctaHref:"#/" },
-        };
-        setDraft(presets[type] || presets.ok);
-      };
-
-      const tone = draft.type === "promo" ? "bg-brand-yellow/30 border-brand-yellow/40" :
-                   draft.type === "warn" ? "bg-amber-100/60 border-amber-200" :
-                   "bg-blue-50 border-blue-200";
-
-      return (
-        <div className="px-4 md:px-6 py-6">
-          <div className="bg-white/90 border border-gray-200 rounded-3xl shadow-soft p-5 md:p-6">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Pasek info</div>
-                <div className="text-xl font-extrabold mt-1">Komunikat na stronie</div>
-                <div className="text-sm text-gray-600 mt-1">
-                  Ustaw baner/komunikat (np. promocja, alert, info). To jest UI — podepnij backend/API, jeśli chcesz.
-                </div>
+                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Szczegóły</div>
+                <div className="text-lg font-extrabold truncate">{title}</div>
               </div>
               <button
                 type="button"
-                onClick={save}
-                className="px-4 py-3 rounded-2xl border border-gray-200 bg-white shadow-soft hover:ring-2 hover:ring-brand-yellow/30 font-extrabold"
+                onClick={onClose}
+                className="w-11 h-11 rounded-2xl border border-gray-200 bg-white shadow-soft grid place-items-center hover:ring-2 hover:ring-brand-yellow/25"
+                aria-label="Zamknij"
               >
-                <span className="inline-flex items-center gap-2">
-                  <i data-lucide="save" className="w-4 h-4"></i>
-                  Zapisz
-                </span>
+                <Icon name="x" className="w-5 h-5" />
               </button>
             </div>
-
-            <div className="mt-5 grid lg:grid-cols-2 gap-6 items-start">
-              <div className="space-y-4">
-                <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-soft">
-                  <div className="flex items-center justify-between">
-                    <div className="font-extrabold">Włączony</div>
-                    <label className="inline-flex items-center gap-2 text-sm font-semibold">
-                      <input
-                        type="checkbox"
-                        checked={!!draft.enabled}
-                        onChange={(e)=>setDraft(s=>({ ...s, enabled: e.target.checked }))}
-                      />
-                      aktywny
-                    </label>
-                  </div>
-
-                  <div className="mt-4 grid gap-3">
-                    <div>
-                      <label className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Typ</label>
-                      <select
-                        className="input-focus w-full mt-1 px-4 py-3 rounded-2xl border border-gray-200 bg-white shadow-soft font-extrabold text-sm"
-                        value={draft.type}
-                        onChange={(e)=>setDraft(s=>({ ...s, type: e.target.value }))}
-                      >
-                        <option value="promo">promo</option>
-                        <option value="warn">warn</option>
-                        <option value="info">info</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-xs uppercase tracking-wider text-gray-500 font-semibold">Treść</label>
-                      <textarea
-                        className="input-focus w-full mt-1 px-4 py-3 rounded-2xl border border-gray-200 bg-white shadow-soft min-h-[120px]"
-                        value={draft.text}
-                        onChange={(e)=>setDraft(s=>({ ...s, text: e.target.value }))}
-                        placeholder="Np. 🔥 Promocja: -10% ..."
-                      />
-                    </div>
-
-                    <div className="grid md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs uppercase tracking-wider text-gray-500 font-semibold">CTA label</label>
-                        <input
-                          className="input-focus w-full mt-1 px-4 py-3 rounded-2xl border border-gray-200 bg-white shadow-soft"
-                          value={draft.ctaLabel}
-                          onChange={(e)=>setDraft(s=>({ ...s, ctaLabel: e.target.value }))}
-                          placeholder="np. Sprawdź"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs uppercase tracking-wider text-gray-500 font-semibold">CTA link</label>
-                        <input
-                          className="input-focus w-full mt-1 px-4 py-3 rounded-2xl border border-gray-200 bg-white shadow-soft font-mono text-sm"
-                          value={draft.ctaHref}
-                          onChange={(e)=>setDraft(s=>({ ...s, ctaHref: e.target.value }))}
-                          placeholder="#/orders"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-soft">
-                  <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Presety</div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button onClick={()=>preset("promo")} className="px-3 py-2 rounded-2xl border border-gray-200 bg-white shadow-soft hover:ring-2 hover:ring-brand-yellow/30 font-extrabold text-sm">
-                      Promo
-                    </button>
-                    <button onClick={()=>preset("maintenance")} className="px-3 py-2 rounded-2xl border border-gray-200 bg-white shadow-soft hover:ring-2 hover:ring-brand-yellow/30 font-extrabold text-sm">
-                      Alert
-                    </button>
-                    <button onClick={()=>preset("ok")} className="px-3 py-2 rounded-2xl border border-gray-200 bg-white shadow-soft hover:ring-2 hover:ring-brand-yellow/30 font-extrabold text-sm">
-                      Info
-                    </button>
-                    <button onClick={()=>preset("off")} className="px-3 py-2 rounded-2xl border border-gray-200 bg-white shadow-soft hover:ring-2 hover:ring-brand-yellow/30 font-extrabold text-sm">
-                      Wyłącz
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-soft">
-                <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Podgląd</div>
-                <div className="text-xl font-extrabold mt-1">Jak będzie wyglądało</div>
-                <div className="text-sm text-gray-600 mt-1">To jest „mock” banera (możesz wkleić go na stronę główną).</div>
-
-                <div className="mt-5">
-                  {draft.enabled ? (
-                    <div className={cn("rounded-2xl border p-4", tone)}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-xs uppercase tracking-widest text-gray-700 font-extrabold">
-                            {draft.type === "promo" ? "PROMO" : draft.type === "warn" ? "UWAGA" : "INFO"}
-                          </div>
-                          <div className="text-sm md:text-base font-semibold text-gray-900 mt-1 break-words">
-                            {draft.text || "— (brak treści)"}
-                          </div>
-                        </div>
-                        {draft.ctaLabel && (
-                          <a
-                            href={draft.ctaHref || "#/"}
-                            onClick={(e)=>e.preventDefault()}
-                            className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white border border-gray-200 shadow-soft hover:ring-2 hover:ring-brand-yellow/30 font-extrabold text-sm"
-                          >
-                            {draft.ctaLabel}
-                            <i data-lucide="arrow-right" className="w-4 h-4"></i>
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-gray-600">
-                      Baner jest wyłączony.
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-6 text-xs text-gray-500">
-                  W praktyce: trzymasz te ustawienia w DB + endpoint <span className="font-mono">GET /api/infobar</span>.
-                </div>
-              </div>
+            <div className="p-4 drawer-scroll">
+              {children}
             </div>
           </div>
         </div>
       );
     };
 
-    /* =======================
-       INFOBAR (GLOBAL BANNER)
-    ======================= */
-    const GlobalInfoBar = ({ infoBar }) => {
-      useEffect(()=>{ window.lucide?.createIcons?.(); }, [infoBar]);
-      if (!infoBar?.enabled) return null;
+    const Orders = ({ token }) => {
+      const toast = useToast();
+      const [loading, setLoading] = useState(true);
+      const [orders, setOrders] = useState([]);
+      const [query, setQuery] = useState("");
+      const [selected, setSelected] = useState(null);
 
-      const tone = infoBar.type === "promo"
-        ? "bg-brand-yellow/30 border-brand-yellow/40"
-        : infoBar.type === "warn"
-          ? "bg-amber-100/70 border-amber-200"
-          : "bg-blue-50 border-blue-200";
+      const load = async () => {
+        setLoading(true);
+        try {
+          const url = new URL(API.orders, window.location.origin);
+          if (query.trim()) url.searchParams.set("query", query.trim());
+
+          const r = await fetch(url.toString(), { headers: { ...authHeader(token) } });
+          const data = await safeJson(r);
+          if (!r.ok) {
+            toast.show("error", "Zamówienia", data.error || "Nie udało się pobrać zamówień.");
+            setLoading(false);
+            return;
+          }
+          setOrders(Array.isArray(data.orders) ? data.orders : []);
+        } catch (e) {
+          console.log(e);
+          toast.show("error", "Zamówienia", "Błąd połączenia z serwerem.");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      useEffect(() => { load(); }, []);
+      useEffect(() => { window.lucide?.createIcons?.(); });
+
+      const rows = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return orders;
+        return orders.filter((o) => {
+          const blob = JSON.stringify(o || {}).toLowerCase();
+          return blob.includes(q);
+        });
+      }, [orders, query]);
+
+      const fmtDate = (iso) => {
+        if (!iso) return "—";
+        try {
+          const d = new Date(iso);
+          return d.toLocaleString("pl-PL");
+        } catch { return String(iso); }
+      };
+
+      const sumOrder = (o) => {
+        const total = o?.total ?? o?.totalAmount ?? o?.amount ?? 0;
+        return currency(total);
+      };
 
       return (
-        <div className="px-4 md:px-6 pt-4">
-          <div className={cn("rounded-3xl border shadow-soft p-4 md:p-5", tone)}>
+        <div className="p-4 md:p-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex-1">
+              <div className="text-sm text-gray-600">
+                Lista zamówień z pełnymi danymi klienta (wg backendu).
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  <Icon name="search" className="w-4 h-4" />
+                </span>
+                <input
+                  className="input-focus w-full sm:w-[320px] bg-white border border-gray-200 rounded-2xl pl-9 pr-4 py-3 shadow-soft"
+                  placeholder="Szukaj (ID, email, telefon, produkt...)"
+                  value={query}
+                  onChange={(e)=>setQuery(e.target.value)}
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={load}
+                className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
+              >
+                <Icon name="refresh-cw" className="w-4 h-4" />
+                Odśwież
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+              <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">
+                Zamówienia
+              </div>
+              <div className="text-xs text-gray-500 font-semibold">
+                {loading ? "Ładowanie..." : `${rows.length} pozycji`}
+              </div>
+            </div>
+
+            <div className="overflow-auto">
+              <table className="min-w-[920px] w-full">
+                <thead className="bg-gray-50">
+                  <tr className="text-left text-xs uppercase tracking-widest text-gray-500">
+                    <th className="px-4 py-3 font-extrabold">ID</th>
+                    <th className="px-4 py-3 font-extrabold">Data</th>
+                    <th className="px-4 py-3 font-extrabold">Klient</th>
+                    <th className="px-4 py-3 font-extrabold">Kontakt</th>
+                    <th className="px-4 py-3 font-extrabold">Status</th>
+                    <th className="px-4 py-3 font-extrabold text-right">Kwota</th>
+                    <th className="px-4 py-3 font-extrabold"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    Array.from({ length: 6 }).map((_, i) => (
+                      <tr key={i} className="border-t border-gray-100">
+                        <td className="px-4 py-4"><Skeleton className="h-5 w-32" /></td>
+                        <td className="px-4 py-4"><Skeleton className="h-5 w-40" /></td>
+                        <td className="px-4 py-4"><Skeleton className="h-5 w-44" /></td>
+                        <td className="px-4 py-4"><Skeleton className="h-5 w-56" /></td>
+                        <td className="px-4 py-4"><Skeleton className="h-6 w-28" /></td>
+                        <td className="px-4 py-4 text-right"><Skeleton className="h-5 w-24 ml-auto" /></td>
+                        <td className="px-4 py-4"><Skeleton className="h-10 w-28" /></td>
+                      </tr>
+                    ))
+                  ) : rows.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="px-4 py-10 text-center text-gray-600">
+                        Brak zamówień do wyświetlenia.
+                      </td>
+                    </tr>
+                  ) : (
+                    rows.map((o, idx) => {
+                      const id = o.id || o.orderId || o.extOrderId || o._id || String(idx+1);
+                      const name = o.customer?.imieNazwisko || o.customer?.name || o.name || "—";
+                      const email = o.customer?.email || o.email || "—";
+                      const phone = o.customer?.telefon || o.customer?.phone || o.telefon || "—";
+                      const status = o.status || o.paymentStatus || o.payuStatus || "—";
+                      const created = o.createdAt || o.created_at || o.date || o.timestamp || o.orderDate;
+
+                      return (
+                        <tr key={id} className="border-t border-gray-100 hover:bg-gray-50/60">
+                          <td className="px-4 py-4">
+                            <div className="font-mono text-xs text-gray-700">{String(id)}</div>
+                          </td>
+                          <td className="px-4 py-4 text-sm text-gray-700 whitespace-nowrap">
+                            {fmtDate(created)}
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="font-extrabold text-sm text-gray-900">{name}</div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {o.customer?.miasto ? `${o.customer.miasto}` : "—"}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 text-sm text-gray-700">
+                            <div>{email}</div>
+                            <div className="text-xs text-gray-500 mt-1">{phone}</div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <StatusPill status={status} />
+                          </td>
+                          <td className="px-4 py-4 text-right font-extrabold whitespace-nowrap">
+                            {sumOrder(o)}
+                          </td>
+                          <td className="px-4 py-4">
+                            <button
+                              type="button"
+                              onClick={() => setSelected(o)}
+                              className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2.5 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
+                            >
+                              <Icon name="eye" className="w-4 h-4" />
+                              Szczegóły
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <Drawer
+            open={!!selected}
+            onClose={() => setSelected(null)}
+            title={selected ? `Zamówienie: ${selected.id || selected.orderId || selected.extOrderId || selected._id || "—"}` : ""}
+          >
+            {selected && (
+              <OrderDetails order={selected} />
+            )}
+          </Drawer>
+        </div>
+      );
+    };
+
+    const KV = ({ k, v, mono=false }) => (
+      <div className="flex items-start justify-between gap-4 border-b border-gray-100 py-3">
+        <div className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">{k}</div>
+        <div className={`text-sm text-gray-900 text-right ${mono ? "font-mono" : "font-semibold"} break-words max-w-[65%]`}>
+          {v ?? "—"}
+        </div>
+      </div>
+    );
+
+    const OrderDetails = ({ order }) => {
+      const c = order.customer || {};
+      const cart = Array.isArray(order.cart) ? order.cart : (Array.isArray(order.items) ? order.items : []);
+      const total = order.total ?? order.totalAmount ?? order.amount ?? 0;
+
+      return (
+        <div className="space-y-6">
+          <div className="bg-gray-50 border border-gray-200 rounded-3xl p-4">
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-xs uppercase tracking-widest text-gray-700 font-extrabold">
-                  {infoBar.type === "promo" ? "PROMO" : infoBar.type === "warn" ? "UWAGA" : "INFO"}
-                </div>
-                <div className="text-sm md:text-base font-semibold text-gray-900 mt-1 break-words">
-                  {infoBar.text}
+              <div>
+                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Status</div>
+                <div className="mt-2">
+                  <StatusPill status={order.status || order.paymentStatus || order.payuStatus || "—"} />
                 </div>
               </div>
-              {infoBar.ctaLabel && (
-                <a
-                  href={infoBar.ctaHref || "#/"}
-                  className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white border border-gray-200 shadow-soft hover:ring-2 hover:ring-brand-yellow/30 font-extrabold text-sm"
-                >
-                  {infoBar.ctaLabel}
-                  <i data-lucide="arrow-right" className="w-4 h-4"></i>
-                </a>
+              <div className="text-right">
+                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Kwota</div>
+                <div className="mt-2 text-2xl font-black">{currency(total)}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-3xl p-4">
+            <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Dane klienta</div>
+            <div className="mt-2">
+              <KV k="Imię i nazwisko" v={c.imieNazwisko || c.name} />
+              <KV k="Telefon" v={c.telefon || c.phone} mono />
+              <KV k="Email" v={c.email} />
+              <KV k="Miasto" v={c.miasto} />
+              <KV k="Kod" v={c.kod} mono />
+              <KV k="Ulica" v={c.ulica} />
+              <KV k="Nr budynku" v={c.nrBud} mono />
+              <KV k="Piętro" v={c.pietro} mono />
+              <KV k="Nr lokalu" v={c.lokal} mono />
+              <KV k="Uwagi" v={c.uwagi} />
+              <KV k="Faktura" v={c.faktura ? "Tak" : "Nie"} />
+              {c.faktura && (
+                <>
+                  <KV k="NIP" v={c.nip} mono />
+                  <KV k="Firma" v={c.firma} />
+                </>
               )}
             </div>
           </div>
-        </div>
-      );
-    };
 
-    /* =======================
-       ROUTER (hash)
-    ======================= */
-    const useHashRoute = (initial="dashboard") => {
-      const get = () => {
-        const h = window.location.hash || "#/dashboard";
-        const path = h.split("?")[0]; // ignore query
-        const seg = path.replace("#/", "") || "dashboard";
-        return seg;
-      };
-      const [route, setRouteState] = useState(get());
+          <div className="bg-white border border-gray-200 rounded-3xl p-4">
+            <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Pozycje</div>
+            <div className="mt-3 space-y-3">
+              {cart.length === 0 ? (
+                <div className="text-sm text-gray-600">Brak danych koszyka w obiekcie zamówienia.</div>
+              ) : (
+                cart.map((it, i) => {
+                  const qty = it.qty || it.quantity || 1;
+                  const name = it.name || it.productName || it.title || it.productId || `Pozycja ${i+1}`;
+                  const price = it.price ?? it.unitPrice ?? it.unit_amount ?? 0;
+                  const line = (Number(price)||0) * (Number(qty)||1);
 
-      useEffect(() => {
-        const onHash = () => setRouteState(get());
-        window.addEventListener("hashchange", onHash);
-        return () => window.removeEventListener("hashchange", onHash);
-      }, []);
+                  return (
+                    <div key={i} className="border border-gray-200 rounded-2xl p-4 hover:ring-2 hover:ring-brand-yellow/15 transition">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="font-extrabold text-gray-900">{name}</div>
+                          <div className="text-xs text-gray-500 mt-1 font-mono">
+                            {it.productId ? `productId: ${it.productId}` : (it.sku ? `sku: ${it.sku}` : "")}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-black">{currency(line)}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {qty} × {currency(price)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
 
-      const setRoute = (r) => {
-        window.location.hash = `#/${r}`;
-      };
-
-      return [route, setRoute];
-    };
-
-    /* =======================
-       APP
-    ======================= */
-    const App = () => {
-      // demo persistence
-      const [orders, setOrders] = useLocalStorage("admin-orders", seedOrders());
-      const [users, setUsers]   = useLocalStorage("admin-users", seedUsers());
-      const [infoBar, setInfoBar] = useLocalStorage("admin-infobar", {
-        enabled: true,
-        type: "promo",
-        text: "🔥 Promocja dnia: -10% na Lunche (12:00–16:00) — kod: LUNCH10",
-        ctaLabel: "Zamówienia",
-        ctaHref: "#/orders"
-      });
-
-      const [route, setRoute] = useHashRoute("dashboard");
-      const [collapsed, setCollapsed] = useState(false);
-
-      const pendingCount = useMemo(() => orders.filter(o => o.status === "new").length, [orders]);
-
-      useEffect(()=> { window.lucide?.createIcons?.(); }, [route, collapsed, pendingCount, infoBar?.enabled]);
-
-      const titleMap = {
-        dashboard: { t:"Dashboard", s:"Statystyki: użytkownicy, zamówienia dziś, zamówienia łącznie, zarobek." },
-        orders: { t:"Zamówienia", s:"Przyjmowanie zamówień: przyjmij/odrzuć/oznacz jako zrobione." },
-        users: { t:"Użytkownicy", s:"Zarządzanie użytkownikami: filtry, statusy, akcje." },
-        infobar: { t:"Pasek info", s:"Zarządzaj komunikatem/banerem widocznym na stronie." },
-      };
-
-      const head = titleMap[route] || titleMap.dashboard;
-
-      const right = (
-        <div className="flex items-center gap-2">
-          <span className="hidden md:inline-flex items-center gap-2 px-3 py-2 rounded-2xl border border-gray-200 bg-white shadow-soft text-sm font-extrabold">
-            <i data-lucide="bell" className="w-4 h-4"></i>
-            Nowe: {pendingCount}
-          </span>
-          <button
-            type="button"
-            className="w-11 h-11 rounded-2xl border border-gray-200 bg-white shadow-soft hover:ring-2 hover:ring-brand-yellow/30 grid place-items-center"
-            title="Powiadomienia (demo)"
-            onClick={() => alert("Demo UI — podepnij powiadomienia / inbox.")}
-          >
-            <i data-lucide="bell" className="w-5 h-5"></i>
-          </button>
-        </div>
-      );
-
-      return (
-        <div className="min-h-screen">
-          <div className="flex">
-            <Sidebar
-              route={route}
-              setRoute={setRoute}
-              pendingCount={pendingCount}
-              collapsed={collapsed}
-              setCollapsed={setCollapsed}
-            />
-
-            <main className="flex-1 min-w-0">
-              <TopBar title={head.t} subtitle={head.s} right={right} />
-              <GlobalInfoBar infoBar={infoBar} />
-
-              {route === "dashboard" && <DashboardPage users={users} orders={orders} />}
-              {route === "orders" && <OrdersPage orders={orders} setOrders={setOrders} />}
-              {route === "users" && <UsersPage users={users} setUsers={setUsers} />}
-              {route === "infobar" && <InfoBarPage infoBar={infoBar} setInfoBar={setInfoBar} />}
-
-              <footer className="px-4 md:px-6 py-10 text-center text-xs text-gray-500">
-                © {new Date().getFullYear()} eatmi.pl • Admin Panel (UI demo) • localStorage: <span className="font-mono">admin-orders</span>, <span className="font-mono">admin-users</span>, <span className="font-mono">admin-infobar</span>
-              </footer>
-            </main>
+          <div className="bg-white border border-gray-200 rounded-3xl p-4">
+            <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Dane techniczne</div>
+            <div className="mt-2">
+              <KV k="orderId" v={order.orderId || order.id || order._id} mono />
+              <KV k="extOrderId" v={order.extOrderId} mono />
+              <KV k="payuOrderId" v={order.payuOrderId || order.payu?.orderId} mono />
+              <KV k="createdAt" v={order.createdAt || order.created_at || order.date || order.timestamp} mono />
+            </div>
           </div>
         </div>
       );
+    };
+
+    /* =======================
+      Pages: Push notifications
+    ======================= */
+    const Push = ({ token }) => {
+      const toast = useToast();
+      const [title, setTitle] = useState("");
+      const [body, setBody] = useState("");
+      const [loading, setLoading] = useState(false);
+
+      useEffect(() => { window.lucide?.createIcons?.(); });
+
+      const send = async () => {
+        const msg = body.trim();
+        if (!msg) {
+          toast.show("error", "Powiadomienia push", "Wpisz treść powiadomienia.");
+          return;
+        }
+        setLoading(true);
+        try {
+          const r = await fetch(API.push, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...authHeader(token)
+            },
+            body: JSON.stringify({ title: title.trim() || undefined, body: msg }),
+          });
+          const data = await safeJson(r);
+          if (!r.ok) {
+            toast.show("error", "Powiadomienia push", data.error || "Nie udało się wysłać powiadomienia.");
+            setLoading(false);
+            return;
+          }
+          setTitle("");
+          setBody("");
+          toast.show("ok", "Powiadomienia push", "Wysłano do użytkowników.");
+        } catch (e) {
+          console.log(e);
+          toast.show("error", "Powiadomienia push", "Błąd połączenia z serwerem.");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      return (
+        <div className="p-4 md:p-6">
+          <div className="bg-white border border-gray-200 rounded-3xl shadow-soft p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Wysyłka push</div>
+                <div className="text-xl font-extrabold mt-1">Powiadomienia push</div>
+                <div className="text-sm text-gray-600 mt-2">
+                  Wpisz treść i wyślij — każdy użytkownik aplikacji otrzyma powiadomienie na telefon (wg backendu).
+                </div>
+              </div>
+              <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 border border-brand-yellow/30 grid place-items-center">
+                <Icon name="bell" className="w-6 h-6" />
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4">
+              <div>
+                <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">Tytuł (opcjonalnie)</label>
+                <input
+                  className="input-focus mt-2 w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft"
+                  placeholder="np. eatmi — nowość"
+                  value={title}
+                  onChange={(e)=>setTitle(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">Treść</label>
+                <textarea
+                  className="input-focus mt-2 w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft min-h-[160px]"
+                  placeholder="Wpisz wiadomość push..."
+                  value={body}
+                  onChange={(e)=>setBody(e.target.value)}
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={send}
+                disabled={loading}
+                className="w-full md:w-auto inline-flex items-center justify-center gap-2 bg-gray-900 text-white font-extrabold rounded-2xl px-5 py-4 shadow-glass hover:ring-2 hover:ring-brand-yellow/35 disabled:opacity-60 disabled:cursor-not-allowed transition"
+              >
+                <Icon name="send" className="w-5 h-5" />
+                {loading ? "Wysyłanie..." : "Wyślij powiadomienie"}
+              </button>
+
+              <div className="text-xs text-gray-500">
+                Uwaga: backend powinien mieć zaimplementowany mechanizm push (np. Web Push / FCM / APNs).
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    /* =======================
+      Pages: Staff / Obsługa
+    ======================= */
+    const Staff = ({ token }) => {
+      const toast = useToast();
+      const [loading, setLoading] = useState(true);
+      const [list, setList] = useState([]);
+      const [name, setName] = useState("");
+      const [pin, setPin] = useState("");
+      const [saving, setSaving] = useState(false);
+
+      const load = async () => {
+        setLoading(true);
+        try {
+          const r = await fetch(API.staff, { headers: { ...authHeader(token) } });
+          const data = await safeJson(r);
+          if (!r.ok) {
+            toast.show("error", "Obsługa", data.error || "Nie udało się pobrać listy pracowników.");
+            setLoading(false);
+            return;
+          }
+          setList(Array.isArray(data.staff) ? data.staff : (Array.isArray(data) ? data : []));
+        } catch (e) {
+          console.log(e);
+          toast.show("error", "Obsługa", "Błąd połączenia z serwerem.");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      useEffect(() => { load(); }, []);
+      useEffect(() => { window.lucide?.createIcons?.(); });
+
+      const add = async () => {
+        const n = name.trim();
+        const p = pin.trim();
+        if (!n) return toast.show("error", "Obsługa", "Wpisz imię i nazwisko.");
+        if (!/^\d{4}$/.test(p)) return toast.show("error", "Obsługa", "PIN musi mieć 4 cyfry.");
+
+        setSaving(true);
+        try {
+          const r = await fetch(API.staff, {
+            method: "POST",
+            headers: { "Content-Type":"application/json", ...authHeader(token) },
+            body: JSON.stringify({ name: n, pin: p }),
+          });
+          const data = await safeJson(r);
+          if (!r.ok) {
+            toast.show("error", "Obsługa", data.error || "Nie udało się dodać pracownika.");
+            setSaving(false);
+            return;
+          }
+          setName("");
+          setPin("");
+          toast.show("ok", "Obsługa", "Dodano pracownika.");
+          load();
+        } catch (e) {
+          console.log(e);
+          toast.show("error", "Obsługa", "Błąd połączenia z serwerem.");
+        } finally {
+          setSaving(false);
+        }
+      };
+
+      const remove = async (id) => {
+        if (!id) return;
+        try {
+          const r = await fetch(`${API.staff}/${encodeURIComponent(id)}`, {
+            method: "DELETE",
+            headers: { ...authHeader(token) },
+          });
+          const data = await safeJson(r);
+          if (!r.ok) {
+            toast.show("error", "Obsługa", data.error || "Nie udało się usunąć pracownika.");
+            return;
+          }
+          toast.show("ok", "Obsługa", "Usunięto pracownika.");
+          load();
+        } catch (e) {
+          console.log(e);
+          toast.show("error", "Obsługa", "Błąd połączenia z serwerem.");
+        }
+      };
+
+      const onlyDigits4 = (v) => (v || "").replace(/[^\d]/g, "").slice(0, 4);
+
+      return (
+        <div className="p-4 md:p-6">
+          <div className="grid lg:grid-cols-3 gap-5 items-start">
+            <div className="lg:col-span-1 bg-white border border-gray-200 rounded-3xl shadow-soft p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Dostęp</div>
+                  <div className="text-xl font-extrabold mt-1">Dodaj pracownika</div>
+                  <div className="text-sm text-gray-600 mt-2">
+                    Pracownik loguje się do panelu własnym PIN-em (4 cyfry).
+                  </div>
+                </div>
+                <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 border border-brand-yellow/30 grid place-items-center">
+                  <Icon name="user-plus" className="w-6 h-6" />
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-4">
+                <div>
+                  <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">Imię i nazwisko</label>
+                  <input
+                    className="input-focus mt-2 w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft"
+                    placeholder="np. Jan Kowalski"
+                    value={name}
+                    onChange={(e)=>setName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">PIN (4 cyfry)</label>
+                  <input
+                    className="input-focus mt-2 w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft font-mono tracking-widest"
+                    placeholder="1234"
+                    inputMode="numeric"
+                    value={pin}
+                    onChange={(e)=>setPin(onlyDigits4(e.target.value))}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={add}
+                  disabled={saving}
+                  className="w-full inline-flex items-center justify-center gap-2 bg-gray-900 text-white font-extrabold rounded-2xl px-5 py-4 shadow-glass hover:ring-2 hover:ring-brand-yellow/35 disabled:opacity-60 disabled:cursor-not-allowed transition"
+                >
+                  <Icon name="plus" className="w-5 h-5" />
+                  {saving ? "Dodawanie..." : "Dodaj"}
+                </button>
+
+                <div className="text-xs text-gray-500">
+                  Backend powinien przechowywać pracowników i weryfikować PIN w /api/admin/login.
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:col-span-2 bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Obsługa</div>
+                  <div className="text-lg font-extrabold mt-0.5">Lista pracowników</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={load}
+                  className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
+                >
+                  <Icon name="refresh-cw" className="w-4 h-4" />
+                  Odśwież
+                </button>
+              </div>
+
+              <div className="p-4">
+                {loading ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                  </div>
+                ) : list.length === 0 ? (
+                  <div className="text-sm text-gray-600">
+                    Brak pracowników. Dodaj pierwszą osobę po lewej stronie.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {list.map((p, i) => {
+                      const id = p.id || p._id || p.userId || String(i);
+                      const nm = p.name || p.fullName || "—";
+                      const role = p.role || "pracownik";
+                      return (
+                        <div key={id} className="border border-gray-200 rounded-2xl p-4 flex items-center justify-between gap-3 hover:ring-2 hover:ring-brand-yellow/15 transition">
+                          <div className="min-w-0">
+                            <div className="font-extrabold text-gray-900 truncate">{nm}</div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              ID: <span className="font-mono">{String(id)}</span> • {role}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => remove(id)}
+                            className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-red-200 transition font-extrabold text-sm text-red-700"
+                          >
+                            <Icon name="trash-2" className="w-4 h-4" />
+                            Usuń
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    /* =======================
+      App: main
+    ======================= */
+    const STORAGE_KEY = "eatmi-admin-token";
+
+    const AppShell = ({ token, onLogout }) => {
+      const [tab, setTab] = useState("dashboard");
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [tab]);
+
+      const title = tab === "dashboard" ? "Dashboard" :
+                    tab === "orders" ? "Zamówienia" :
+                    tab === "push" ? "Powiadomienia push" :
+                    tab === "staff" ? "Obsługa" : "Panel";
+
+      const subtitle =
+        tab === "dashboard" ? "Statystyki i szybki podgląd." :
+        tab === "orders" ? "Wszystkie zamówienia i dane klienta." :
+        tab === "push" ? "Wyślij powiadomienie na telefony użytkowników." :
+        tab === "staff" ? "Zarządzaj dostępem pracowników." :
+        "";
+
+      return (
+        <div className="min-h-screen">
+          {/* Desktop layout */}
+          <div className="hidden md:flex">
+            <aside className="fixed top-0 left-0 bottom-0 w-[var(--sidebar-w)] p-4">
+              <div className="bg-white/85 border border-white/60 shadow-glass rounded-3xl p-4 h-full flex flex-col">
+                <Logo />
+
+                <div className="mt-5 space-y-2">
+                  <NavItem
+                    active={tab === "dashboard"}
+                    icon="layout-dashboard"
+                    label="Dashboard"
+                    onClick={() => setTab("dashboard")}
+                  />
+                  <NavItem
+                    active={tab === "orders"}
+                    icon="shopping-bag"
+                    label="Zamówienia"
+                    onClick={() => setTab("orders")}
+                  />
+                  <NavItem
+                    active={tab === "push"}
+                    icon="bell"
+                    label="Powiadomienia push"
+                    onClick={() => setTab("push")}
+                  />
+                  <NavItem
+                    active={tab === "staff"}
+                    icon="users"
+                    label="Obsługa"
+                    onClick={() => setTab("staff")}
+                  />
+                </div>
+
+                <div className="mt-auto pt-3">
+                  <button
+                    type="button"
+                    onClick={onLogout}
+                    className="w-full inline-flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
+                  >
+                    <Icon name="log-out" className="w-4 h-4" />
+                    Wyloguj
+                  </button>
+
+                  <div className="mt-3 text-xs text-gray-500 text-center">
+                    eatmi.pl • panel administratora
+                  </div>
+                </div>
+              </div>
+            </aside>
+
+            <main className="ml-[var(--sidebar-w)] w-full">
+              <Topbar title={title} subtitle={subtitle} onLogout={onLogout} />
+              {tab === "dashboard" && <Dashboard token={token} />}
+              {tab === "orders" && <Orders token={token} />}
+              {tab === "push" && <Push token={token} />}
+              {tab === "staff" && <Staff token={token} />}
+            </main>
+          </div>
+
+          {/* Mobile layout */}
+          <div className="md:hidden">
+            <Topbar title={title} subtitle={subtitle} onLogout={onLogout} />
+
+            <div className="px-4 pt-4">
+              <div className="bg-white/85 border border-white/60 shadow-glass rounded-3xl p-3 grid grid-cols-2 gap-2">
+                <button
+                  className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${
+                    tab==="dashboard" ? "bg-brand-yellow/20 border-brand-yellow/30" : "bg-white border-gray-200"
+                  }`}
+                  onClick={()=>setTab("dashboard")}
+                >
+                  <Icon name="layout-dashboard" className="w-4 h-4" /> Dashboard
+                </button>
+                <button
+                  className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${
+                    tab==="orders" ? "bg-brand-yellow/20 border-brand-yellow/30" : "bg-white border-gray-200"
+                  }`}
+                  onClick={()=>setTab("orders")}
+                >
+                  <Icon name="shopping-bag" className="w-4 h-4" /> Zamówienia
+                </button>
+                <button
+                  className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${
+                    tab==="push" ? "bg-brand-yellow/20 border-brand-yellow/30" : "bg-white border-gray-200"
+                  }`}
+                  onClick={()=>setTab("push")}
+                >
+                  <Icon name="bell" className="w-4 h-4" /> Push
+                </button>
+                <button
+                  className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${
+                    tab==="staff" ? "bg-brand-yellow/20 border-brand-yellow/30" : "bg-white border-gray-200"
+                  }`}
+                  onClick={()=>setTab("staff")}
+                >
+                  <Icon name="users" className="w-4 h-4" /> Obsługa
+                </button>
+              </div>
+            </div>
+
+            {tab === "dashboard" && <Dashboard token={token} />}
+            {tab === "orders" && <Orders token={token} />}
+            {tab === "push" && <Push token={token} />}
+            {tab === "staff" && <Staff token={token} />}
+          </div>
+        </div>
+      );
+    };
+
+    const Root = () => {
+      const [token, setToken] = useState(() => localStorage.getItem(STORAGE_KEY) || "");
+
+      useEffect(() => { window.lucide?.createIcons?.(); });
+
+      const onAuth = (t) => {
+        setToken(t);
+        localStorage.setItem(STORAGE_KEY, t);
+      };
+
+      const logout = () => {
+        setToken("");
+        localStorage.removeItem(STORAGE_KEY);
+      };
+
+      return token ? <AppShell token={token} onLogout={logout} /> : <Login onAuth={onAuth} />;
     };
 
     ReactDOM.createRoot(document.getElementById("root")).render(
       <ToastProvider>
-        <App />
+        <Root />
       </ToastProvider>
     );
   </script>
