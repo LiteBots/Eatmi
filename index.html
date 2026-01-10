@@ -232,6 +232,51 @@
       return isMobile;
     };
 
+    // ✅ NEW: Customer localStorage helpers
+    const CUSTOMER_STORAGE_KEY = "eatmi-customer";
+
+    const safeParse = (raw, fallback) => {
+      try {
+        const v = JSON.parse(raw);
+        return (v && typeof v === "object") ? v : fallback;
+      } catch {
+        return fallback;
+      }
+    };
+
+    const loadSavedCustomer = () => {
+      if (typeof localStorage === "undefined") return null;
+      const raw = localStorage.getItem(CUSTOMER_STORAGE_KEY);
+      if (!raw) return null;
+      return safeParse(raw, null);
+    };
+
+    const saveCustomer = (customerObj) => {
+      if (typeof localStorage === "undefined") return;
+      try {
+        localStorage.setItem(CUSTOMER_STORAGE_KEY, JSON.stringify(customerObj));
+      } catch {}
+    };
+
+    const clearSavedCustomer = () => {
+      if (typeof localStorage === "undefined") return;
+      try { localStorage.removeItem(CUSTOMER_STORAGE_KEY); } catch {}
+    };
+
+    const mergeCustomer = (base, saved) => {
+      // saved wypełnia tylko wtedy, gdy base ma puste pola (nie nadpisuje wpisanego)
+      const out = { ...(base || {}) };
+      const s = saved || {};
+      Object.keys(out).forEach((k) => {
+        const bv = out[k];
+        const sv = s[k];
+        const isEmpty =
+          bv === "" || bv === null || typeof bv === "undefined";
+        if (isEmpty && typeof sv !== "undefined" && sv !== null) out[k] = sv;
+      });
+      return out;
+    };
+
     /* =======================
        TOAST
     ======================= */
@@ -766,11 +811,49 @@
 
     const Zamowienie = () => {
       const { cart, total, lineTotal } = useCart();
-      const [form, setForm] = useState({
+
+      const emptyForm = {
         imieNazwisko:'', telefon:'', email:'', miasto:'', kod:'', ulica:'', nrBud:'', pietro:'', lokal:'', uwagi:'', faktura:false, nip:'', firma:''
+      };
+
+      // ✅ NEW: autofill z localStorage na starcie
+      const [form, setForm] = useState(() => {
+        const saved = loadSavedCustomer();
+        // uwaga: saved może zawierać też meta/flags, filtrujemy do znanych pól
+        const base = { ...emptyForm };
+        if (saved && typeof saved === "object") {
+          Object.keys(base).forEach((k) => {
+            if (typeof saved[k] !== "undefined" && saved[k] !== null) base[k] = saved[k];
+          });
+        }
+        return base;
       });
 
+      // ✅ NEW: czy zapamiętywać dane (domyślnie true)
+      const [remember, setRemember] = useState(true);
+      const [hadSaved, setHadSaved] = useState(() => !!loadSavedCustomer());
+
       const handle = (k,v)=> setForm(s=> ({...s,[k]:v}));
+
+      // ✅ NEW: auto-save (debounce)
+      useEffect(() => {
+        if (!remember) return;
+
+        const t = setTimeout(() => {
+          // zapisujemy tylko dane klienta (bez koszyka)
+          const payload = { ...form };
+          saveCustomer(payload);
+          setHadSaved(true);
+        }, 250);
+
+        return () => clearTimeout(t);
+      }, [form, remember]);
+
+      const clearRemembered = () => {
+        clearSavedCustomer();
+        setHadSaved(false);
+        // nie czyścimy automatycznie pól, bo user może chcieć tylko usunąć zapis
+      };
 
       const submit = async () => {
         if(!form.imieNazwisko || !form.telefon || !form.miasto || !form.ulica) {
@@ -787,6 +870,12 @@
           alert("W koszyku jest pozycja bez productId. Dodaj produkt ponownie.");
           console.log("Missing productId item:", missing);
           return;
+        }
+
+        // ✅ NEW: zapis na pewno przy składaniu zamówienia (jeśli remember = true)
+        if (remember) {
+          saveCustomer({ ...form });
+          setHadSaved(true);
         }
 
         try {
@@ -829,6 +918,34 @@
               <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do koszyka
             </a>
             <h2 className="text-2xl font-extrabold mt-3">Zamówienie</h2>
+
+            {/* ✅ NEW: panel zapamiętywania */}
+            <div className="mt-4 bg-white border border-gray-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-soft">
+              <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e)=>setRemember(e.target.checked)}
+                />
+                Zapamiętaj dane na przyszłość (localStorage)
+              </label>
+
+              <div className="flex items-center gap-2">
+                {hadSaved && (
+                  <div className="text-xs text-gray-500">
+                    Mamy zapisane dane — formularz uzupełnia się automatycznie.
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={clearRemembered}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-sm font-semibold hover:ring-2 hover:ring-brand-yellow/20"
+                >
+                  <i data-lucide="trash-2" className="w-4 h-4"></i>
+                  Wyczyść zapamiętane dane
+                </button>
+              </div>
+            </div>
 
             <div className="mt-6 grid lg:grid-cols-3 gap-6 items-start">
               <div className="lg:col-span-2 bg-white border border-gray-200 rounded-2xl p-5">
