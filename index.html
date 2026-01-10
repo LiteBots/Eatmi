@@ -102,6 +102,22 @@
       color: #fff;
       border-bottom: 1px solid rgba(255,255,255,0.12);
     }
+
+    /* Simple spinner */
+    @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+    .spin { animation: spin 1s linear infinite; }
+
+    /* OTP boxes */
+    .otp {
+      letter-spacing: .35em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .kbd-hint {
+      background: rgba(255,193,7,.12);
+      border: 1px solid rgba(255,193,7,.35);
+      color: #111827;
+    }
   </style>
 
   <!-- React 18 + ReactDOM 18 -->
@@ -119,7 +135,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useMemo } = React;
+    const { useState, useEffect, useMemo, useRef } = React;
 
     /* =======================
        MENU
@@ -263,6 +279,39 @@
       try { localStorage.removeItem(CUSTOMER_STORAGE_KEY); } catch {}
     };
 
+    // ✅ AUTH token
+    const AUTH_TOKEN_KEY = "eatmi-auth-token";
+
+    const loadAuthToken = () => {
+      try { return localStorage.getItem(AUTH_TOKEN_KEY) || ""; } catch { return ""; }
+    };
+    const saveAuthToken = (token) => {
+      try { localStorage.setItem(AUTH_TOKEN_KEY, token || ""); } catch {}
+    };
+    const clearAuthToken = () => {
+      try { localStorage.removeItem(AUTH_TOKEN_KEY); } catch {}
+    };
+
+    // ✅ API helper
+    async function apiFetch(url, { method="GET", body=null, token=null } = {}) {
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const r = await fetch(url, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : null
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const msg = data?.error || `HTTP ${r.status}`;
+        const err = new Error(msg);
+        err.status = r.status;
+        err.data = data;
+        throw err;
+      }
+      return data;
+    }
+
     /* =======================
        TOAST
     ======================= */
@@ -294,7 +343,7 @@
                 <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-lg">✓</div>
                 <div className="flex-1">
                   <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-600">
-                    Dodano do koszyka
+                    Powiadomienie
                   </div>
                   <div className="text-sm text-gray-900 mt-0.5">{toast}</div>
                 </div>
@@ -313,6 +362,99 @@
             </div>
           )}
         </ToastContext.Provider>
+      );
+    };
+
+    /* =======================
+       AUTH (CONTEXT)
+    ======================= */
+
+    const AuthContext = React.createContext();
+    const useAuth = () => React.useContext(AuthContext);
+
+    const AuthProvider = ({ children }) => {
+      const toast = useToast();
+      const showToast = toast?.show;
+
+      const [token, setToken] = useState(() => loadAuthToken());
+      const [user, setUser] = useState(null);
+      const [loading, setLoading] = useState(true);
+
+      const refreshMe = async (tkn) => {
+        const tk = typeof tkn === "string" ? tkn : token;
+        if (!tk) { setUser(null); return; }
+        try {
+          const data = await apiFetch("/api/auth/me", { token: tk });
+          setUser(data?.user || null);
+        } catch (e) {
+          // token invalid/expired
+          setUser(null);
+          setToken("");
+          clearAuthToken();
+        }
+      };
+
+      useEffect(() => {
+        (async () => {
+          try { await refreshMe(token); }
+          finally { setLoading(false); }
+        })();
+        // eslint-disable-next-line
+      }, []);
+
+      useEffect(() => {
+        // if token changes, refresh user
+        if (!loading) refreshMe(token);
+        // eslint-disable-next-line
+      }, [token]);
+
+      const login = async ({ email, password }) => {
+        const data = await apiFetch("/api/auth/login", { method: "POST", body: { email, password } });
+        const tk = data?.token || "";
+        if (tk) {
+          setToken(tk);
+          saveAuthToken(tk);
+          setUser(data?.user || null);
+          showToast?.("Zalogowano ✅");
+        }
+        return data;
+      };
+
+      const register = async ({ email, fullName, password, confirm }) => {
+        const data = await apiFetch("/api/auth/register", { method: "POST", body: { email, fullName, password, confirm } });
+        showToast?.("Kod weryfikacyjny wysłany na email ✉️");
+        return data;
+      };
+
+      const verify = async ({ email, code }) => {
+        const data = await apiFetch("/api/auth/verify", { method: "POST", body: { email, code } });
+        const tk = data?.token || "";
+        if (tk) {
+          setToken(tk);
+          saveAuthToken(tk);
+          await refreshMe(tk);
+          showToast?.("Email zweryfikowany ✅");
+        }
+        return data;
+      };
+
+      const resend = async ({ email }) => {
+        const data = await apiFetch("/api/auth/resend", { method: "POST", body: { email } });
+        showToast?.("Wysłano nowy kod ✉️");
+        return data;
+      };
+
+      const logout = () => {
+        setUser(null);
+        setToken("");
+        clearAuthToken();
+        showToast?.("Wylogowano");
+      };
+
+      return (
+        <AuthContext.Provider value={{ token, user, loading, login, register, verify, resend, logout, refreshMe }}>
+          {children}
+        </AuthContext.Provider>
       );
     };
 
@@ -406,41 +548,65 @@
       );
     };
 
-    const Header = ({ onOpenAuth }) => (
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Logo />
+    const Header = ({ onOpenAuth }) => {
+      const { user, loading, logout } = useAuth();
+      useEffect(() => { window.lucide?.createIcons?.(); }, [user, loading]);
 
-          <div className="hidden md:flex items-center gap-6 text-sm">
-            <a href="#kategorie" className="hover:text-gray-900 text-gray-600">Menu</a>
-            <a href="#/kategoria/boxy-sniadaniowe" className="hover:text-gray-900 text-gray-600">Boxy</a>
-            <a href="#/kategoria/lunche" className="hover:text-gray-900 text-gray-600">Lunche</a>
-            <a href="#/kategoria/kanapki" className="hover:text-gray-900 text-gray-600">Kanapki</a>
-            <a href="#/kategoria/napoje" className="hover:text-gray-900 text-gray-600">Napoje</a>
+      return (
+        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-gray-200">
+          <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <Logo />
+
+            <div className="hidden md:flex items-center gap-6 text-sm">
+              <a href="#kategorie" className="hover:text-gray-900 text-gray-600">Menu</a>
+              <a href="#/kategoria/boxy-sniadaniowe" className="hover:text-gray-900 text-gray-600">Boxy</a>
+              <a href="#/kategoria/lunche" className="hover:text-gray-900 text-gray-600">Lunche</a>
+              <a href="#/kategoria/kanapki" className="hover:text-gray-900 text-gray-600">Kanapki</a>
+              <a href="#/kategoria/napoje" className="hover:text-gray-900 text-gray-600">Napoje</a>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {!loading && user ? (
+                <div className="hidden md:flex items-center gap-2">
+                  <div className="px-3 py-2 rounded-xl border border-gray-200 bg-white shadow-soft text-sm">
+                    <div className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Zalogowany</div>
+                    <div className="font-extrabold text-gray-900 leading-tight">{user.fullName || user.email}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition text-sm font-semibold text-gray-800 hover:ring-2 hover:ring-brand-yellow/50"
+                  >
+                    <i data-lucide="log-out" className="w-4 h-4"></i>
+                    Wyloguj
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={onOpenAuth}
+                    className="hidden md:inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition text-sm font-semibold text-gray-800 hover:ring-2 hover:ring-brand-yellow/50">
+                    <i data-lucide="user" className="w-4 h-4"></i>
+                    <span>Konto</span>
+                  </button>
+                </>
+              )}
+
+              <button
+                type="button"
+                onClick={onOpenAuth}
+                className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white shadow-soft hover:ring-2 hover:ring-brand-yellow/50"
+                aria-label="Moje konto">
+                <i data-lucide="user" className="w-5 h-5"></i>
+              </button>
+
+              <CartButton />
+            </div>
           </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onOpenAuth}
-              className="hidden md:inline-flex items-center gap-2 border border-gray-200 bg-white px-4 py-2 rounded-xl shadow-soft hover:shadow-md transition text-sm font-semibold text-gray-800 hover:ring-2 hover:ring-brand-yellow/50">
-              <i data-lucide="user" className="w-4 h-4"></i>
-              <span>Konto</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onOpenAuth}
-              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white shadow-soft hover:ring-2 hover:ring-brand-yellow/50"
-              aria-label="Moje konto">
-              <i data-lucide="user" className="w-5 h-5"></i>
-            </button>
-
-            <CartButton />
-          </div>
-        </div>
-      </header>
-    );
+        </header>
+      );
+    };
 
     /* =======================
        HERO / UI
@@ -482,6 +648,13 @@
                 <i data-lucide="package-open" className="w-5 h-5"></i>
                 Zobacz boxy śniadaniowe
               </a>
+            </div>
+
+            <div className="mt-6 text-xs text-gray-600">
+              <span className="inline-flex items-center gap-2 px-3 py-2 rounded-xl kbd-hint">
+                <i data-lucide="shield-check" className="w-4 h-4"></i>
+                Konto = szybsze zamawianie + zapis danych. Weryfikacja kodem z emaila.
+              </span>
             </div>
           </div>
         </div>
@@ -797,12 +970,13 @@
 
     const Zamowienie = () => {
       const { cart, total, lineTotal } = useCart();
+      const { user } = useAuth();
 
       const emptyForm = {
         imieNazwisko:'', telefon:'', email:'', miasto:'', kod:'', ulica:'', nrBud:'', pietro:'', lokal:'', uwagi:'', faktura:false, nip:'', firma:''
       };
 
-      // ✅ autofill z localStorage na starcie
+      // ✅ autofill z localStorage + z konta (email + name)
       const [form, setForm] = useState(() => {
         const saved = loadSavedCustomer();
         const base = { ...emptyForm };
@@ -811,24 +985,33 @@
             if (typeof saved[k] !== "undefined" && saved[k] !== null) base[k] = saved[k];
           });
         }
+        // preferuj dane z konta jeśli są
+        if (user?.email) base.email = base.email || user.email;
+        if (user?.fullName) base.imieNazwisko = base.imieNazwisko || user.fullName;
         return base;
       });
 
-      // ✅ czy zapamiętywać dane (domyślnie true)
+      useEffect(() => {
+        // gdy user się zaloguje po wejściu w checkout
+        setForm((prev) => {
+          const next = { ...prev };
+          if (user?.email) next.email = next.email || user.email;
+          if (user?.fullName) next.imieNazwisko = next.imieNazwisko || user.fullName;
+          return next;
+        });
+      }, [user]);
+
       const [remember, setRemember] = useState(true);
       const [hadSaved, setHadSaved] = useState(() => !!loadSavedCustomer());
 
       const handle = (k,v)=> setForm(s=> ({...s,[k]:v}));
 
-      // ✅ auto-save (debounce)
       useEffect(() => {
         if (!remember) return;
-
         const t = setTimeout(() => {
           saveCustomer({ ...form });
           setHadSaved(true);
         }, 250);
-
         return () => clearTimeout(t);
       }, [form, remember]);
 
@@ -854,7 +1037,6 @@
           return;
         }
 
-        // ✅ zapis na pewno przy składaniu zamówienia (jeśli remember = true)
         if (remember) {
           saveCustomer({ ...form });
           setHadSaved(true);
@@ -901,7 +1083,19 @@
             </a>
             <h2 className="text-2xl font-extrabold mt-3">Zamówienie</h2>
 
-            {/* ✅ panel zapamiętywania */}
+            {!user && (
+              <div className="mt-4 bg-white border border-gray-200 rounded-2xl p-4 shadow-soft">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Konto (opcjonalnie)</div>
+                    <div className="font-extrabold text-gray-900">Zaloguj się, żeby szybciej uzupełniać dane</div>
+                    <div className="text-sm text-gray-600 mt-1">Email i imię/nazwisko mogą uzupełnić się automatycznie.</div>
+                  </div>
+                  <a href="#/" onClick={(e)=>e.preventDefault()} className="hidden"></a>
+                </div>
+              </div>
+            )}
+
             <div className="mt-4 bg-white border border-gray-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-soft">
               <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
                 <input
@@ -1029,8 +1223,7 @@
                   className="w-full mt-4 bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/40 min-h-[44px]">
                   Płatność online (PayU)
                 </button>
-                <div className="text-xs text-gray-500 mt-3">
-                </div>
+                <div className="text-xs text-gray-500 mt-3"></div>
               </aside>
             </div>
           </div>
@@ -1039,96 +1232,376 @@
     };
 
     /* =======================
-       AUTH MODAL
+       AUTH MODAL (REAL FLOW)
+       - register -> verify code -> logged in
+       - login -> token -> me
     ======================= */
 
     const AuthModal = ({ open, onClose }) => {
-      const [mode, setMode] = useState('login');
-      const [form, setForm] = useState({ email: '', password: '', confirm: '' });
+      const { user, loading, login, register, verify, resend, logout } = useAuth();
+      const toast = useToast();
+      const showToast = toast?.show;
+
+      const [step, setStep] = useState("login"); // login | register | verify | account
+      const [busy, setBusy] = useState(false);
+      const [error, setError] = useState("");
+      const [cooldown, setCooldown] = useState(0);
+
+      const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+      const [regForm, setRegForm] = useState({ email: "", fullName: "", password: "", confirm: "" });
+      const [verifyForm, setVerifyForm] = useState({ email: "", code: "" });
+
+      const cooldownRef = useRef(null);
+
+      useEffect(() => {
+        if (!open) return;
+        setError("");
+        setBusy(false);
+
+        if (user) setStep("account");
+        else setStep("login");
+
+        // prefill from previous
+        setVerifyForm((s) => ({ ...s, email: s.email || regForm.email || loginForm.email || "" }));
+        // eslint-disable-next-line
+      }, [open]);
+
+      useEffect(() => {
+        if (cooldown <= 0) return;
+        if (cooldownRef.current) clearInterval(cooldownRef.current);
+        cooldownRef.current = setInterval(() => {
+          setCooldown((c) => (c <= 1 ? 0 : c - 1));
+        }, 1000);
+        return () => { if (cooldownRef.current) clearInterval(cooldownRef.current); };
+      }, [cooldown]);
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [open, step, busy, error, user, loading, cooldown]);
+
+      useEffect(() => {
+        const onKey = (e) => {
+          if (!open) return;
+          if (e.key === "Escape") onClose?.();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+      }, [open, onClose]);
+
       if (!open) return null;
 
-      const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
+      const setErr = (msg) => setError(String(msg || ""));
 
-      const handleSubmit = (e) => {
+      const submitLogin = async (e) => {
         e.preventDefault();
-        if (mode === 'register' && form.password !== form.confirm) {
-          alert('Hasła nie są takie same.');
-          return;
+        setErr("");
+        setBusy(true);
+        try {
+          await login({ email: loginForm.email, password: loginForm.password });
+          onClose?.();
+        } catch (err) {
+          setErr(err?.message || "Błąd logowania");
+        } finally {
+          setBusy(false);
         }
-        alert(`(${mode === 'login' ? 'Logowanie' : 'Rejestracja'}) to na razie makieta UI :)`);
-        onClose();
+      };
+
+      const submitRegister = async (e) => {
+        e.preventDefault();
+        setErr("");
+        setBusy(true);
+        try {
+          await register(regForm);
+          setVerifyForm({ email: regForm.email, code: "" });
+          setStep("verify");
+          setCooldown(60);
+        } catch (err) {
+          setErr(err?.message || "Błąd rejestracji");
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      const submitVerify = async (e) => {
+        e.preventDefault();
+        setErr("");
+        setBusy(true);
+        try {
+          const code = String(verifyForm.code || "").replace(/\D/g, "").slice(0, 4);
+          if (code.length !== 4) throw new Error("Kod musi mieć 4 cyfry");
+          await verify({ email: verifyForm.email, code });
+          onClose?.();
+        } catch (err) {
+          setErr(err?.message || "Błąd weryfikacji");
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      const doResend = async () => {
+        setErr("");
+        setBusy(true);
+        try {
+          await resend({ email: verifyForm.email });
+          setCooldown(60);
+        } catch (err) {
+          const status = err?.status || err?.data?.status;
+          if (status === 429) setErr("Odczekaj chwilę przed ponowną wysyłką (60s).");
+          else setErr(err?.message || "Nie udało się wysłać kodu");
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      const Title = ({ eyebrow, title, subtitle }) => (
+        <div className="mb-4">
+          <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">{eyebrow}</div>
+          <h3 className="text-xl font-extrabold mt-1">{title}</h3>
+          {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
+          {error && (
+            <div className="mt-3 text-sm bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2">
+              {error}
+            </div>
+          )}
+        </div>
+      );
+
+      const Button = ({ children, onClick, type="button", variant="dark", disabled=false }) => {
+        const cls =
+          variant === "dark"
+            ? "bg-gray-900 text-white hover:bg-black hover:ring-2 hover:ring-brand-yellow/30"
+            : variant === "yellow"
+              ? "bg-brand-yellow text-gray-900 hover:ring-2 hover:ring-brand-yellow/40"
+              : "bg-gray-100 text-gray-900 hover:ring-2 hover:ring-brand-yellow/20";
+
+        return (
+          <button
+            type={type}
+            onClick={onClick}
+            disabled={disabled}
+            className={`w-full mt-1 font-semibold rounded-xl px-4 py-3 text-sm min-h-[44px] transition ${cls} ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
+          >
+            <span className="inline-flex items-center justify-center gap-2">
+              {disabled && <i data-lucide="loader" className="w-4 h-4 spin"></i>}
+              {children}
+            </span>
+          </button>
+        );
       };
 
       return (
         <div className="fixed inset-0 z-[90] bg-black/60 flex items-center justify-center px-4" onClick={onClose} role="dialog" aria-modal="true">
           <div className="relative w-full max-w-md bg-white rounded-2xl shadow-glass border border-gray-200 p-6" onClick={(e) => e.stopPropagation()}>
-            <button type="button" onClick={onClose} className="absolute top-3 right-3 p-2 rounded-full bg-white border border-gray-200 shadow-soft hover:bg-gray-50 hover:ring-2 hover:ring-brand-yellow/40" aria-label="Zamknij okno logowania">
+            <button type="button" onClick={onClose} className="absolute top-3 right-3 p-2 rounded-full bg-white border border-gray-200 shadow-soft hover:bg-gray-50 hover:ring-2 hover:ring-brand-yellow/40" aria-label="Zamknij okno konta">
               <i data-lucide="x" className="w-4 h-4"></i>
             </button>
 
-            <div className="mb-4">
-              <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">
-                {mode === 'login' ? 'Logowanie' : 'Rejestracja'}
-              </div>
-              <h3 className="text-xl font-extrabold mt-1">
-                {mode === 'login' ? 'Zaloguj się do eatmi' : 'Załóż konto w eatmi'}
-              </h3>
-              <p className="text-xs text-gray-500 mt-1">
-                {mode === 'login'
-                  ? 'Zamawiaj szybciej i śledź historię zamówień (makieta).'
-                  : 'Utwórz konto, aby w przyszłości zapisywać dane dostawy (makieta).'}
-              </p>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div>
-                <label className="text-xs uppercase tracking-wider text-gray-500">Adres e-mail</label>
-                <input type="email" required value={form.email}
-                  onChange={(e) => handleChange('email', e.target.value)}
-                  placeholder="np. jan.kowalski@example.com"
-                  className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-              </div>
-
-              <div>
-                <label className="text-xs uppercase tracking-wider text-gray-500">Hasło</label>
-                <input type="password" required value={form.password}
-                  onChange={(e) => handleChange('password', e.target.value)}
-                  placeholder="Wpisz hasło"
-                  className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-              </div>
-
-              {mode === 'register' && (
-                <div>
-                  <label className="text-xs uppercase tracking-wider text-gray-500">Powtórz hasło</label>
-                  <input type="password" required value={form.confirm}
-                    onChange={(e) => handleChange('confirm', e.target.value)}
-                    placeholder="Powtórz hasło"
-                    className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+            {step === "account" && user && (
+              <>
+                <Title
+                  eyebrow="Konto"
+                  title="Jesteś zalogowany"
+                  subtitle="Możesz się wylogować albo zamknąć okno."
+                />
+                <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                  <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Użytkownik</div>
+                  <div className="mt-1 font-extrabold text-gray-900">{user.fullName || "-"}</div>
+                  <div className="mt-1 text-sm text-gray-700">{user.email || "-"}</div>
+                  <div className="mt-2 inline-flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl">
+                    <i data-lucide="badge-check" className="w-4 h-4"></i>
+                    Email zweryfikowany
+                  </div>
                 </div>
-              )}
+                <div className="mt-4 grid gap-2">
+                  <Button
+                    variant="yellow"
+                    onClick={() => { showToast?.("OK 👍"); onClose?.(); }}
+                  >
+                    Zamknij
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => { logout(); setStep("login"); }}
+                  >
+                    Wyloguj
+                  </Button>
+                </div>
+              </>
+            )}
 
-              <button type="submit" className="w-full mt-1 bg-gray-900 text-white font-semibold rounded-xl px-4 py-3 text-sm hover:bg-black hover:ring-2 hover:ring-brand-yellow/30 min-h-[44px]">
-                {mode === 'login' ? 'Zaloguj się' : 'Zarejestruj się'}
-              </button>
-            </form>
+            {step === "login" && (
+              <>
+                <Title
+                  eyebrow="Logowanie"
+                  title="Zaloguj się do eatmi"
+                  subtitle="Najpierw musisz mieć zweryfikowany email."
+                />
+                <form onSubmit={submitLogin} className="space-y-3">
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Adres e-mail</label>
+                    <input type="email" required value={loginForm.email}
+                      onChange={(e) => setLoginForm(s => ({...s, email: e.target.value}))}
+                      placeholder="np. jan.kowalski@example.com"
+                      className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                  </div>
 
-            <div className="mt-4 text-xs text-gray-600 text-center">
-              {mode === 'login' ? (
-                <>Nie masz konta?{' '}
-                  <button type="button" onClick={() => { setMode('register'); setForm({ email:'', password:'', confirm:'' }) }}
-                    className="font-semibold text-gray-900 underline underline-offset-2">
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Hasło</label>
+                    <input type="password" required value={loginForm.password}
+                      onChange={(e) => setLoginForm(s => ({...s, password: e.target.value}))}
+                      placeholder="Wpisz hasło"
+                      className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                  </div>
+
+                  <Button type="submit" variant="dark" disabled={busy}>
+                    Zaloguj się
+                  </Button>
+                </form>
+
+                <div className="mt-4 text-xs text-gray-600 text-center">
+                  Nie masz konta?{" "}
+                  <button
+                    type="button"
+                    onClick={() => { setStep("register"); setErr(""); }}
+                    className="font-semibold text-gray-900 underline underline-offset-2"
+                  >
                     Zarejestruj się
                   </button>
-                </>
-              ) : (
-                <>Masz konto?{' '}
-                  <button type="button" onClick={() => { setMode('login'); setForm({ email:'', password:'', confirm:'' }) }}
-                    className="font-semibold text-gray-900 underline underline-offset-2">
+                  <div className="mt-2">
+                    Masz kod, ale nie zweryfikowałeś?{" "}
+                    <button
+                      type="button"
+                      onClick={() => { setStep("verify"); setVerifyForm(s => ({...s, email: loginForm.email || s.email })); setErr(""); }}
+                      className="font-semibold text-gray-900 underline underline-offset-2"
+                    >
+                      Wpisz kod
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {step === "register" && (
+              <>
+                <Title
+                  eyebrow="Rejestracja"
+                  title="Załóż konto w eatmi"
+                  subtitle="Po rejestracji wyślemy 4-cyfrowy kod na email."
+                />
+                <form onSubmit={submitRegister} className="space-y-3">
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Adres e-mail</label>
+                    <input type="email" required value={regForm.email}
+                      onChange={(e) => setRegForm(s => ({...s, email: e.target.value}))}
+                      placeholder="np. jan.kowalski@example.com"
+                      className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                  </div>
+
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Imię i nazwisko</label>
+                    <input type="text" required value={regForm.fullName}
+                      onChange={(e) => setRegForm(s => ({...s, fullName: e.target.value}))}
+                      placeholder="np. Jan Kowalski"
+                      className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                  </div>
+
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Hasło (min. 8 znaków)</label>
+                    <input type="password" required value={regForm.password}
+                      onChange={(e) => setRegForm(s => ({...s, password: e.target.value}))}
+                      placeholder="Ustaw hasło"
+                      className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                  </div>
+
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Powtórz hasło</label>
+                    <input type="password" required value={regForm.confirm}
+                      onChange={(e) => setRegForm(s => ({...s, confirm: e.target.value}))}
+                      placeholder="Powtórz hasło"
+                      className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                  </div>
+
+                  <Button type="submit" variant="dark" disabled={busy}>
+                    Zarejestruj się i wyślij kod
+                  </Button>
+                </form>
+
+                <div className="mt-4 text-xs text-gray-600 text-center">
+                  Masz konto?{" "}
+                  <button
+                    type="button"
+                    onClick={() => { setStep("login"); setErr(""); }}
+                    className="font-semibold text-gray-900 underline underline-offset-2"
+                  >
                     Zaloguj się
                   </button>
-                </>
-              )}
-            </div>
+                </div>
+              </>
+            )}
+
+            {step === "verify" && (
+              <>
+                <Title
+                  eyebrow="Weryfikacja email"
+                  title="Wpisz 4-cyfrowy kod"
+                  subtitle="Kod przychodzi na email. Jeśli nie ma — sprawdź SPAM."
+                />
+                <form onSubmit={submitVerify} className="space-y-3">
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Adres e-mail</label>
+                    <input type="email" required value={verifyForm.email}
+                      onChange={(e) => setVerifyForm(s => ({...s, email: e.target.value}))}
+                      placeholder="np. jan.kowalski@example.com"
+                      className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                  </div>
+
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Kod (4 cyfry)</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength="4"
+                      required
+                      value={verifyForm.code}
+                      onChange={(e) => {
+                        const v = String(e.target.value || "").replace(/\D/g, "").slice(0, 4);
+                        setVerifyForm(s => ({...s, code: v}));
+                      }}
+                      placeholder="0000"
+                      className="otp input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px] text-center text-lg font-extrabold tracking-[0.35em]"
+                    />
+                  </div>
+
+                  <Button type="submit" variant="dark" disabled={busy}>
+                    Zweryfikuj i zaloguj
+                  </Button>
+
+                  <button
+                    type="button"
+                    onClick={doResend}
+                    disabled={busy || cooldown > 0 || !verifyForm.email}
+                    className={`w-full mt-2 bg-gray-100 text-gray-900 font-semibold rounded-xl px-4 py-3 text-sm min-h-[44px] transition hover:ring-2 hover:ring-brand-yellow/20 ${
+                      (busy || cooldown > 0 || !verifyForm.email) ? "opacity-60 cursor-not-allowed" : ""
+                    }`}
+                  >
+                    <span className="inline-flex items-center justify-center gap-2">
+                      {(busy) && <i data-lucide="loader" className="w-4 h-4 spin"></i>}
+                      Wyślij kod ponownie {cooldown > 0 ? `(${cooldown}s)` : ""}
+                    </span>
+                  </button>
+                </form>
+
+                <div className="mt-4 text-xs text-gray-600 text-center">
+                  Chcesz wrócić?{" "}
+                  <button
+                    type="button"
+                    onClick={() => { setStep("login"); setErr(""); }}
+                    className="font-semibold text-gray-900 underline underline-offset-2"
+                  >
+                    Logowanie
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       );
@@ -1303,8 +1776,9 @@
 
     const BottomTabBar = ({ route, onOpenOrder, onOpenAuth }) => {
       const { count } = useCart();
+      const { user } = useAuth();
 
-      useEffect(() => { window.lucide?.createIcons?.(); }, [route, count]);
+      useEffect(() => { window.lucide?.createIcons?.(); }, [route, count, user]);
 
       const isHome = !route || route === "#/" || route === "#";
       const isCart = route === "#/koszyk";
@@ -1339,7 +1813,7 @@
                 />
                 <TabButton
                   active={false}
-                  label="Konto"
+                  label={user ? "Profil" : "Konto"}
                   icon="user"
                   onClick={onOpenAuth}
                 />
@@ -1394,7 +1868,7 @@
 
       useEffect(()=> { window.lucide?.createIcons?.(); }, [route]);
 
-      const pathOnly = (route || '#/').split('?')[0]; // ✅ FIX: ignore query
+      const pathOnly = (route || '#/').split('?')[0];
 
       if (pathOnly.startsWith('#/kategoria/')) {
         const id = pathOnly.split('/')[2];
@@ -1445,8 +1919,9 @@
       }, []);
 
       const { count } = useCart();
+      const { user, loading } = useAuth();
 
-      useEffect(() => { window.lucide?.createIcons?.(); }, [authOpen, orderOpen, route, count]);
+      useEffect(() => { window.lucide?.createIcons?.(); }, [authOpen, orderOpen, route, count, user, loading]);
       useEffect(() => { registerSW(); }, []);
 
       const showCTA =
@@ -1457,23 +1932,19 @@
 
       return (
         <div className="min-h-screen no-overscroll">
-          {/* Top info bar */}
           <TopInfoBar />
 
-          {/* Header */}
           <Header onOpenAuth={() => setAuthOpen(true)} />
 
           <main className={`app-content-pad ${showCTA ? "has-cta" : ""}`}>
             <Router />
 
-            {/* Footer */}
             <footer className="py-10 text-center text-sm text-gray-500">
               <div className="max-w-6xl mx-auto px-4">
                 <div className="font-semibold text-gray-700">
                   © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
                 </div>
 
-                {/* ✅ Linki do rule.html (Regulamin + Polityka prywatności w jednym pliku) */}
                 <div className="mt-4 flex flex-wrap justify-center gap-3 text-sm">
                   <a
                     href="/rule.html"
@@ -1535,9 +2006,11 @@
 
     ReactDOM.createRoot(document.getElementById('root')).render(
       <ToastProvider>
-        <CartProvider>
-          <App />
-        </CartProvider>
+        <AuthProvider>
+          <CartProvider>
+            <App />
+          </CartProvider>
+        </AuthProvider>
       </ToastProvider>
     );
   </script>
