@@ -1,3 +1,4 @@
+// server.js (ESM)
 import express from "express";
 import path from "path";
 import fs from "fs";
@@ -19,35 +20,37 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use(express.static(__dirname));
 
-// ====== PayU + ADMIN + AUTH + RESEND + MONGO ENV ======
+// ====== ENV ======
 const {
   // ====== PAYU ======
   PAYU_ENV = "prod", // "prod" albo "sandbox"
-  PAYU_POS_ID, // pos_id (merchantPosId)
-  PAYU_CLIENT_ID, // OAuth client_id
-  PAYU_CLIENT_SECRET, // OAuth client_secret
-  PAYU_MD5_SECOND_KEY, // (na start nie używamy)
-  PAYU_NOTIFY_URL, // np. https://www.eatmi.pl/api/payu/notify
-  PAYU_CONTINUE_URL, // np. https://www.eatmi.pl/#/zamowienie?paid=1
+  PAYU_POS_ID,
+  PAYU_CLIENT_ID,
+  PAYU_CLIENT_SECRET,
+  PAYU_MD5_SECOND_KEY, // unused (na start)
+  PAYU_NOTIFY_URL,
+  PAYU_CONTINUE_URL,
 
   // ====== ADMIN ======
-  ADMIN_PIN, // np. "0051" (4 cyfry) - główny admin
+  ADMIN_PIN, // 4 cyfry
   ADMIN_TOKEN_SECRET = "CHANGE_ME_LONG_SECRET_64CHARS_MIN",
   ADMIN_PIN_SALT = "CHANGE_ME_SALT",
 
-  // ====== AUTH (USER ACCOUNTS) ======
-  // (Railway masz MONGO_URL — mapujemy niżej)
+  // ====== AUTH ======
   JWT_SECRET,
 
   // ====== RESEND ======
   RESEND_API_KEY,
   MAIL_FROM,
 
-  // ====== VERIFY SETTINGS ======
-  VERIFY_CODE_TTL_MIN = "15"
+  // ====== VERIFY ======
+  VERIFY_CODE_TTL_MIN = "15",
+
+  // ====== OPTIONAL DEBUG ======
+  DEBUG_EMAIL = "0"
 } = process.env;
 
-// Railway daje MONGO_URL (nie MONGO_URI) — mapujemy do jednego źródła prawdy
+// Railway daje MONGO_URL (czasem ludzie mają MONGO_URI) — wspieramy oba
 const MONGO_URI_EFFECTIVE = process.env.MONGO_URI || process.env.MONGO_URL;
 
 const PAYU_BASE =
@@ -58,15 +61,16 @@ function requireEnv(name, value) {
 }
 
 // ===============================
-// MONGO CONNECT + USER MODEL (IN THIS FILE)
+// MONGO CONNECT + USER MODEL
 // ===============================
-requireEnv("MONGO_URL", MONGO_URI_EFFECTIVE);
+requireEnv("MONGO_URL (or MONGO_URI)", MONGO_URI_EFFECTIVE);
 requireEnv("JWT_SECRET", JWT_SECRET);
 
 mongoose.set("strictQuery", true);
 await mongoose.connect(MONGO_URI_EFFECTIVE);
 console.log("Mongo connected");
 
+// Minimal schema
 const UserSchema = new mongoose.Schema(
   {
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
@@ -104,12 +108,22 @@ async function sendVerifyCodeEmail({ to, code, fullName }) {
     `Kod jest ważny przez ${VERIFY_CODE_TTL_MIN} minut.\n\n` +
     `Jeśli to nie Ty – zignoruj tę wiadomość.`;
 
-  await resend.emails.send({
+  const result = await resend.emails.send({
     from: MAIL_FROM,
     to,
     subject,
     text
   });
+
+  // Resend zwykle zwraca { data, error }
+  if (result?.error) {
+    console.log("RESEND ERROR:", result.error);
+    throw new Error(result.error?.message || "Resend send failed");
+  }
+
+  if (DEBUG_EMAIL === "1") {
+    console.log("RESEND SENT:", result?.data || result);
+  }
 }
 
 // ===============================
@@ -182,7 +196,19 @@ app.post("/api/auth/register", async (req, res) => {
       verifyLastSentAt: new Date()
     });
 
-    await sendVerifyCodeEmail({ to: email, code, fullName });
+    // IMPORTANT: jeśli mail się wywali, zwróć błąd i (opcjonalnie) usuń usera,
+    // żeby nie zostawiać "martwych" kont bez maila
+    try {
+      await sendVerifyCodeEmail({ to: email, code, fullName });
+    } catch (mailErr) {
+      console.log("REGISTER: MAIL FAILED:", mailErr?.message || mailErr);
+      // sprzątanie (opcjonalnie, ale praktyczne)
+      await User.deleteOne({ _id: user._id }).catch(() => {});
+      return res.status(502).json({
+        error: "Email send failed",
+        details: String(mailErr?.message || mailErr)
+      });
+    }
 
     return res.json({
       ok: true,
@@ -191,13 +217,12 @@ app.post("/api/auth/register", async (req, res) => {
       ttlMin
     });
   } catch (e) {
-    // jeśli email unique, mongo może zwrócić E11000
     const msg = String(e?.message || "");
     if (msg.includes("E11000") || msg.toLowerCase().includes("duplicate")) {
       return res.status(409).json({ error: "Email already in use" });
     }
-    console.log("REGISTER ERROR:", e);
-    return res.status(500).json({ error: "Server error" });
+    console.log("REGISTER ERROR:", e?.message, e);
+    return res.status(500).json({ error: e?.message || "Server error" });
   }
 });
 
@@ -230,8 +255,8 @@ app.post("/api/auth/resend", async (req, res) => {
 
     return res.json({ ok: true, ttlMin });
   } catch (e) {
-    console.log("RESEND ERROR:", e);
-    return res.status(500).json({ error: "Server error" });
+    console.log("RESEND ERROR:", e?.message, e);
+    return res.status(500).json({ error: e?.message || "Server error" });
   }
 });
 
@@ -277,8 +302,8 @@ app.post("/api/auth/verify", async (req, res) => {
     const token = signAuthToken(user);
     return res.json({ ok: true, token, verified: true });
   } catch (e) {
-    console.log("VERIFY ERROR:", e);
-    return res.status(500).json({ error: "Server error" });
+    console.log("VERIFY ERROR:", e?.message, e);
+    return res.status(500).json({ error: e?.message || "Server error" });
   }
 });
 
@@ -306,8 +331,8 @@ app.post("/api/auth/login", async (req, res) => {
       user: { email: user.email, fullName: user.fullName }
     });
   } catch (e) {
-    console.log("LOGIN ERROR:", e);
-    return res.status(500).json({ error: "Server error" });
+    console.log("LOGIN ERROR:", e?.message, e);
+    return res.status(500).json({ error: e?.message || "Server error" });
   }
 });
 
@@ -318,14 +343,29 @@ app.get("/api/auth/me", authRequired, async (req, res) => {
     if (!user) return res.status(404).json({ error: "Not found" });
     return res.json({ ok: true, user });
   } catch (e) {
-    console.log("ME ERROR:", e);
-    return res.status(500).json({ error: "Server error" });
+    console.log("ME ERROR:", e?.message, e);
+    return res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+// ===============================
+// DEBUG: quick email test (usuń po testach)
+// GET /api/_debug/send-test?to=mail@...
+// ===============================
+app.get("/api/_debug/send-test", async (req, res) => {
+  try {
+    const to = String(req.query.to || "").trim();
+    if (!to || !to.includes("@")) return res.status(400).json({ error: "Missing or invalid ?to=" });
+    await sendVerifyCodeEmail({ to, code: "1234", fullName: "Test" });
+    res.json({ ok: true, from: MAIL_FROM, to });
+  } catch (e) {
+    console.log("TEST MAIL ERROR:", e?.message, e);
+    res.status(500).json({ error: e?.message || "fail", from: MAIL_FROM });
   }
 });
 
 // =======================================================
-// FILE STORAGE (orders + staff)  [na VPS działa od razu]
-// Jeśli hostujesz na platformie bez trwałego dysku -> DB.
+// FILE STORAGE (orders + staff)
 // =======================================================
 const DATA_DIR = path.join(__dirname, "data");
 const ORDERS_FILE = path.join(DATA_DIR, "orders.json");
@@ -404,10 +444,7 @@ function removeStaff(id) {
 function signToken(payload) {
   const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const sig = crypto
-    .createHmac("sha256", ADMIN_TOKEN_SECRET)
-    .update(`${header}.${body}`)
-    .digest("base64url");
+  const sig = crypto.createHmac("sha256", ADMIN_TOKEN_SECRET).update(`${header}.${body}`).digest("base64url");
   return `${header}.${body}.${sig}`;
 }
 function verifyToken(token) {
@@ -440,7 +477,6 @@ function requireAdminOnly(req, res, next) {
   req.admin = data;
   next();
 }
-// SSE: EventSource nie ma headerów, więc bierzemy token z query
 function requireStaffForStream(req, res, next) {
   const token = String(req.query.token || "");
   const data = verifyToken(token);
@@ -461,9 +497,7 @@ function sseBroadcast(event, data) {
 }
 
 // ====== PRICE LIST (server-side truth) ======
-// Ceny w GROSZACH
 const PRICE_LIST = {
-  // Boxy śniadaniowe
   "bs-small-1": 3800,
   "bs-small-2": 4000,
   "bs-small-3": 4200,
@@ -476,33 +510,23 @@ const PRICE_LIST = {
   "bs-big-2": 8200,
   "bs-big-3": 8400,
   "bs-big-vege": 8000,
-
-  // Lunche
   "lunch-week": 4900,
   "lunch-month": 5900,
   "lunch-vege": 4900,
-
-  // Kanapki
   "k-jajecznica-bekon": 1700,
   "k-club-kurczak": 1700,
   "k-club-vege": 1700,
   "k-jajecznica-avo": 1700,
   "k-buritto-chorizo": 1900,
   "k-rostbef": 2100,
-
-  // Zdrowe
   "z-granola": 1900,
   "z-cezar": 1900,
   "z-koreanska": 1900,
   "z-burak": 1900,
-
-  // Słodkie
   "s-smoothie": 1900,
   "s-tost-fr": 1900,
   "s-pancakes": 1900,
   "s-deser-czeko": 1900,
-
-  // Napoje
   "n-lemoniada": 1200,
   "n-sok-pom": 1200,
   "n-kawa-filt-cz": 1000,
@@ -514,8 +538,6 @@ const PRICE_LIST = {
   "n-matcha": 1800,
   "n-herbata-cz": 900,
   "n-zimowa": 1500,
-
-  // Extras
   "extra-granola": 1900,
   "extra-lemoniada": 1200,
   "extra-deser": 1900
@@ -600,7 +622,7 @@ async function getPayuToken() {
     throw new Error("PayU OAuth: missing access_token");
   }
 
-  return data; // { access_token, ... }
+  return data;
 }
 
 function safeCustomer(customer) {
@@ -718,11 +740,7 @@ app.post("/api/payu/order", async (req, res) => {
     }
 
     if ((r.status === 301 || r.status === 302 || r.status === 303) && location) {
-      return res.json({
-        redirectUri: location,
-        orderId: data?.orderId || null,
-        extOrderId
-      });
+      return res.json({ redirectUri: location, orderId: data?.orderId || null, extOrderId });
     }
 
     if (r.ok && data?.redirectUri) {
@@ -738,8 +756,8 @@ app.post("/api/payu/order", async (req, res) => {
       details: data
     });
   } catch (e) {
-    console.log("PAYU ORDER ERROR:", e);
-    return res.status(500).json({ error: e.message || "Server error" });
+    console.log("PAYU ORDER ERROR:", e?.message, e);
+    return res.status(500).json({ error: e?.message || "Server error" });
   }
 });
 
@@ -777,7 +795,7 @@ app.post("/api/payu/notify", (req, res) => {
 
     res.sendStatus(200);
   } catch (e) {
-    console.log("PAYU NOTIFY ERROR:", e);
+    console.log("PAYU NOTIFY ERROR:", e?.message, e);
     res.sendStatus(200);
   }
 });
@@ -796,13 +814,11 @@ app.post("/api/admin/login", (req, res) => {
 
     if (!ADMIN_PIN) return res.status(500).json({ error: "ADMIN_PIN not set" });
 
-    // admin
     if (pin === String(ADMIN_PIN)) {
       const token = signToken({ role: "admin", name: "Administrator", iat: Date.now() });
       return res.json({ token });
     }
 
-    // staff
     const list = readStaff();
     const h = hashPin(pin);
     const found = list.find((x) => x.pinHash === h);
@@ -811,12 +827,11 @@ app.post("/api/admin/login", (req, res) => {
     const token = signToken({ role: "staff", name: found.name || "Pracownik", staffId: found.id, iat: Date.now() });
     return res.json({ token });
   } catch (e) {
-    console.log("ADMIN LOGIN ERROR:", e);
-    return res.status(500).json({ error: "Server error" });
+    console.log("ADMIN LOGIN ERROR:", e?.message, e);
+    return res.status(500).json({ error: e?.message || "Server error" });
   }
 });
 
-// SSE stream
 app.get("/api/admin/stream", requireStaffForStream, (req, res) => {
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -831,12 +846,10 @@ app.get("/api/admin/stream", requireStaffForStream, (req, res) => {
   });
 });
 
-// Stats
 app.get("/api/admin/stats", requireStaff, (req, res) => {
   const orders = readOrders();
   const ordersTotal = orders.length;
 
-  // today (local server day)
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
   const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
@@ -853,7 +866,6 @@ app.get("/api/admin/stats", requireStaff, (req, res) => {
   res.json({ ordersTotal, ordersToday, revenueTotal });
 });
 
-// Orders list
 app.get("/api/admin/orders", requireStaff, (req, res) => {
   const q = String(req.query.query || "").trim().toLowerCase();
   let orders = readOrders();
@@ -865,7 +877,6 @@ app.get("/api/admin/orders", requireStaff, (req, res) => {
   res.json({ orders });
 });
 
-// Push (placeholder)
 app.post("/api/admin/push", requireStaff, (req, res) => {
   const title = String(req.body?.title || "").trim();
   const body = String(req.body?.body || "").trim();
@@ -875,7 +886,6 @@ app.post("/api/admin/push", requireStaff, (req, res) => {
   res.json({ ok: true });
 });
 
-// Staff CRUD (tylko ADMIN)
 app.get("/api/admin/staff", requireAdminOnly, (req, res) => {
   const list = readStaff().map((x) => ({ id: x.id, name: x.name, role: x.role, createdAt: x.createdAt }));
   res.json({ staff: list });
@@ -889,7 +899,6 @@ app.post("/api/admin/staff", requireAdminOnly, (req, res) => {
   if (!/^\d{4}$/.test(pin)) return res.status(400).json({ error: "PIN must be 4 digits" });
   if (pin === String(ADMIN_PIN)) return res.status(400).json({ error: "This PIN is reserved" });
 
-  // nie pozwalaj na duplikaty PIN
   const list = readStaff();
   const h = hashPin(pin);
   if (list.some((x) => x.pinHash === h)) return res.status(409).json({ error: "PIN already in use" });
