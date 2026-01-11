@@ -118,6 +118,20 @@
       border: 1px solid rgba(255,193,7,.35);
       color: #111827;
     }
+
+    /* =======================
+       NEW: Left slide-in account nudge
+    ======================= */
+    @keyframes nudgeIn {
+      from { transform: translateX(-110%); opacity: 0; }
+      to   { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes nudgeOut {
+      from { transform: translateX(0); opacity: 1; }
+      to   { transform: translateX(-110%); opacity: 0; }
+    }
+    .nudge-in { animation: nudgeIn .38s cubic-bezier(.2,.9,.2,1) both; }
+    .nudge-out { animation: nudgeOut .26s ease-in both; }
   </style>
 
   <!-- React 18 + ReactDOM 18 -->
@@ -313,6 +327,18 @@
     }
 
     /* =======================
+       NEW: Account nudge state (localStorage)
+    ======================= */
+    const ACCOUNT_NUDGE_KEY = "eatmi-account-nudge"; // "1" => don't show again
+
+    const hasClosedAccountNudge = () => {
+      try { return localStorage.getItem(ACCOUNT_NUDGE_KEY) === "1"; } catch { return false; }
+    };
+    const setClosedAccountNudge = () => {
+      try { localStorage.setItem(ACCOUNT_NUDGE_KEY, "1"); } catch {}
+    };
+
+    /* =======================
        TOAST
     ======================= */
 
@@ -494,6 +520,7 @@
       return (
         <CartContext.Provider value={{cart, add, remove, setQty, incQty, decQty, clear, lineTotal, total, count}}>
           {children}
+          {/* Lucide refresh done elsewhere */}
         </CartContext.Provider>
       );
     };
@@ -1235,9 +1262,11 @@
        AUTH MODAL (REAL FLOW)
        - register -> verify code -> logged in
        - login -> token -> me
+
+       NEW: supports initialStep="register" | "login" | "verify" | "account"
     ======================= */
 
-    const AuthModal = ({ open, onClose }) => {
+    const AuthModal = ({ open, onClose, initialStep }) => {
       const { user, loading, login, register, verify, resend, logout } = useAuth();
       const toast = useToast();
       const showToast = toast?.show;
@@ -1258,13 +1287,22 @@
         setError("");
         setBusy(false);
 
-        if (user) setStep("account");
-        else setStep("login");
+        // If user logged in, always account.
+        if (user) {
+          setStep("account");
+        } else {
+          // Allow forcing register from the nudge
+          if (initialStep && ["login","register","verify","account"].includes(initialStep)) {
+            setStep(initialStep === "account" ? "login" : initialStep);
+          } else {
+            setStep("login");
+          }
+        }
 
-        // prefill from previous
+        // prefill verify email from previous forms
         setVerifyForm((s) => ({ ...s, email: s.email || regForm.email || loginForm.email || "" }));
         // eslint-disable-next-line
-      }, [open]);
+      }, [open, initialStep, user]);
 
       useEffect(() => {
         if (cooldown <= 0) return;
@@ -1854,6 +1892,92 @@
     };
 
     /* =======================
+       NEW: LEFT SLIDE-IN NUDGE
+       - shows only when user NOT logged in
+       - once dismissed or clicked -> stored in localStorage -> never shows again
+    ======================= */
+
+    const AccountNudge = ({ open, onClose, onGoRegister }) => {
+      const [leaving, setLeaving] = useState(false);
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [open, leaving]);
+
+      useEffect(() => {
+        if (!open) { setLeaving(false); return; }
+        // no-op
+      }, [open]);
+
+      if (!open) return null;
+
+      const close = () => {
+        setLeaving(true);
+        setTimeout(() => {
+          onClose?.();
+          setLeaving(false);
+        }, 260);
+      };
+
+      const go = () => {
+        // Mark as done forever BEFORE opening modal (so reload doesn't re-show)
+        onGoRegister?.();
+      };
+
+      return (
+        <div
+          className={`fixed z-[85] left-3 md:left-6 top-[calc(50%+10px)] -translate-y-1/2 ${leaving ? "nudge-out" : "nudge-in"}`}
+          style={{ maxWidth: "min(360px, calc(100vw - 24px))" }}
+        >
+          <div className="relative bg-white/95 backdrop-blur border border-gray-200 shadow-glass rounded-3xl overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 opacity-90"></div>
+
+            <button
+              type="button"
+              onClick={close}
+              className="absolute top-3 right-3 w-9 h-9 rounded-2xl border border-gray-200 bg-white shadow-soft grid place-items-center hover:ring-2 hover:ring-brand-yellow/40"
+              aria-label="Zamknij powiadomienie"
+              title="Zamknij"
+            >
+              <i data-lucide="x" className="w-4 h-4"></i>
+            </button>
+
+            <button
+              type="button"
+              onClick={go}
+              className="w-full text-left p-5 pr-14 hover:bg-gray-50/70 transition"
+              aria-label="Nie masz jeszcze konta? Załóż je teraz"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 ring-1 ring-brand-yellow/30 grid place-items-center shrink-0">
+                  <i data-lucide="sparkles" className="w-5 h-5 text-gray-900"></i>
+                </div>
+
+                <div className="min-w-0">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-gray-500 font-semibold">
+                    Szybsze zamawianie
+                  </div>
+                  <div className="mt-1 text-base font-extrabold text-gray-900 leading-snug">
+                    Nie masz jeszcze konta?
+                  </div>
+                  <div className="mt-1 text-sm text-gray-700">
+                    Załóż je teraz, aby składać zamówienia szybciej i mieć zapisane dane.
+                  </div>
+
+                  <div className="mt-3 inline-flex items-center gap-2 text-sm font-extrabold text-gray-900">
+                    Przejdź do rejestracji <i data-lucide="arrow-right" className="w-4 h-4"></i>
+                  </div>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <div className="mt-2 text-[11px] text-gray-500 pl-2">
+            Kliknięcie lub zamknięcie ukryje powiadomienie na stałe na tym urządzeniu.
+          </div>
+        </div>
+      );
+    };
+
+    /* =======================
        ROUTER  ✅ FIXED (query in hash)
     ======================= */
 
@@ -1907,6 +2031,7 @@
 
     const App = () => {
       const [authOpen, setAuthOpen] = useState(false);
+      const [authInitialStep, setAuthInitialStep] = useState("login"); // NEW
       const [orderOpen, setOrderOpen] = useState(false);
 
       const [route, setRoute] = useState(window.location.hash || "#/");
@@ -1930,11 +2055,50 @@
         route !== "#/koszyk" &&
         !route.startsWith("#/zamowienie");
 
+      // NEW: show nudge if not logged, not loading, and not previously dismissed/clicked
+      const [nudgeOpen, setNudgeOpen] = useState(false);
+
+      useEffect(() => {
+        if (loading) return;
+
+        // If user logged in, never show.
+        if (user) { setNudgeOpen(false); return; }
+
+        // If already dismissed/clicked, never show.
+        if (hasClosedAccountNudge()) { setNudgeOpen(false); return; }
+
+        // Avoid showing while modal open
+        if (authOpen) { setNudgeOpen(false); return; }
+
+        // Show with a small delay to feel "natural"
+        const t = setTimeout(() => setNudgeOpen(true), 900);
+        return () => clearTimeout(t);
+      }, [loading, user, authOpen]);
+
+      const closeNudgeForever = () => {
+        setClosedAccountNudge();
+        setNudgeOpen(false);
+      };
+
+      const openRegisterFromNudge = () => {
+        setClosedAccountNudge();     // remember click
+        setNudgeOpen(false);
+        setAuthInitialStep("register");
+        setAuthOpen(true);
+      };
+
       return (
         <div className="min-h-screen no-overscroll">
           <TopInfoBar />
 
-          <Header onOpenAuth={() => setAuthOpen(true)} />
+          <Header onOpenAuth={() => { setAuthInitialStep("login"); setAuthOpen(true); }} />
+
+          {/* NEW: Left slide-in account nudge */}
+          <AccountNudge
+            open={nudgeOpen}
+            onClose={closeNudgeForever}
+            onGoRegister={openRegisterFromNudge}
+          />
 
           <main className={`app-content-pad ${showCTA ? "has-cta" : ""}`}>
             <Router />
@@ -1989,7 +2153,12 @@
             </footer>
           </main>
 
-          <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+          {/* NEW: pass initialStep to open directly on register when coming from nudge */}
+          <AuthModal
+            open={authOpen}
+            onClose={() => setAuthOpen(false)}
+            initialStep={authInitialStep}
+          />
 
           <CategorySheet open={orderOpen} onClose={() => setOrderOpen(false)} />
 
@@ -1998,7 +2167,7 @@
           <BottomTabBar
             route={route}
             onOpenOrder={() => setOrderOpen(true)}
-            onOpenAuth={() => setAuthOpen(true)}
+            onOpenAuth={() => { setAuthInitialStep("login"); setAuthOpen(true); }}
           />
         </div>
       );
