@@ -1,7 +1,6 @@
 // server.js (ESM)
 import express from "express";
 import path from "path";
-import fs from "fs";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 
@@ -61,7 +60,7 @@ function requireEnv(name, value) {
 }
 
 // ===============================
-// MONGO CONNECT + USER MODEL
+// MONGO CONNECT + MODELS
 // ===============================
 requireEnv("MONGO_URL (or MONGO_URI)", MONGO_URI_EFFECTIVE);
 requireEnv("JWT_SECRET", JWT_SECRET);
@@ -70,7 +69,9 @@ mongoose.set("strictQuery", true);
 await mongoose.connect(MONGO_URI_EFFECTIVE);
 console.log("Mongo connected");
 
-// Minimal schema
+// -------------------------------
+// USERS (kolekcja: users)
+// -------------------------------
 const UserSchema = new mongoose.Schema(
   {
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
@@ -84,12 +85,53 @@ const UserSchema = new mongoose.Schema(
     verifyAttempts: { type: Number, default: 0 },
     verifyLastSentAt: { type: Date, default: null }
   },
-  { timestamps: true }
+  { timestamps: true, collection: "users" }
 );
 
 UserSchema.index({ email: 1 }, { unique: true });
 
 const User = mongoose.models.User || mongoose.model("User", UserSchema);
+
+// -------------------------------
+// STAFF (kolekcja: staff)
+// -------------------------------
+const StaffSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    pinHash: { type: String, required: true },
+    role: { type: String, enum: ["staff"], default: "staff" }
+  },
+  { timestamps: true, collection: "staff" }
+);
+
+// unikalność pinHash (żeby nie było duplikatów PIN-ów)
+StaffSchema.index({ pinHash: 1 }, { unique: true });
+
+const Staff = mongoose.models.Staff || mongoose.model("Staff", StaffSchema);
+
+// -------------------------------
+// ORDERS (kolekcja: orders)
+// -------------------------------
+const OrderSchema = new mongoose.Schema(
+  {
+    extOrderId: { type: String, required: true, unique: true, index: true },
+    payuOrderId: { type: String, default: null, index: true },
+    status: { type: String, default: "PENDING", index: true },
+
+    totalAmount: { type: Number, required: true }, // grosze
+    totalPLN: { type: Number, required: true }, // zł (np 49.0)
+
+    customer: { type: Object, default: {} }, // bez narzucania struktury
+    cart: { type: Array, default: [] },
+
+    payuRaw: { type: Object, default: null }
+  },
+  { timestamps: true, collection: "orders" }
+);
+
+OrderSchema.index({ createdAt: -1 });
+
+const Order = mongoose.models.Order || mongoose.model("Order", OrderSchema);
 
 // ===============================
 // RESEND (MAIL)
@@ -115,7 +157,6 @@ async function sendVerifyCodeEmail({ to, code, fullName }) {
     text
   });
 
-  // Resend zwykle zwraca { data, error }
   if (result?.error) {
     console.log("RESEND ERROR:", result.error);
     throw new Error(result.error?.message || "Resend send failed");
@@ -196,13 +237,10 @@ app.post("/api/auth/register", async (req, res) => {
       verifyLastSentAt: new Date()
     });
 
-    // IMPORTANT: jeśli mail się wywali, zwróć błąd i (opcjonalnie) usuń usera,
-    // żeby nie zostawiać "martwych" kont bez maila
     try {
       await sendVerifyCodeEmail({ to: email, code, fullName });
     } catch (mailErr) {
       console.log("REGISTER: MAIL FAILED:", mailErr?.message || mailErr);
-      // sprzątanie (opcjonalnie, ale praktyczne)
       await User.deleteOne({ _id: user._id }).catch(() => {});
       return res.status(502).json({
         error: "Email send failed",
@@ -348,10 +386,7 @@ app.get("/api/auth/me", authRequired, async (req, res) => {
   }
 });
 
-// ===============================
 // DEBUG: quick email test (usuń po testach)
-// GET /api/_debug/send-test?to=mail@...
-// ===============================
 app.get("/api/_debug/send-test", async (req, res) => {
   try {
     const to = String(req.query.to || "").trim();
@@ -364,80 +399,11 @@ app.get("/api/_debug/send-test", async (req, res) => {
   }
 });
 
-// =======================================================
-// FILE STORAGE (orders + staff)
-// =======================================================
-const DATA_DIR = path.join(__dirname, "data");
-const ORDERS_FILE = path.join(DATA_DIR, "orders.json");
-const STAFF_FILE = path.join(DATA_DIR, "staff.json");
-
-function ensureData() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(ORDERS_FILE)) fs.writeFileSync(ORDERS_FILE, "[]", "utf8");
-  if (!fs.existsSync(STAFF_FILE)) fs.writeFileSync(STAFF_FILE, "[]", "utf8");
-}
-
-function readJson(file, fallback) {
-  ensureData();
-  try {
-    const raw = fs.readFileSync(file, "utf8");
-    return JSON.parse(raw) ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeJson(file, data) {
-  ensureData();
-  fs.writeFileSync(file, JSON.stringify(data, null, 2), "utf8");
-}
-
-// ====== Orders store ======
-function readOrders() {
-  return readJson(ORDERS_FILE, []);
-}
-function writeOrders(orders) {
-  writeJson(ORDERS_FILE, orders);
-}
-function upsertOrder(patch) {
-  const orders = readOrders();
-  const idx = orders.findIndex((o) => o.extOrderId === patch.extOrderId);
-  const now = new Date().toISOString();
-
-  if (idx >= 0) {
-    orders[idx] = { ...orders[idx], ...patch, updatedAt: now };
-    writeOrders(orders);
-    return orders[idx];
-  } else {
-    const item = { ...patch, createdAt: now, updatedAt: now };
-    orders.unshift(item);
-    writeOrders(orders);
-    return item;
-  }
-}
-
-// ====== Staff store ======
-function readStaff() {
-  return readJson(STAFF_FILE, []);
-}
-function writeStaff(list) {
-  writeJson(STAFF_FILE, list);
-}
+// ===============================
+// ADMIN HELPERS (STAFF + TOKENS)
+// ===============================
 function hashPin(pin) {
   return crypto.createHash("sha256").update(`${ADMIN_PIN_SALT}:${pin}`).digest("hex");
-}
-function addStaff({ name, pin }) {
-  const list = readStaff();
-  const id = crypto.randomBytes(10).toString("hex");
-  const item = { id, name, pinHash: hashPin(pin), role: "staff", createdAt: new Date().toISOString() };
-  list.unshift(item);
-  writeStaff(list);
-  return item;
-}
-function removeStaff(id) {
-  const list = readStaff();
-  const next = list.filter((x) => String(x.id) !== String(id));
-  writeStaff(next);
 }
 
 // ====== Minimal token (HMAC) ======
@@ -494,6 +460,33 @@ function sseBroadcast(event, data) {
       res.write(payload);
     } catch {}
   }
+}
+
+// ===============================
+// PAYU HELPERS
+// ===============================
+function safeCustomer(customer) {
+  const c = customer || {};
+  return {
+    imieNazwisko: c.imieNazwisko || c.name || "",
+    telefon: c.telefon || c.phone || "",
+    email: c.email || "",
+    miasto: c.miasto || "",
+    kod: c.kod || "",
+    ulica: c.ulica || "",
+    nrBud: c.nrBud || "",
+    pietro: c.pietro || "",
+    lokal: c.lokal || "",
+    uwagi: c.uwagi || "",
+    faktura: !!c.faktura,
+    nip: c.nip || "",
+    firma: c.firma || ""
+  };
+}
+
+function isPaidStatus(status) {
+  const s = String(status || "").toUpperCase();
+  return s === "COMPLETED" || s === "PAID";
 }
 
 // ====== PRICE LIST (server-side truth) ======
@@ -625,28 +618,23 @@ async function getPayuToken() {
   return data;
 }
 
-function safeCustomer(customer) {
-  const c = customer || {};
-  return {
-    imieNazwisko: c.imieNazwisko || c.name || "",
-    telefon: c.telefon || c.phone || "",
-    email: c.email || "",
-    miasto: c.miasto || "",
-    kod: c.kod || "",
-    ulica: c.ulica || "",
-    nrBud: c.nrBud || "",
-    pietro: c.pietro || "",
-    lokal: c.lokal || "",
-    uwagi: c.uwagi || "",
-    faktura: !!c.faktura,
-    nip: c.nip || "",
-    firma: c.firma || ""
-  };
-}
+// ===============================
+// ORDER STORE (Mongo) - UPSERT
+// ===============================
+async function upsertOrderMongo(patch) {
+  if (!patch?.extOrderId) throw new Error("upsertOrderMongo: missing extOrderId");
+  const now = new Date();
 
-function isPaidStatus(status) {
-  const s = String(status || "").toUpperCase();
-  return s === "COMPLETED" || s === "PAID";
+  const updated = await Order.findOneAndUpdate(
+    { extOrderId: patch.extOrderId },
+    {
+      $set: { ...patch, updatedAt: now },
+      $setOnInsert: { createdAt: now }
+    },
+    { upsert: true, new: true }
+  ).lean();
+
+  return updated;
 }
 
 // ===============================
@@ -691,7 +679,8 @@ app.post("/api/payu/order", async (req, res) => {
     const extOrderId = `eatmi-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
     const customer = safeCustomer(req.body?.customer);
-    upsertOrder({
+
+    await upsertOrderMongo({
       extOrderId,
       payuOrderId: null,
       status: "PENDING",
@@ -736,7 +725,7 @@ app.post("/api/payu/order", async (req, res) => {
     }
 
     if (data?.orderId) {
-      upsertOrder({ extOrderId, payuOrderId: data.orderId });
+      await upsertOrderMongo({ extOrderId, payuOrderId: data.orderId });
     }
 
     if ((r.status === 301 || r.status === 302 || r.status === 303) && location) {
@@ -764,7 +753,7 @@ app.post("/api/payu/order", async (req, res) => {
 // ===============================
 // PayU: Webhook notify
 // ===============================
-app.post("/api/payu/notify", (req, res) => {
+app.post("/api/payu/notify", async (req, res) => {
   try {
     const body = req.body || {};
     const order = body.order || {};
@@ -775,7 +764,7 @@ app.post("/api/payu/notify", (req, res) => {
     console.log("PAYU NOTIFY:", JSON.stringify(body));
 
     if (extOrderId) {
-      const updated = upsertOrder({
+      const updated = await upsertOrderMongo({
         extOrderId,
         payuOrderId,
         status: status || "UNKNOWN",
@@ -805,28 +794,35 @@ app.get("/api/payu/notify", (req, res) => {
 });
 
 // ===============================
-// ADMIN API
+// ADMIN API (Mongo)
 // ===============================
-app.post("/api/admin/login", (req, res) => {
+app.post("/api/admin/login", async (req, res) => {
   try {
     const pin = String(req.body?.pin || "").trim();
     if (!/^\d{4}$/.test(pin)) return res.status(400).json({ error: "PIN must be 4 digits" });
 
     if (!ADMIN_PIN) return res.status(500).json({ error: "ADMIN_PIN not set" });
 
+    // admin PIN (env)
     if (pin === String(ADMIN_PIN)) {
       const token = signToken({ role: "admin", name: "Administrator", iat: Date.now() });
       return res.json({ token });
     }
 
-    const list = readStaff();
+    // staff w Mongo
     const h = hashPin(pin);
-    const found = list.find((x) => x.pinHash === h);
+    const found = await Staff.findOne({ pinHash: h }).lean();
     if (!found) return res.status(401).json({ error: "Bad PIN" });
 
-    const token = signToken({ role: "staff", name: found.name || "Pracownik", staffId: found.id, iat: Date.now() });
+    const token = signToken({
+      role: "staff",
+      name: found.name || "Pracownik",
+      staffId: String(found._id),
+      iat: Date.now()
+    });
     return res.json({ token });
   } catch (e) {
+    // jeśli pinHash unique i ktoś próbuje coś dziwnego
     console.log("ADMIN LOGIN ERROR:", e?.message, e);
     return res.status(500).json({ error: e?.message || "Server error" });
   }
@@ -846,35 +842,62 @@ app.get("/api/admin/stream", requireStaffForStream, (req, res) => {
   });
 });
 
-app.get("/api/admin/stats", requireStaff, (req, res) => {
-  const orders = readOrders();
-  const ordersTotal = orders.length;
+app.get("/api/admin/stats", requireStaff, async (req, res) => {
+  try {
+    // total
+    const ordersTotal = await Order.countDocuments({});
 
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+    // today window (local server time)
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-  const ordersToday = orders.filter((o) => {
-    const t = new Date(o.createdAt || 0).getTime();
-    return t >= start && t <= end;
-  }).length;
+    const ordersToday = await Order.countDocuments({ createdAt: { $gte: start, $lte: end } });
 
-  const revenueTotal = orders
-    .filter((o) => isPaidStatus(o.status))
-    .reduce((sum, o) => sum + Number(o.totalPLN || 0), 0);
+    // revenue total paid
+    const revenueAgg = await Order.aggregate([
+      { $match: { status: { $in: ["PAID", "COMPLETED"] } } },
+      { $group: { _id: null, sum: { $sum: "$totalPLN" } } }
+    ]);
 
-  res.json({ ordersTotal, ordersToday, revenueTotal });
+    const revenueTotal = Number(revenueAgg?.[0]?.sum || 0);
+
+    res.json({ ordersTotal, ordersToday, revenueTotal });
+  } catch (e) {
+    console.log("ADMIN STATS ERROR:", e?.message, e);
+    res.status(500).json({ error: e?.message || "Server error" });
+  }
 });
 
-app.get("/api/admin/orders", requireStaff, (req, res) => {
-  const q = String(req.query.query || "").trim().toLowerCase();
-  let orders = readOrders();
+app.get("/api/admin/orders", requireStaff, async (req, res) => {
+  try {
+    const q = String(req.query.query || "").trim().toLowerCase();
 
-  if (q) {
-    orders = orders.filter((o) => JSON.stringify(o || {}).toLowerCase().includes(q));
+    // szybkie filtrowanie:
+    // - jeśli q pasuje do extOrderId/payuOrderId -> szukamy po tych polach
+    // - w innym wypadku robimy fallback na "tekstowe" szukanie w customer (częściowo)
+    const or = [];
+
+    if (q) {
+      // proste dopasowania
+      or.push({ extOrderId: { $regex: escapeRegex(q), $options: "i" } });
+      or.push({ payuOrderId: { $regex: escapeRegex(q), $options: "i" } });
+
+      // customer imię/mail/telefon (Twoja safeCustomer używa imieNazwisko/telefon/email)
+      or.push({ "customer.imieNazwisko": { $regex: escapeRegex(q), $options: "i" } });
+      or.push({ "customer.email": { $regex: escapeRegex(q), $options: "i" } });
+      or.push({ "customer.telefon": { $regex: escapeRegex(q), $options: "i" } });
+    }
+
+    const filter = q ? { $or: or } : {};
+
+    const orders = await Order.find(filter).sort({ createdAt: -1 }).limit(500).lean();
+
+    res.json({ orders });
+  } catch (e) {
+    console.log("ADMIN ORDERS ERROR:", e?.message, e);
+    res.status(500).json({ error: e?.message || "Server error" });
   }
-
-  res.json({ orders });
 });
 
 app.post("/api/admin/push", requireStaff, (req, res) => {
@@ -886,34 +909,71 @@ app.post("/api/admin/push", requireStaff, (req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/api/admin/staff", requireAdminOnly, (req, res) => {
-  const list = readStaff().map((x) => ({ id: x.id, name: x.name, role: x.role, createdAt: x.createdAt }));
-  res.json({ staff: list });
+app.get("/api/admin/staff", requireAdminOnly, async (req, res) => {
+  try {
+    const list = await Staff.find({}).sort({ createdAt: -1 }).lean();
+    // zwracamy w formacie jak wcześniej
+    const staff = list.map((x) => ({
+      id: String(x._id),
+      name: x.name,
+      role: x.role,
+      createdAt: x.createdAt
+    }));
+    res.json({ staff });
+  } catch (e) {
+    console.log("ADMIN STAFF GET ERROR:", e?.message, e);
+    res.status(500).json({ error: e?.message || "Server error" });
+  }
 });
 
-app.post("/api/admin/staff", requireAdminOnly, (req, res) => {
-  const name = String(req.body?.name || "").trim();
-  const pin = String(req.body?.pin || "").trim();
+app.post("/api/admin/staff", requireAdminOnly, async (req, res) => {
+  try {
+    const name = String(req.body?.name || "").trim();
+    const pin = String(req.body?.pin || "").trim();
 
-  if (!name) return res.status(400).json({ error: "Missing name" });
-  if (!/^\d{4}$/.test(pin)) return res.status(400).json({ error: "PIN must be 4 digits" });
-  if (pin === String(ADMIN_PIN)) return res.status(400).json({ error: "This PIN is reserved" });
+    if (!name) return res.status(400).json({ error: "Missing name" });
+    if (!/^\d{4}$/.test(pin)) return res.status(400).json({ error: "PIN must be 4 digits" });
+    if (pin === String(ADMIN_PIN)) return res.status(400).json({ error: "This PIN is reserved" });
 
-  const list = readStaff();
-  const h = hashPin(pin);
-  if (list.some((x) => x.pinHash === h)) return res.status(409).json({ error: "PIN already in use" });
+    const pinHash = hashPin(pin);
 
-  const item = addStaff({ name, pin });
-  res.json({ ok: true, staff: { id: item.id, name: item.name, role: item.role, createdAt: item.createdAt } });
+    // pinHash unique -> złapie duplicate
+    const item = await Staff.create({ name, pinHash, role: "staff" });
+
+    res.json({
+      ok: true,
+      staff: { id: String(item._id), name: item.name, role: item.role, createdAt: item.createdAt }
+    });
+  } catch (e) {
+    const msg = String(e?.message || "");
+    // duplicate key (pinHash)
+    if (msg.includes("E11000") || msg.toLowerCase().includes("duplicate")) {
+      return res.status(409).json({ error: "PIN already in use" });
+    }
+    console.log("ADMIN STAFF POST ERROR:", e?.message, e);
+    res.status(500).json({ error: e?.message || "Server error" });
+  }
 });
 
-app.delete("/api/admin/staff/:id", requireAdminOnly, (req, res) => {
-  const id = String(req.params.id || "");
-  if (!id) return res.status(400).json({ error: "Missing id" });
+app.delete("/api/admin/staff/:id", requireAdminOnly, async (req, res) => {
+  try {
+    const id = String(req.params.id || "");
+    if (!id) return res.status(400).json({ error: "Missing id" });
 
-  removeStaff(id);
-  res.json({ ok: true });
+    await Staff.deleteOne({ _id: id });
+    res.json({ ok: true });
+  } catch (e) {
+    console.log("ADMIN STAFF DELETE ERROR:", e?.message, e);
+    res.status(500).json({ error: e?.message || "Server error" });
+  }
 });
+
+// ===============================
+// helpers
+// ===============================
+function escapeRegex(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 // ===============================
 // SPA fallback (hash-router)
