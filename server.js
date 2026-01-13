@@ -1,4 +1,4 @@
-// server.js (ESM)
+// server.js (ESM) — bez weryfikacji mailowej (bez Resend)
 import express from "express";
 import path from "path";
 import crypto from "crypto";
@@ -7,7 +7,6 @@ import { fileURLToPath } from "url";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { Resend } from "resend";
 
 console.log("NODE VERSION:", process.version);
 
@@ -36,17 +35,7 @@ const {
   ADMIN_PIN_SALT = "CHANGE_ME_SALT",
 
   // ====== AUTH ======
-  JWT_SECRET,
-
-  // ====== RESEND ======
-  RESEND_API_KEY,
-  MAIL_FROM,
-
-  // ====== VERIFY ======
-  VERIFY_CODE_TTL_MIN = "15",
-
-  // ====== OPTIONAL DEBUG ======
-  DEBUG_EMAIL = "0"
+  JWT_SECRET
 } = process.env;
 
 // Railway daje MONGO_URL (czasem ludzie mają MONGO_URI) — wspieramy oba
@@ -76,14 +65,7 @@ const UserSchema = new mongoose.Schema(
   {
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     fullName: { type: String, required: true, trim: true },
-    passwordHash: { type: String, required: true },
-
-    isVerified: { type: Boolean, default: false },
-
-    verifyCodeHash: { type: String, default: null },
-    verifyCodeExpiresAt: { type: Date, default: null },
-    verifyAttempts: { type: Number, default: 0 },
-    verifyLastSentAt: { type: Date, default: null }
+    passwordHash: { type: String, required: true }
   },
   { timestamps: true, collection: "users" }
 );
@@ -134,56 +116,14 @@ OrderSchema.index({ createdAt: -1 });
 const Order = mongoose.models.Order || mongoose.model("Order", OrderSchema);
 
 // ===============================
-// RESEND (MAIL)
-// ===============================
-requireEnv("RESEND_API_KEY", RESEND_API_KEY);
-requireEnv("MAIL_FROM", MAIL_FROM);
-
-const resend = new Resend(RESEND_API_KEY);
-
-async function sendVerifyCodeEmail({ to, code, fullName }) {
-  const subject = "Kod weryfikacyjny eatmi (4 cyfry)";
-  const text =
-    `Cześć ${fullName || ""}\n\n` +
-    `Twój kod weryfikacyjny do eatmi.pl:\n\n` +
-    `👉 ${code}\n\n` +
-    `Kod jest ważny przez ${VERIFY_CODE_TTL_MIN} minut.\n\n` +
-    `Jeśli to nie Ty – zignoruj tę wiadomość.`;
-
-  const result = await resend.emails.send({
-    from: MAIL_FROM,
-    to,
-    subject,
-    text
-  });
-
-  if (result?.error) {
-    console.log("RESEND ERROR:", result.error);
-    throw new Error(result.error?.message || "Resend send failed");
-  }
-
-  if (DEBUG_EMAIL === "1") {
-    console.log("RESEND SENT:", result?.data || result);
-  }
-}
-
-// ===============================
 // AUTH HELPERS
 // ===============================
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
 
-function generate4DigitCode() {
-  return String(Math.floor(1000 + Math.random() * 9000));
-}
-
 function signAuthToken(user) {
-  return jwt.sign(
-    { uid: String(user._id), email: user.email, verified: !!user.isVerified },
-    JWT_SECRET,
-    { expiresIn: "14d" }
-  );
+  return jwt.sign({ uid: String(user._id), email: user.email }, JWT_SECRET, { expiresIn: "14d" });
 }
 
 function authRequired(req, res, next) {
@@ -200,10 +140,10 @@ function authRequired(req, res, next) {
 }
 
 // ===============================
-// AUTH API
+// AUTH API (bez kodu mailowego)
 // ===============================
 
-// Register -> zapis usera + wysyłka kodu
+// Register -> zapis usera + token (od razu aktywne konto)
 app.post("/api/auth/register", async (req, res) => {
   try {
     const email = normalizeEmail(req.body?.email);
@@ -221,38 +161,18 @@ app.post("/api/auth/register", async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const code = generate4DigitCode();
-    const verifyCodeHash = await bcrypt.hash(code, 10);
-    const ttlMin = Number(VERIFY_CODE_TTL_MIN) || 15;
-    const verifyCodeExpiresAt = new Date(Date.now() + ttlMin * 60 * 1000);
-
     const user = await User.create({
       email,
       fullName,
-      passwordHash,
-      isVerified: false,
-      verifyCodeHash,
-      verifyCodeExpiresAt,
-      verifyAttempts: 0,
-      verifyLastSentAt: new Date()
+      passwordHash
     });
 
-    try {
-      await sendVerifyCodeEmail({ to: email, code, fullName });
-    } catch (mailErr) {
-      console.log("REGISTER: MAIL FAILED:", mailErr?.message || mailErr);
-      await User.deleteOne({ _id: user._id }).catch(() => {});
-      return res.status(502).json({
-        error: "Email send failed",
-        details: String(mailErr?.message || mailErr)
-      });
-    }
+    const token = signAuthToken(user);
 
     return res.json({
       ok: true,
-      message: "Verification code sent",
-      userId: String(user._id),
-      ttlMin
+      token,
+      user: { email: user.email, fullName: user.fullName }
     });
   } catch (e) {
     const msg = String(e?.message || "");
@@ -264,88 +184,7 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-// Resend code (limit 60s)
-app.post("/api/auth/resend", async (req, res) => {
-  try {
-    const email = normalizeEmail(req.body?.email);
-    if (!email) return res.status(400).json({ error: "Invalid email" });
-
-    const user = await User.findOne({ email });
-    if (!user) return res.status(200).json({ ok: true }); // nie ujawniamy
-
-    if (user.isVerified) return res.json({ ok: true });
-
-    const now = Date.now();
-    const last = user.verifyLastSentAt ? user.verifyLastSentAt.getTime() : 0;
-    if (now - last < 60_000) {
-      return res.status(429).json({ error: "Wait 60 seconds before resending" });
-    }
-
-    const code = generate4DigitCode();
-    user.verifyCodeHash = await bcrypt.hash(code, 10);
-    const ttlMin = Number(VERIFY_CODE_TTL_MIN) || 15;
-    user.verifyCodeExpiresAt = new Date(Date.now() + ttlMin * 60 * 1000);
-    user.verifyAttempts = 0;
-    user.verifyLastSentAt = new Date();
-    await user.save();
-
-    await sendVerifyCodeEmail({ to: user.email, code, fullName: user.fullName });
-
-    return res.json({ ok: true, ttlMin });
-  } catch (e) {
-    console.log("RESEND ERROR:", e?.message, e);
-    return res.status(500).json({ error: e?.message || "Server error" });
-  }
-});
-
-// Verify code -> aktywacja konta + token
-app.post("/api/auth/verify", async (req, res) => {
-  try {
-    const email = normalizeEmail(req.body?.email);
-    const code = String(req.body?.code || "").trim();
-
-    if (!email) return res.status(400).json({ error: "Invalid email" });
-    if (!/^\d{4}$/.test(code)) return res.status(400).json({ error: "Code must be 4 digits" });
-
-    const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ error: "Invalid code" });
-
-    if (user.isVerified) {
-      const token = signAuthToken(user);
-      return res.json({ ok: true, token, verified: true });
-    }
-
-    if (!user.verifyCodeExpiresAt || user.verifyCodeExpiresAt.getTime() < Date.now()) {
-      return res.status(410).json({ error: "Code expired" });
-    }
-
-    if ((user.verifyAttempts || 0) >= 5) {
-      return res.status(429).json({ error: "Too many attempts" });
-    }
-
-    const ok = await bcrypt.compare(code, user.verifyCodeHash || "");
-    user.verifyAttempts = (user.verifyAttempts || 0) + 1;
-
-    if (!ok) {
-      await user.save();
-      return res.status(401).json({ error: "Invalid code" });
-    }
-
-    user.isVerified = true;
-    user.verifyCodeHash = null;
-    user.verifyCodeExpiresAt = null;
-    user.verifyAttempts = 0;
-    await user.save();
-
-    const token = signAuthToken(user);
-    return res.json({ ok: true, token, verified: true });
-  } catch (e) {
-    console.log("VERIFY ERROR:", e?.message, e);
-    return res.status(500).json({ error: e?.message || "Server error" });
-  }
-});
-
-// Login -> token (tylko verified)
+// Login -> token
 app.post("/api/auth/login", async (req, res) => {
   try {
     const email = normalizeEmail(req.body?.email);
@@ -359,13 +198,10 @@ app.post("/api/auth/login", async (req, res) => {
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: "Bad credentials" });
 
-    if (!user.isVerified) return res.status(403).json({ error: "Email not verified" });
-
     const token = signAuthToken(user);
     return res.json({
       ok: true,
       token,
-      verified: true,
       user: { email: user.email, fullName: user.fullName }
     });
   } catch (e) {
@@ -377,25 +213,12 @@ app.post("/api/auth/login", async (req, res) => {
 // Me (po tokenie)
 app.get("/api/auth/me", authRequired, async (req, res) => {
   try {
-    const user = await User.findById(req.user.uid).select("email fullName isVerified createdAt");
+    const user = await User.findById(req.user.uid).select("email fullName createdAt");
     if (!user) return res.status(404).json({ error: "Not found" });
     return res.json({ ok: true, user });
   } catch (e) {
     console.log("ME ERROR:", e?.message, e);
     return res.status(500).json({ error: e?.message || "Server error" });
-  }
-});
-
-// DEBUG: quick email test (usuń po testach)
-app.get("/api/_debug/send-test", async (req, res) => {
-  try {
-    const to = String(req.query.to || "").trim();
-    if (!to || !to.includes("@")) return res.status(400).json({ error: "Missing or invalid ?to=" });
-    await sendVerifyCodeEmail({ to, code: "1234", fullName: "Test" });
-    res.json({ ok: true, from: MAIL_FROM, to });
-  } catch (e) {
-    console.log("TEST MAIL ERROR:", e?.message, e);
-    res.status(500).json({ error: e?.message || "fail", from: MAIL_FROM });
   }
 });
 
@@ -822,7 +645,6 @@ app.post("/api/admin/login", async (req, res) => {
     });
     return res.json({ token });
   } catch (e) {
-    // jeśli pinHash unique i ktoś próbuje coś dziwnego
     console.log("ADMIN LOGIN ERROR:", e?.message, e);
     return res.status(500).json({ error: e?.message || "Server error" });
   }
@@ -873,17 +695,12 @@ app.get("/api/admin/orders", requireStaff, async (req, res) => {
   try {
     const q = String(req.query.query || "").trim().toLowerCase();
 
-    // szybkie filtrowanie:
-    // - jeśli q pasuje do extOrderId/payuOrderId -> szukamy po tych polach
-    // - w innym wypadku robimy fallback na "tekstowe" szukanie w customer (częściowo)
     const or = [];
 
     if (q) {
-      // proste dopasowania
       or.push({ extOrderId: { $regex: escapeRegex(q), $options: "i" } });
       or.push({ payuOrderId: { $regex: escapeRegex(q), $options: "i" } });
 
-      // customer imię/mail/telefon (Twoja safeCustomer używa imieNazwisko/telefon/email)
       or.push({ "customer.imieNazwisko": { $regex: escapeRegex(q), $options: "i" } });
       or.push({ "customer.email": { $regex: escapeRegex(q), $options: "i" } });
       or.push({ "customer.telefon": { $regex: escapeRegex(q), $options: "i" } });
@@ -912,7 +729,6 @@ app.post("/api/admin/push", requireStaff, (req, res) => {
 app.get("/api/admin/staff", requireAdminOnly, async (req, res) => {
   try {
     const list = await Staff.find({}).sort({ createdAt: -1 }).lean();
-    // zwracamy w formacie jak wcześniej
     const staff = list.map((x) => ({
       id: String(x._id),
       name: x.name,
@@ -937,7 +753,6 @@ app.post("/api/admin/staff", requireAdminOnly, async (req, res) => {
 
     const pinHash = hashPin(pin);
 
-    // pinHash unique -> złapie duplicate
     const item = await Staff.create({ name, pinHash, role: "staff" });
 
     res.json({
@@ -946,7 +761,6 @@ app.post("/api/admin/staff", requireAdminOnly, async (req, res) => {
     });
   } catch (e) {
     const msg = String(e?.message || "");
-    // duplicate key (pinHash)
     if (msg.includes("E11000") || msg.toLowerCase().includes("duplicate")) {
       return res.status(409).json({ error: "PIN already in use" });
     }
