@@ -70,12 +70,18 @@ function escapeHtml(str) {
 }
 
 const smtpEnabled = !!(SMTP_HOST && SMTP_USER && SMTP_PASS);
+
 const mailer = smtpEnabled
   ? nodemailer.createTransport({
       host: SMTP_HOST,
       port: Number(SMTP_PORT),
       secure: String(SMTP_SECURE) === "true", // 465 => true
-      auth: { user: SMTP_USER, pass: SMTP_PASS }
+      auth: { user: SMTP_USER, pass: SMTP_PASS },
+
+      // ====== TIMEOUTY (żeby nie wisiało) ======
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 7000
     })
   : null;
 
@@ -91,9 +97,8 @@ if (mailer) {
 async function sendWelcomeEmail({ to, fullName }) {
   if (!mailer) return;
 
-  const name = escapeHtml(fullName || ""); // imię/nazwa użytkownika
+  const name = escapeHtml(fullName || "");
 
-  // ====== TU JEST TREŚĆ WIADOMOŚCI ======
   const html = `
     <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;line-height:1.6;color:#111">
       <h2 style="margin:0 0 12px">Witam ${name}! 👋</h2>
@@ -144,7 +149,7 @@ const UserSchema = new mongoose.Schema(
   { timestamps: true, collection: "users" }
 );
 
-UserSchema.index({ email: 1 }, { unique: true });
+// ✅ USUNIĘTE: UserSchema.index({ email: 1 }, { unique: true });
 
 const User = mongoose.models.User || mongoose.model("User", UserSchema);
 
@@ -241,12 +246,9 @@ app.post("/api/auth/register", async (req, res) => {
       passwordHash
     });
 
-    // ====== MAIL POWITALNY (nie blokuje rejestracji, jeśli SMTP padnie) ======
-    try {
-      await sendWelcomeEmail({ to: user.email, fullName: user.fullName });
-    } catch (e) {
-      console.log("WELCOME EMAIL ERROR:", e?.message || e);
-    }
+    // ✅ MAIL POWITALNY — NIE BLOKUJE REJESTRACJI (bez await)
+    sendWelcomeEmail({ to: user.email, fullName: user.fullName })
+      .catch((e) => console.log("WELCOME EMAIL ERROR:", e?.message || e));
 
     const token = signAuthToken(user);
 
