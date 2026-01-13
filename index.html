@@ -146,94 +146,89 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useMemo, useRef } = React;
+    const { useState, useEffect, useMemo } = React;
 
     /* =======================
        MENU
     ======================= */
 
-    // ✅ Jeden obraz dla każdej kategorii i każdego produktu (Imgur direct)
-    const DEFAULT_IMAGE_URL = "https://i.imgur.com/5Vg6Fk2.png";
-
+    // ✅ każdy wpis ma osobne image: "..."
     const PRODUCT_CATEGORIES = [
-      { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open', description: 'Małe, średnie i duże zestawy. Także VEGE.' },
-      { id: 'lunche', name: 'Lunche', icon: 'utensils-crossed', description: 'Lunch tygodnia, miesiąca i vege (12:00–16:00).' },
-      { id: 'kanapki', name: 'Kanapki', icon: 'sandwich', description: 'Kanapki i buritto na maślanym pieczywie.' },
-      { id: 'zdrowe', name: 'Zdrowe', icon: 'leaf', description: 'Granola i sałatki w wersjach fit.' },
-      { id: 'slodkie', name: 'Słodkie', icon: 'ice-cream', description: 'Desery, pancakes, tost francuski i smoothie.' },
-      { id: 'napoje', name: 'Napoje', icon: 'cup-soda', description: 'Kawy, herbaty, lemoniada i sok.' },
-    ].map(c => ({ ...c, image: DEFAULT_IMAGE_URL }));
+      { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open', description: 'Małe, średnie i duże zestawy. Także VEGE.', image: 'https://imgur.com/5Vg6Fk2' },
+      { id: 'lunche', name: 'Lunche', icon: 'utensils-crossed', description: 'Lunch tygodnia, miesiąca i vege (12:00–16:00).', image: 'https://imgur.com/5Vg6Fk2' },
+      { id: 'kanapki', name: 'Kanapki', icon: 'sandwich', description: 'Kanapki i buritto na maślanym pieczywie.', image: 'https://imgur.com/5Vg6Fk2' },
+      { id: 'zdrowe', name: 'Zdrowe', icon: 'leaf', description: 'Granola i sałatki w wersjach fit.', image: 'https://imgur.com/5Vg6Fk2' },
+      { id: 'slodkie', name: 'Słodkie', icon: 'ice-cream', description: 'Desery, pancakes, tost francuski i smoothie.', image: 'https://imgur.com/5Vg6Fk2' },
+      { id: 'napoje', name: 'Napoje', icon: 'cup-soda', description: 'Kawy, herbaty, lemoniada i sok.', image: 'https://imgur.com/5Vg6Fk2' },
+    ];
 
     const BREAKFAST_BOXES = [
-      { id:'bs-small-1', name:'Box śniadaniowy mały nr 1', price: 38, subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Sok pomarańczowy 250 ml' },
-      { id:'bs-small-2', name:'Box śniadaniowy mały nr 2', price: 40, subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Sok pomarańczowy 250 ml' },
-      { id:'bs-small-3', name:'Box śniadaniowy mały nr 3', price: 42, subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Sok pomarańczowy 250 ml' },
-      { id:'bs-small-vege', name:'Box śniadaniowy mały VEGE', price: 38, subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Sok pomarańczowy 250 ml' },
+      { id:'bs-small-1', name:'Box śniadaniowy mały nr 1', price: 38, image:'https://imgur.com/5Vg6Fk2', subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Sok pomarańczowy 250 ml' },
+      { id:'bs-small-2', name:'Box śniadaniowy mały nr 2', price: 40, image:'https://imgur.com/5Vg6Fk2', subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Sok pomarańczowy 250 ml' },
+      { id:'bs-small-3', name:'Box śniadaniowy mały nr 3', price: 42, image:'https://imgur.com/5Vg6Fk2', subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Sok pomarańczowy 250 ml' },
+      { id:'bs-small-vege', name:'Box śniadaniowy mały VEGE', price: 38, image:'https://imgur.com/5Vg6Fk2', subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Sok pomarańczowy 250 ml' },
 
-      { id:'bs-med-1', name:'Box śniadaniowy średni nr 1', price: 52, subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml' },
-      { id:'bs-med-2', name:'Box śniadaniowy średni nr 2', price: 54, subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml' },
-      { id:'bs-med-3', name:'Box śniadaniowy średni nr 3', price: 56, subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml' },
-      { id:'bs-med-vege', name:'Box śniadaniowy średni VEGE', price: 52, subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
+      { id:'bs-med-1', name:'Box śniadaniowy średni nr 1', price: 52, image:'https://imgur.com/5Vg6Fk2', subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml' },
+      { id:'bs-med-2', name:'Box śniadaniowy średni nr 2', price: 54, image:'https://imgur.com/5Vg6Fk2', subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywa i sezamem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml' },
+      { id:'bs-med-3', name:'Box śniadaniowy średni nr 3', price: 56, image:'https://imgur.com/5Vg6Fk2', subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml' },
+      { id:'bs-med-vege', name:'Box śniadaniowy średni VEGE', price: 52, image:'https://imgur.com/5Vg6Fk2', subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
 
-      { id:'bs-big-1', name:'Box śniadaniowy duży nr 1', price: 80, subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Club sandwich z kurczakiem i bekonem, majonez, sałata, pomidor • Domowa granola z jogurtem greckim, owocami i miodem • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml' },
-      { id:'bs-big-2', name:'Box śniadaniowy duży nr 2', price: 82, subtitle:'Buritto z jajecznicą i chorizo • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka koreańska z kurczakiem w panko, warzywa i sezamem • Domowa granola z jogurtem greckim, owocami i miodem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml' },
-      { id:'bs-big-3', name:'Box śniadaniowy duży nr 3', price: 84, subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Domowa granola z jogurtem greckim, owocami i miodem • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml' },
-      { id:'bs-big-vege', name:'Box śniadaniowy duży VEGE', price: 80, subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Vege club sandwich z camembert i awokado, majonez, sałata, pomidor • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Domowa granola z jogurtem greckim, owocami i miodem • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
+      { id:'bs-big-1', name:'Box śniadaniowy duży nr 1', price: 80, image:'https://imgur.com/5Vg6Fk2', subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Club sandwich z kurczakiem i bekonem, majonez, sałata, pomidor • Domowa granola z jogurtem greckim, owocami i miodem • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml' },
+      { id:'bs-big-2', name:'Box śniadaniowy duży nr 2', price: 82, image:'https://imgur.com/5Vg6Fk2', subtitle:'Buritto z jajecznicą i chorizo • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka koreańska z kurczakiem w panko, warzywa i sezamem • Domowa granola z jogurtem greckim, owocami i miodem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml' },
+      { id:'bs-big-3', name:'Box śniadaniowy duży nr 3', price: 84, image:'https://imgur.com/5Vg6Fk2', subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Domowa granola z jogurtem greckim, owocami i miodem • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml' },
+      { id:'bs-big-vege', name:'Box śniadaniowy duży VEGE', price: 80, image:'https://imgur.com/5Vg6Fk2', subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Vege club sandwich z camembert i awokado, majonez, sałata, pomidor • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Domowa granola z jogurtem greckim, owocami i miodem • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
     ];
 
     const LUNCHES = [
-      { id:'lunch-week', name:'Lunch tygodnia', price: 49, subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Corn Flake Chicken: panierowana w płatkach kukurydzianych pierś z kurczaka z ziemniaczanym puree i coleslawem • Domowa lemoniada 250 ml' },
-      { id:'lunch-month', name:'Lunch miesiąca', price: 59, subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Kurczak Supreme: pieczona pierś z kurczaka z ziemniaczanym puree, warzywami i sosem demi glace • Domowa lemoniada 250 ml' },
-      { id:'lunch-vege', name:'Lunch VEGE', price: 49, subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Tagliatelle z warzywami, oliwą z oliwek i pastą truflową • Domowa lemoniada 250 ml' },
+      { id:'lunch-week', name:'Lunch tygodnia', price: 49, image:'https://imgur.com/5Vg6Fk2', subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Corn Flake Chicken: panierowana w płatkach kukurydzianych pierś z kurczaka z ziemniaczanym puree i coleslawem • Domowa lemoniada 250 ml' },
+      { id:'lunch-month', name:'Lunch miesiąca', price: 59, image:'https://imgur.com/5Vg6Fk2', subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Kurczak Supreme: pieczona pierś z kurczaka z ziemniaczanym puree, warzywami i sosem demi glace • Domowa lemoniada 250 ml' },
+      { id:'lunch-vege', name:'Lunch VEGE', price: 49, image:'https://imgur.com/5Vg6Fk2', subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Tagliatelle z warzywami, oliwą z oliwek i pastą truflową • Domowa lemoniada 250 ml' },
     ];
 
     const SANDWICHES = [
-      { id:'k-jajecznica-bekon', name:'Maślane pieczywo z jajecznicą, bekonem i majonezem sriracha', price: 17 },
-      { id:'k-club-kurczak', name:'Club sandwich z grillowanym kurczakiem, chrupiący bekon, majonez, sałata i pomidor', price: 17 },
-      { id:'k-club-vege', name:'Vege club sandwich z camembert, palonym awokado, majonez, sałata i pomidorem', price: 17 },
-      { id:'k-jajecznica-avo', name:'Maślane pieczywo z jajecznicą, awokado i majonezem sriracha', price: 17 },
-      { id:'k-buritto-chorizo', name:'Buritto z jajecznicą z mozzarellą, chorizo i majonezem sriracha', price: 19 },
-      { id:'k-rostbef', name:'Maślane pieczywo z rostbefem, jajkiem poche, rukolą, sosem musztardowo-chrzanowym i oliwą truflową', price: 21 },
+      { id:'k-jajecznica-bekon', name:'Maślane pieczywo z jajecznicą, bekonem i majonezem sriracha', price: 17, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'k-club-kurczak', name:'Club sandwich z grillowanym kurczakiem, chrupiący bekon, majonez, sałata i pomidor', price: 17, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'k-club-vege', name:'Vege club sandwich z camembert, palonym awokado, majonez, sałata i pomidorem', price: 17, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'k-jajecznica-avo', name:'Maślane pieczywo z jajecznicą, awokado i majonezem sriracha', price: 17, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'k-buritto-chorizo', name:'Buritto z jajecznicą z mozzarellą, chorizo i majonezem sriracha', price: 19, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'k-rostbef', name:'Maślane pieczywo z rostbefem, jajkiem poche, rukolą, sosem musztardowo-chrzanowym i oliwą truflową', price: 21, image:'https://imgur.com/5Vg6Fk2' },
     ];
 
     const HEALTHY = [
-      { id:'z-granola', name:'Domowa granola z jogurtem greckim, owoce i miód', price: 19 },
-      { id:'z-cezar', name:'Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską, parmezanem i grzankami', price: 19 },
-      { id:'z-koreanska', name:'Sałatka koreańska z kurczakiem w panko, warzywa i sezam, słodki sos sojowy', price: 19 },
-      { id:'z-burak', name:'Sałatka z carpaccio z buraka i serem kozim, karmelizowane orzechy pekan, mix sałat i pomarańczowy dressing', price: 19 },
+      { id:'z-granola', name:'Domowa granola z jogurtem greckim, owoce i miód', price: 19, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'z-cezar', name:'Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską, parmezanem i grzankami', price: 19, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'z-koreanska', name:'Sałatka koreańska z kurczakiem w panko, warzywa i sezam, słodki sos sojowy', price: 19, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'z-burak', name:'Sałatka z carpaccio z buraka i serem kozim, karmelizowane orzechy pekan, mix sałat i pomarańczowy dressing', price: 19, image:'https://imgur.com/5Vg6Fk2' },
     ];
 
     const SWEETS = [
-      { id:'s-smoothie', name:'Smoothie Mango Lassi (mango, jogurt grecki, miód)', price: 19 },
-      { id:'s-tost-fr', name:'Tost francuski z owocami i miodem', price: 19 },
-      { id:'s-pancakes', name:'Pancakes (2 szt.) z Nutellą i owocami', price: 19 },
-      { id:'s-deser-czeko', name:'Deser czekoladowy z owocami i kruszonką', price: 19 },
+      { id:'s-smoothie', name:'Smoothie Mango Lassi (mango, jogurt grecki, miód)', price: 19, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'s-tost-fr', name:'Tost francuski z owocami i miodem', price: 19, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'s-pancakes', name:'Pancakes (2 szt.) z Nutellą i owocami', price: 19, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'s-deser-czeko', name:'Deser czekoladowy z owocami i kruszonką', price: 19, image:'https://imgur.com/5Vg6Fk2' },
     ];
 
     const DRINKS = [
-      { id:'n-lemoniada', name:'Domowa lemoniada 250 ml', price: 12 },
-      { id:'n-sok-pom', name:'Sok pomarańczowy 250 ml', price: 12 },
-      { id:'n-kawa-filt-cz', name:'Kawa filtrowana czarna 300 ml', price: 10 },
-      { id:'n-kawa-filt-b', name:'Kawa filtrowana biała 300 ml', price: 10 },
-      { id:'n-espresso-double', name:'Kawa czarna (podwójne espresso) 300 ml', price: 11 },
-      { id:'n-flat-white', name:'Kawa Flat White (podwójne espresso) 300 ml', price: 11 },
-      { id:'n-latte', name:'Latte (podwójne espresso) 300 ml', price: 12 },
-      { id:'n-cappu', name:'Cappuccino (podwójne espresso) 300 ml', price: 11 },
-      { id:'n-matcha', name:'Matcha 300 ml', price: 18 },
-      { id:'n-herbata-cz', name:'Herbata czarna z cytryną 300 ml', price: 9 },
-      { id:'n-zimowa', name:'Zimowa herbata z miodem, cytrusami, goździkami i sokiem malinowym 300 ml', price: 15 },
+      { id:'n-lemoniada', name:'Domowa lemoniada 250 ml', price: 12, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'n-sok-pom', name:'Sok pomarańczowy 250 ml', price: 12, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'n-kawa-filt-cz', name:'Kawa filtrowana czarna 300 ml', price: 10, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'n-kawa-filt-b', name:'Kawa filtrowana biała 300 ml', price: 10, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'n-espresso-double', name:'Kawa czarna (podwójne espresso) 300 ml', price: 11, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'n-flat-white', name:'Kawa Flat White (podwójne espresso) 300 ml', price: 11, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'n-latte', name:'Latte (podwójne espresso) 300 ml', price: 12, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'n-cappu', name:'Cappuccino (podwójne espresso) 300 ml', price: 11, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'n-matcha', name:'Matcha 300 ml', price: 18, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'n-herbata-cz', name:'Herbata czarna z cytryną 300 ml', price: 9, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'n-zimowa', name:'Zimowa herbata z miodem, cytrusami, goździkami i sokiem malinowym 300 ml', price: 15, image:'https://imgur.com/5Vg6Fk2' },
     ];
 
-    // ✅ dodaje image do KAŻDEGO produktu w tablicy
-    const withImage = (arr) => arr.map(p => ({ ...p, image: DEFAULT_IMAGE_URL }));
-
     const PRODUCTS = {
-      'boxy-sniadaniowe': withImage(BREAKFAST_BOXES),
-      'lunche': withImage(LUNCHES),
-      'kanapki': withImage(SANDWICHES),
-      'zdrowe': withImage(HEALTHY),
-      'slodkie': withImage(SWEETS),
-      'napoje': withImage(DRINKS),
+      'boxy-sniadaniowe': BREAKFAST_BOXES,
+      'lunche': LUNCHES,
+      'kanapki': SANDWICHES,
+      'zdrowe': HEALTHY,
+      'slodkie': SWEETS,
+      'napoje': DRINKS,
     };
 
     /* =======================
@@ -396,8 +391,6 @@
 
     /* =======================
        AUTH (CONTEXT)  ✅ BEZ KODÓW WERYFIKACYJNYCH
-       - register -> od razu token
-       - login -> token -> me
     ======================= */
 
     const AuthContext = React.createContext();
@@ -418,7 +411,6 @@
           const data = await apiFetch("/api/auth/me", { token: tk });
           setUser(data?.user || null);
         } catch (e) {
-          // token invalid/expired
           setUser(null);
           setToken("");
           clearAuthToken();
@@ -430,12 +422,10 @@
           try { await refreshMe(token); }
           finally { setLoading(false); }
         })();
-        // eslint-disable-next-line
       }, []);
 
       useEffect(() => {
         if (!loading) refreshMe(token);
-        // eslint-disable-next-line
       }, [token]);
 
       const login = async ({ email, password }) => {
@@ -450,7 +440,6 @@
         return data;
       };
 
-      // ✅ Rejestracja bez kodów: backend powinien zwrócić token+user
       const register = async ({ email, fullName, password, confirm }) => {
         const data = await apiFetch("/api/auth/register", {
           method: "POST",
@@ -759,10 +748,9 @@
         <div className="relative bg-white border border-gray-200 rounded-3xl p-5 md:p-6 shadow-soft hover:shadow-kiosk transition group overflow-hidden hover:ring-2 hover:ring-brand-yellow/40">
           <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 opacity-70"></div>
 
-          {/* ✅ zdjęcie produktu */}
           <div className="relative mt-3 h-36 w-full overflow-hidden rounded-2xl border border-gray-200">
             <img
-              src={item.image || DEFAULT_IMAGE_URL}
+              src={item.image}
               alt={item.name}
               loading="lazy"
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
@@ -850,7 +838,8 @@
         type: 'product',
         productId: item.id,
         name: item.name,
-        price: item.price
+        price: item.price,
+        image: item.image
       });
 
       return (
@@ -886,15 +875,18 @@
     };
 
     /* =======================
-       KOSZYK / CHECKOUT
+       EXTRA ITEMS (też osobno)
     ======================= */
 
-    // ✅ EXTRA też dostają image
     const EXTRA_ITEMS = [
-      { id:'extra-granola', name:'Domowa granola', price: 19, image: DEFAULT_IMAGE_URL },
-      { id:'extra-lemoniada',name:'Domowa lemoniada', price: 12, image: DEFAULT_IMAGE_URL },
-      { id:'extra-deser', name:'Deser czekoladowy', price: 19, image: DEFAULT_IMAGE_URL },
+      { id:'extra-granola', name:'Domowa granola', price: 19, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'extra-lemoniada',name:'Domowa lemoniada', price: 12, image:'https://imgur.com/5Vg6Fk2' },
+      { id:'extra-deser', name:'Deser czekoladowy', price: 19, image:'https://imgur.com/5Vg6Fk2' },
     ];
+
+    /* =======================
+       KOSZYK / CHECKOUT
+    ======================= */
 
     const Koszyk = () => {
       const { cart, remove, clear, total, incQty, decQty, setQty, lineTotal, add } = useCart();
@@ -927,7 +919,7 @@
                         <div className="flex items-start gap-3 min-w-0 flex-1">
                           <div className="w-14 h-14 rounded-2xl overflow-hidden border border-gray-200 shrink-0">
                             <img
-                              src={item.image || DEFAULT_IMAGE_URL}
+                              src={item.image}
                               alt={item.name}
                               loading="lazy"
                               className="w-full h-full object-cover"
@@ -1002,11 +994,11 @@
                           productId: extra.id,
                           name: extra.name,
                           price: extra.price,
-                          image: extra.image || DEFAULT_IMAGE_URL
+                          image: extra.image
                         })}
                         className="flex items-center gap-3 px-4 py-3 rounded-full bg-white border border-gray-200 shadow-soft text-sm hover:shadow-md hover:-translate-y-0.5 transition hover:ring-2 hover:ring-brand-yellow/30 min-h-[44px]">
                         <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-200 shrink-0">
-                          <img src={extra.image || DEFAULT_IMAGE_URL} alt={extra.name} className="w-full h-full object-cover" loading="lazy" />
+                          <img src={extra.image} alt={extra.name} className="w-full h-full object-cover" loading="lazy" />
                         </div>
                         <span className="text-base font-extrabold text-brand-yellow">+</span>
                         <span>{extra.name}</span>
@@ -1022,6 +1014,10 @@
       );
     };
 
+    /* =======================
+       ZAMOWIENIE (bez zmian)
+    ======================= */
+
     const Zamowienie = () => {
       const { cart, total, lineTotal } = useCart();
       const { user } = useAuth();
@@ -1030,7 +1026,6 @@
         imieNazwisko:'', telefon:'', email:'', miasto:'', kod:'', ulica:'', nrBud:'', pietro:'', lokal:'', uwagi:'', faktura:false, nip:'', firma:''
       };
 
-      // ✅ autofill z localStorage + z konta (email + name)
       const [form, setForm] = useState(() => {
         const saved = loadSavedCustomer();
         const base = { ...emptyForm };
@@ -1270,11 +1265,62 @@
                   <span className="font-bold">Do zapłaty</span>
                   <span className="font-extrabold">{currency(total)}</span>
                 </div>
-                <button onClick={submit}
+                <button onClick={async () => {
+                  if(!form.imieNazwisko || !form.telefon || !form.miasto || !form.ulica) {
+                    alert('Uzupełnij wymagane pola');
+                    return;
+                  }
+                  if (!cart.length) {
+                    alert('Koszyk jest pusty.');
+                    return;
+                  }
+                  const missing = cart.find(i => !i.productId);
+                  if (missing) {
+                    alert("W koszyku jest pozycja bez productId. Dodaj produkt ponownie.");
+                    console.log("Missing productId item:", missing);
+                    return;
+                  }
+
+                  if (remember) {
+                    saveCustomer({ ...form });
+                    setHadSaved(true);
+                  }
+
+                  try {
+                    const payload = {
+                      customer: form,
+                      cart: cart.map(i => ({ productId: i.productId, qty: i.qty || 1 }))
+                    };
+
+                    const r = await fetch("/api/payu/order", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(payload),
+                    });
+
+                    const data = await r.json().catch(() => ({}));
+
+                    if (!r.ok) {
+                      alert("Błąd serwera: " + (data.error || r.status));
+                      console.log("PAYU ERROR DETAILS:", data);
+                      return;
+                    }
+
+                    if (!data.redirectUri) {
+                      alert("Brak redirectUri. Zobacz konsolę (PAYU RESPONSE).");
+                      console.log("PAYU RESPONSE:", data);
+                      return;
+                    }
+
+                    window.location.href = data.redirectUri;
+                  } catch (e) {
+                    alert("Błąd połączenia z serwerem.");
+                    console.log(e);
+                  }
+                }}
                   className="w-full mt-4 bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/40 min-h-[44px]">
                   Płatność online (PayU)
                 </button>
-                <div className="text-xs text-gray-500 mt-3"></div>
               </aside>
             </div>
           </div>
@@ -1283,13 +1329,11 @@
     };
 
     /* =======================
-       AUTH MODAL  ✅ BEZ WERYFIKACJI KODEM
-       - steps: login | register | account
-       - register -> od razu loguje (token)
+       AUTH MODAL (bez kodów)
     ======================= */
 
     const AuthModal = ({ open, onClose, initialStep }) => {
-      const { user, loading, login, register, logout } = useAuth();
+      const { user, login, register, logout } = useAuth();
       const toast = useToast();
       const showToast = toast?.show;
 
@@ -1314,10 +1358,9 @@
             setStep("login");
           }
         }
-        // eslint-disable-next-line
       }, [open, initialStep, user]);
 
-      useEffect(() => { window.lucide?.createIcons?.(); }, [open, step, busy, error, user, loading]);
+      useEffect(() => { window.lucide?.createIcons?.(); }, [open, step, busy, error, user]);
 
       useEffect(() => {
         const onKey = (e) => {
@@ -1330,17 +1373,15 @@
 
       if (!open) return null;
 
-      const setErr = (msg) => setError(String(msg || ""));
-
       const submitLogin = async (e) => {
         e.preventDefault();
-        setErr("");
+        setError("");
         setBusy(true);
         try {
           await login({ email: loginForm.email, password: loginForm.password });
           onClose?.();
         } catch (err) {
-          setErr(err?.message || "Błąd logowania");
+          setError(err?.message || "Błąd logowania");
         } finally {
           setBusy(false);
         }
@@ -1348,13 +1389,13 @@
 
       const submitRegister = async (e) => {
         e.preventDefault();
-        setErr("");
+        setError("");
         setBusy(true);
         try {
           await register(regForm);
           onClose?.();
         } catch (err) {
-          setErr(err?.message || "Błąd rejestracji");
+          setError(err?.message || "Błąd rejestracji");
         } finally {
           setBusy(false);
         }
@@ -1465,7 +1506,7 @@
                   Nie masz konta?{" "}
                   <button
                     type="button"
-                    onClick={() => { setStep("register"); setErr(""); }}
+                    onClick={() => { setStep("register"); setError(""); }}
                     className="font-semibold text-gray-900 underline underline-offset-2"
                   >
                     Zarejestruj się
@@ -1523,7 +1564,7 @@
                   Masz konto?{" "}
                   <button
                     type="button"
-                    onClick={() => { setStep("login"); setErr(""); }}
+                    onClick={() => { setStep("login"); setError(""); }}
                     className="font-semibold text-gray-900 underline underline-offset-2"
                   >
                     Zaloguj się
@@ -1572,7 +1613,33 @@
     );
 
     /* =======================
-       APP NAV: TAB BAR + CATEGORY SHEET + FLOATING CTA (MOBILE ONLY)
+       Router (hash) — FIX (route split '?')
+    ======================= */
+
+    const Router = () => {
+      const [route, setRoute] = useState(window.location.hash || '#/');
+
+      useEffect(()=>{
+        const onHash = () => setRoute(window.location.hash || '#/');
+        window.addEventListener('hashchange', onHash);
+        return ()=> window.removeEventListener('hashchange', onHash);
+      },[]);
+
+      useEffect(()=> { window.lucide?.createIcons?.(); }, [route]);
+
+      const pathOnly = (route || '#/').split('?')[0];
+
+      if (pathOnly.startsWith('#/kategoria/')) {
+        const id = pathOnly.split('/')[2];
+        return <CategoryPage categoryId={id} />;
+      }
+      if(pathOnly === '#/koszyk') return <Koszyk />;
+      if(pathOnly === '#/zamowienie') return <Zamowienie />;
+      return <Home />;
+    };
+
+    /* =======================
+       Mobile components (skrócone — bez zmian logiki)
     ======================= */
 
     const lockBodyScroll = (lock) => {
@@ -1783,110 +1850,6 @@
     };
 
     /* =======================
-       LEFT SLIDE-IN NUDGE
-    ======================= */
-
-    const AccountNudge = ({ open, onClose, onGoRegister }) => {
-      const [leaving, setLeaving] = useState(false);
-
-      useEffect(() => { window.lucide?.createIcons?.(); }, [open, leaving]);
-
-      if (!open) return null;
-
-      const close = () => {
-        setLeaving(true);
-        setTimeout(() => {
-          onClose?.();
-          setLeaving(false);
-        }, 260);
-      };
-
-      const go = () => {
-        onGoRegister?.();
-      };
-
-      return (
-        <div
-          className={`fixed z-[85] left-3 md:left-6 top-[calc(50%+10px)] -translate-y-1/2 ${leaving ? "nudge-out" : "nudge-in"}`}
-          style={{ maxWidth: "min(360px, calc(100vw - 24px))" }}
-        >
-          <div className="relative bg-white/95 backdrop-blur border border-gray-200 shadow-glass rounded-3xl overflow-hidden">
-            <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 opacity-90"></div>
-
-            <button
-              type="button"
-              onClick={close}
-              className="absolute top-3 right-3 w-9 h-9 rounded-2xl border border-gray-200 bg-white shadow-soft grid place-items-center hover:ring-2 hover:ring-brand-yellow/40"
-              aria-label="Zamknij powiadomienie"
-              title="Zamknij"
-            >
-              <i data-lucide="x" className="w-4 h-4"></i>
-            </button>
-
-            <button
-              type="button"
-              onClick={go}
-              className="w-full text-left p-5 pr-14 hover:bg-gray-50/70 transition"
-              aria-label="Nie masz jeszcze konta? Załóż je teraz"
-            >
-              <div className="flex items-start gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 ring-1 ring-brand-yellow/30 grid place-items-center shrink-0">
-                  <i data-lucide="sparkles" className="w-5 h-5 text-gray-900"></i>
-                </div>
-
-                <div className="min-w-0">
-                  <div className="text-[11px] uppercase tracking-[0.16em] text-gray-500 font-semibold">
-                    Szybsze zamawianie
-                  </div>
-                  <div className="mt-1 text-base font-extrabold text-gray-900 leading-snug">
-                    Nie masz jeszcze konta?
-                  </div>
-                  <div className="mt-1 text-sm text-gray-700">
-                    Załóż je teraz, aby składać zamówienia szybciej i mieć zapisane dane.
-                  </div>
-
-                  <div className="mt-3 inline-flex items-center gap-2 text-sm font-extrabold text-gray-900">
-                    Przejdź do rejestracji <i data-lucide="arrow-right" className="w-4 h-4"></i>
-                  </div>
-                </div>
-              </div>
-            </button>
-          </div>
-
-          <div className="mt-2 text-[11px] text-gray-500 pl-2">
-            Kliknięcie lub zamknięcie ukryje powiadomienie na stałe na tym urządzeniu.
-          </div>
-        </div>
-      );
-    };
-
-    /* =======================
-       ROUTER  ✅ FIXED (query in hash)
-    ======================= */
-
-    const Router = () => {
-      const [route, setRoute] = useState(window.location.hash || '#/');
-
-      useEffect(()=>{
-        const onHash = () => setRoute(window.location.hash || '#/');
-        window.addEventListener('hashchange', onHash);
-        return ()=> window.removeEventListener('hashchange', onHash);
-      },[]);
-
-      useEffect(()=> { window.lucide?.createIcons?.(); }, [route]);
-
-      const pathOnly = (route || '#/').split('?')[0];
-
-      if (pathOnly.startsWith('#/kategoria/')) {
-        const id = pathOnly.split('/')[2];
-        return <CategoryPage categoryId={id} />;
-      }
-      if(pathOnly === '#/koszyk') return <Koszyk />;
-      if(pathOnly === '#/zamowienie') return <Zamowienie />;
-      return <Home />;
-    };
-
-    /* =======================
        PWA: SERVICE WORKER REGISTER
     ======================= */
 
@@ -1914,7 +1877,7 @@
 
     const App = () => {
       const [authOpen, setAuthOpen] = useState(false);
-      const [authInitialStep, setAuthInitialStep] = useState("login"); // login | register
+      const [authInitialStep, setAuthInitialStep] = useState("login");
       const [orderOpen, setOrderOpen] = useState(false);
 
       const [route, setRoute] = useState(window.location.hash || "#/");
@@ -1938,41 +1901,10 @@
         route !== "#/koszyk" &&
         !route.startsWith("#/zamowienie");
 
-      const [nudgeOpen, setNudgeOpen] = useState(false);
-
-      useEffect(() => {
-        if (loading) return;
-        if (user) { setNudgeOpen(false); return; }
-        if (hasClosedAccountNudge()) { setNudgeOpen(false); return; }
-        if (authOpen) { setNudgeOpen(false); return; }
-
-        const t = setTimeout(() => setNudgeOpen(true), 900);
-        return () => clearTimeout(t);
-      }, [loading, user, authOpen]);
-
-      const closeNudgeForever = () => {
-        setClosedAccountNudge();
-        setNudgeOpen(false);
-      };
-
-      const openRegisterFromNudge = () => {
-        setClosedAccountNudge();
-        setNudgeOpen(false);
-        setAuthInitialStep("register");
-        setAuthOpen(true);
-      };
-
       return (
         <div className="min-h-screen no-overscroll">
           <TopInfoBar />
-
           <Header onOpenAuth={() => { setAuthInitialStep("login"); setAuthOpen(true); }} />
-
-          <AccountNudge
-            open={nudgeOpen}
-            onClose={closeNudgeForever}
-            onGoRegister={openRegisterFromNudge}
-          />
 
           <main className={`app-content-pad ${showCTA ? "has-cta" : ""}`}>
             <Router />
@@ -2001,27 +1933,6 @@
                   >
                     Polityka prywatności
                   </a>
-                </div>
-
-                <div className="mt-3 text-xs text-gray-500 leading-relaxed">
-                  <div className="font-semibold text-gray-700">Dane przedsiębiorcy</div>
-
-                  <div className="mt-2">
-                    <span className="font-semibold">Firma:</span> MARCIN CHOJNACKI MILKSHAKE BAR
-                  </div>
-
-                  <div className="mt-1">
-                    <span className="font-semibold">Imię i nazwisko:</span> MARCIN CHOJNACKI
-                  </div>
-
-                  <div className="mt-1">
-                    <span className="font-semibold">NIP:</span> 8271982077 •{" "}
-                    <span className="font-semibold">REGON:</span> 100473965
-                  </div>
-
-                  <div className="mt-1">
-                    <span className="font-semibold">Adres:</span> ul. Szczecińska 17, 76-200 Słupsk, pow. Słupsk, gm. Słupsk, woj. POMORSKIE, Polska
-                  </div>
                 </div>
               </div>
             </footer>
