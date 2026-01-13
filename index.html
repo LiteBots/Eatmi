@@ -15,7 +15,7 @@
 
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="apple-touch-icon" href="appicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
 
   <!-- Tailwind config MUST be before tailwindcdn script -->
   <script>
@@ -107,12 +107,6 @@
     @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
     .spin { animation: spin 1s linear infinite; }
 
-    /* OTP boxes */
-    .otp {
-      letter-spacing: .35em;
-      font-variant-numeric: tabular-nums;
-    }
-
     .kbd-hint {
       background: rgba(255,193,7,.12);
       border: 1px solid rgba(255,193,7,.35);
@@ -120,7 +114,7 @@
     }
 
     /* =======================
-       NEW: Left slide-in account nudge
+       Left slide-in account nudge
     ======================= */
     @keyframes nudgeIn {
       from { transform: translateX(-110%); opacity: 0; }
@@ -327,7 +321,7 @@
     }
 
     /* =======================
-       NEW: Account nudge state (localStorage)
+       Account nudge state (localStorage)
     ======================= */
     const ACCOUNT_NUDGE_KEY = "eatmi-account-nudge"; // "1" => don't show again
 
@@ -392,7 +386,9 @@
     };
 
     /* =======================
-       AUTH (CONTEXT)
+       AUTH (CONTEXT)  ✅ BEZ KODÓW WERYFIKACYJNYCH
+       - register -> od razu token
+       - login -> token -> me
     ======================= */
 
     const AuthContext = React.createContext();
@@ -429,7 +425,6 @@
       }, []);
 
       useEffect(() => {
-        // if token changes, refresh user
         if (!loading) refreshMe(token);
         // eslint-disable-next-line
       }, [token]);
@@ -446,27 +441,24 @@
         return data;
       };
 
+      // ✅ Rejestracja bez kodów: backend powinien zwrócić token+user
       const register = async ({ email, fullName, password, confirm }) => {
-        const data = await apiFetch("/api/auth/register", { method: "POST", body: { email, fullName, password, confirm } });
-        showToast?.("Kod weryfikacyjny wysłany na email ✉️");
-        return data;
-      };
+        const data = await apiFetch("/api/auth/register", {
+          method: "POST",
+          body: { email, fullName, password, confirm }
+        });
 
-      const verify = async ({ email, code }) => {
-        const data = await apiFetch("/api/auth/verify", { method: "POST", body: { email, code } });
         const tk = data?.token || "";
         if (tk) {
           setToken(tk);
           saveAuthToken(tk);
-          await refreshMe(tk);
-          showToast?.("Email zweryfikowany ✅");
+          setUser(data?.user || null);
+          showToast?.("Konto utworzone ✅");
+        } else {
+          // Jeśli backend nie zwraca tokena, to przynajmniej pokaż komunikat
+          showToast?.("Konto utworzone ✅");
         }
-        return data;
-      };
 
-      const resend = async ({ email }) => {
-        const data = await apiFetch("/api/auth/resend", { method: "POST", body: { email } });
-        showToast?.("Wysłano nowy kod ✉️");
         return data;
       };
 
@@ -478,7 +470,7 @@
       };
 
       return (
-        <AuthContext.Provider value={{ token, user, loading, login, register, verify, resend, logout, refreshMe }}>
+        <AuthContext.Provider value={{ token, user, loading, login, register, logout, refreshMe }}>
           {children}
         </AuthContext.Provider>
       );
@@ -520,7 +512,6 @@
       return (
         <CartContext.Provider value={{cart, add, remove, setQty, incQty, decQty, clear, lineTotal, total, count}}>
           {children}
-          {/* Lucide refresh done elsewhere */}
         </CartContext.Provider>
       );
     };
@@ -679,8 +670,8 @@
 
             <div className="mt-6 text-xs text-gray-600">
               <span className="inline-flex items-center gap-2 px-3 py-2 rounded-xl kbd-hint">
-                <i data-lucide="shield-check" className="w-4 h-4"></i>
-                Konto = szybsze zamawianie + zapis danych. Weryfikacja kodem z emaila.
+                <i data-lucide="sparkles" className="w-4 h-4"></i>
+                Konto = szybsze zamawianie + zapis danych.
               </span>
             </div>
           </div>
@@ -1012,14 +1003,12 @@
             if (typeof saved[k] !== "undefined" && saved[k] !== null) base[k] = saved[k];
           });
         }
-        // preferuj dane z konta jeśli są
         if (user?.email) base.email = base.email || user.email;
         if (user?.fullName) base.imieNazwisko = base.imieNazwisko || user.fullName;
         return base;
       });
 
       useEffect(() => {
-        // gdy user się zaloguje po wejściu w checkout
         setForm((prev) => {
           const next = { ...prev };
           if (user?.email) next.email = next.email || user.email;
@@ -1118,7 +1107,6 @@
                     <div className="font-extrabold text-gray-900">Zaloguj się, żeby szybciej uzupełniać dane</div>
                     <div className="text-sm text-gray-600 mt-1">Email i imię/nazwisko mogą uzupełnić się automatycznie.</div>
                   </div>
-                  <a href="#/" onClick={(e)=>e.preventDefault()} className="hidden"></a>
                 </div>
               </div>
             )}
@@ -1259,61 +1247,41 @@
     };
 
     /* =======================
-       AUTH MODAL (REAL FLOW)
-       - register -> verify code -> logged in
-       - login -> token -> me
-
-       NEW: supports initialStep="register" | "login" | "verify" | "account"
+       AUTH MODAL  ✅ BEZ WERYFIKACJI KODEM
+       - steps: login | register | account
+       - register -> od razu loguje (token)
     ======================= */
 
     const AuthModal = ({ open, onClose, initialStep }) => {
-      const { user, loading, login, register, verify, resend, logout } = useAuth();
+      const { user, loading, login, register, logout } = useAuth();
       const toast = useToast();
       const showToast = toast?.show;
 
-      const [step, setStep] = useState("login"); // login | register | verify | account
+      const [step, setStep] = useState("login"); // login | register | account
       const [busy, setBusy] = useState(false);
       const [error, setError] = useState("");
-      const [cooldown, setCooldown] = useState(0);
 
       const [loginForm, setLoginForm] = useState({ email: "", password: "" });
       const [regForm, setRegForm] = useState({ email: "", fullName: "", password: "", confirm: "" });
-      const [verifyForm, setVerifyForm] = useState({ email: "", code: "" });
-
-      const cooldownRef = useRef(null);
 
       useEffect(() => {
         if (!open) return;
         setError("");
         setBusy(false);
 
-        // If user logged in, always account.
         if (user) {
           setStep("account");
         } else {
-          // Allow forcing register from the nudge
-          if (initialStep && ["login","register","verify","account"].includes(initialStep)) {
+          if (initialStep && ["login","register","account"].includes(initialStep)) {
             setStep(initialStep === "account" ? "login" : initialStep);
           } else {
             setStep("login");
           }
         }
-
-        // prefill verify email from previous forms
-        setVerifyForm((s) => ({ ...s, email: s.email || regForm.email || loginForm.email || "" }));
         // eslint-disable-next-line
       }, [open, initialStep, user]);
 
-      useEffect(() => {
-        if (cooldown <= 0) return;
-        if (cooldownRef.current) clearInterval(cooldownRef.current);
-        cooldownRef.current = setInterval(() => {
-          setCooldown((c) => (c <= 1 ? 0 : c - 1));
-        }, 1000);
-        return () => { if (cooldownRef.current) clearInterval(cooldownRef.current); };
-      }, [cooldown]);
-
-      useEffect(() => { window.lucide?.createIcons?.(); }, [open, step, busy, error, user, loading, cooldown]);
+      useEffect(() => { window.lucide?.createIcons?.(); }, [open, step, busy, error, user, loading]);
 
       useEffect(() => {
         const onKey = (e) => {
@@ -1348,42 +1316,9 @@
         setBusy(true);
         try {
           await register(regForm);
-          setVerifyForm({ email: regForm.email, code: "" });
-          setStep("verify");
-          setCooldown(60);
-        } catch (err) {
-          setErr(err?.message || "Błąd rejestracji");
-        } finally {
-          setBusy(false);
-        }
-      };
-
-      const submitVerify = async (e) => {
-        e.preventDefault();
-        setErr("");
-        setBusy(true);
-        try {
-          const code = String(verifyForm.code || "").replace(/\D/g, "").slice(0, 4);
-          if (code.length !== 4) throw new Error("Kod musi mieć 4 cyfry");
-          await verify({ email: verifyForm.email, code });
           onClose?.();
         } catch (err) {
-          setErr(err?.message || "Błąd weryfikacji");
-        } finally {
-          setBusy(false);
-        }
-      };
-
-      const doResend = async () => {
-        setErr("");
-        setBusy(true);
-        try {
-          await resend({ email: verifyForm.email });
-          setCooldown(60);
-        } catch (err) {
-          const status = err?.status || err?.data?.status;
-          if (status === 429) setErr("Odczekaj chwilę przed ponowną wysyłką (60s).");
-          else setErr(err?.message || "Nie udało się wysłać kodu");
+          setErr(err?.message || "Błąd rejestracji");
         } finally {
           setBusy(false);
         }
@@ -1443,10 +1378,6 @@
                   <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Użytkownik</div>
                   <div className="mt-1 font-extrabold text-gray-900">{user.fullName || "-"}</div>
                   <div className="mt-1 text-sm text-gray-700">{user.email || "-"}</div>
-                  <div className="mt-2 inline-flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl">
-                    <i data-lucide="badge-check" className="w-4 h-4"></i>
-                    Email zweryfikowany
-                  </div>
                 </div>
                 <div className="mt-4 grid gap-2">
                   <Button
@@ -1470,7 +1401,7 @@
                 <Title
                   eyebrow="Logowanie"
                   title="Zaloguj się do eatmi"
-                  subtitle="Najpierw musisz mieć zweryfikowany email."
+                  subtitle="Zaloguj się, aby szybciej zamawiać i mieć zapisane dane."
                 />
                 <form onSubmit={submitLogin} className="space-y-3">
                   <div>
@@ -1503,16 +1434,6 @@
                   >
                     Zarejestruj się
                   </button>
-                  <div className="mt-2">
-                    Masz kod, ale nie zweryfikowałeś?{" "}
-                    <button
-                      type="button"
-                      onClick={() => { setStep("verify"); setVerifyForm(s => ({...s, email: loginForm.email || s.email })); setErr(""); }}
-                      className="font-semibold text-gray-900 underline underline-offset-2"
-                    >
-                      Wpisz kod
-                    </button>
-                  </div>
                 </div>
               </>
             )}
@@ -1522,7 +1443,7 @@
                 <Title
                   eyebrow="Rejestracja"
                   title="Załóż konto w eatmi"
-                  subtitle="Po rejestracji wyślemy 4-cyfrowy kod na email."
+                  subtitle="Rejestracja bez kodów — po utworzeniu konta zalogujemy Cię automatycznie."
                 />
                 <form onSubmit={submitRegister} className="space-y-3">
                   <div>
@@ -1558,7 +1479,7 @@
                   </div>
 
                   <Button type="submit" variant="dark" disabled={busy}>
-                    Zarejestruj się i wyślij kod
+                    Załóż konto
                   </Button>
                 </form>
 
@@ -1570,72 +1491,6 @@
                     className="font-semibold text-gray-900 underline underline-offset-2"
                   >
                     Zaloguj się
-                  </button>
-                </div>
-              </>
-            )}
-
-            {step === "verify" && (
-              <>
-                <Title
-                  eyebrow="Weryfikacja email"
-                  title="Wpisz 4-cyfrowy kod"
-                  subtitle="Kod przychodzi na email. Jeśli nie ma — sprawdź SPAM."
-                />
-                <form onSubmit={submitVerify} className="space-y-3">
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Adres e-mail</label>
-                    <input type="email" required value={verifyForm.email}
-                      onChange={(e) => setVerifyForm(s => ({...s, email: e.target.value}))}
-                      placeholder="np. jan.kowalski@example.com"
-                      className="input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-                  </div>
-
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Kod (4 cyfry)</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength="4"
-                      required
-                      value={verifyForm.code}
-                      onChange={(e) => {
-                        const v = String(e.target.value || "").replace(/\D/g, "").slice(0, 4);
-                        setVerifyForm(s => ({...s, code: v}));
-                      }}
-                      placeholder="0000"
-                      className="otp input-focus mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px] text-center text-lg font-extrabold tracking-[0.35em]"
-                    />
-                  </div>
-
-                  <Button type="submit" variant="dark" disabled={busy}>
-                    Zweryfikuj i zaloguj
-                  </Button>
-
-                  <button
-                    type="button"
-                    onClick={doResend}
-                    disabled={busy || cooldown > 0 || !verifyForm.email}
-                    className={`w-full mt-2 bg-gray-100 text-gray-900 font-semibold rounded-xl px-4 py-3 text-sm min-h-[44px] transition hover:ring-2 hover:ring-brand-yellow/20 ${
-                      (busy || cooldown > 0 || !verifyForm.email) ? "opacity-60 cursor-not-allowed" : ""
-                    }`}
-                  >
-                    <span className="inline-flex items-center justify-center gap-2">
-                      {(busy) && <i data-lucide="loader" className="w-4 h-4 spin"></i>}
-                      Wyślij kod ponownie {cooldown > 0 ? `(${cooldown}s)` : ""}
-                    </span>
-                  </button>
-                </form>
-
-                <div className="mt-4 text-xs text-gray-600 text-center">
-                  Chcesz wrócić?{" "}
-                  <button
-                    type="button"
-                    onClick={() => { setStep("login"); setErr(""); }}
-                    className="font-semibold text-gray-900 underline underline-offset-2"
-                  >
-                    Logowanie
                   </button>
                 </div>
               </>
@@ -1892,20 +1747,13 @@
     };
 
     /* =======================
-       NEW: LEFT SLIDE-IN NUDGE
-       - shows only when user NOT logged in
-       - once dismissed or clicked -> stored in localStorage -> never shows again
+       LEFT SLIDE-IN NUDGE
     ======================= */
 
     const AccountNudge = ({ open, onClose, onGoRegister }) => {
       const [leaving, setLeaving] = useState(false);
 
       useEffect(() => { window.lucide?.createIcons?.(); }, [open, leaving]);
-
-      useEffect(() => {
-        if (!open) { setLeaving(false); return; }
-        // no-op
-      }, [open]);
 
       if (!open) return null;
 
@@ -1918,7 +1766,6 @@
       };
 
       const go = () => {
-        // Mark as done forever BEFORE opening modal (so reload doesn't re-show)
         onGoRegister?.();
       };
 
@@ -2031,7 +1878,7 @@
 
     const App = () => {
       const [authOpen, setAuthOpen] = useState(false);
-      const [authInitialStep, setAuthInitialStep] = useState("login"); // NEW
+      const [authInitialStep, setAuthInitialStep] = useState("login"); // login | register
       const [orderOpen, setOrderOpen] = useState(false);
 
       const [route, setRoute] = useState(window.location.hash || "#/");
@@ -2055,22 +1902,14 @@
         route !== "#/koszyk" &&
         !route.startsWith("#/zamowienie");
 
-      // NEW: show nudge if not logged, not loading, and not previously dismissed/clicked
       const [nudgeOpen, setNudgeOpen] = useState(false);
 
       useEffect(() => {
         if (loading) return;
-
-        // If user logged in, never show.
         if (user) { setNudgeOpen(false); return; }
-
-        // If already dismissed/clicked, never show.
         if (hasClosedAccountNudge()) { setNudgeOpen(false); return; }
-
-        // Avoid showing while modal open
         if (authOpen) { setNudgeOpen(false); return; }
 
-        // Show with a small delay to feel "natural"
         const t = setTimeout(() => setNudgeOpen(true), 900);
         return () => clearTimeout(t);
       }, [loading, user, authOpen]);
@@ -2081,7 +1920,7 @@
       };
 
       const openRegisterFromNudge = () => {
-        setClosedAccountNudge();     // remember click
+        setClosedAccountNudge();
         setNudgeOpen(false);
         setAuthInitialStep("register");
         setAuthOpen(true);
@@ -2093,7 +1932,6 @@
 
           <Header onOpenAuth={() => { setAuthInitialStep("login"); setAuthOpen(true); }} />
 
-          {/* NEW: Left slide-in account nudge */}
           <AccountNudge
             open={nudgeOpen}
             onClose={closeNudgeForever}
@@ -2153,7 +1991,6 @@
             </footer>
           </main>
 
-          {/* NEW: pass initialStep to open directly on register when coming from nudge */}
           <AuthModal
             open={authOpen}
             onClose={() => setAuthOpen(false)}
