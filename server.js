@@ -1,4 +1,4 @@
-// server.js (ESM) — bez weryfikacji mailowej (bez Resend)
+// server.js (ESM) — bez weryfikacji mailowej (bez Resend) + mail powitalny SMTP
 import express from "express";
 import path from "path";
 import crypto from "crypto";
@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
 
 console.log("NODE VERSION:", process.version);
 
@@ -35,7 +36,15 @@ const {
   ADMIN_PIN_SALT = "CHANGE_ME_SALT",
 
   // ====== AUTH ======
-  JWT_SECRET
+  JWT_SECRET,
+
+  // ====== SMTP ======
+  SMTP_HOST,
+  SMTP_PORT = 465,
+  SMTP_SECURE = "true",
+  SMTP_USER,
+  SMTP_PASS,
+  MAIL_FROM
 } = process.env;
 
 // Railway daje MONGO_URL (czasem ludzie mają MONGO_URI) — wspieramy oba
@@ -46,6 +55,71 @@ const PAYU_BASE =
 
 function requireEnv(name, value) {
   if (!value) throw new Error(`Missing env var: ${name}`);
+}
+
+// ===============================
+// SMTP (home.pl) — MAIL POWITALNY
+// ===============================
+function escapeHtml(str) {
+  return String(str ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+const smtpEnabled = !!(SMTP_HOST && SMTP_USER && SMTP_PASS);
+const mailer = smtpEnabled
+  ? nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: Number(SMTP_PORT),
+      secure: String(SMTP_SECURE) === "true", // 465 => true
+      auth: { user: SMTP_USER, pass: SMTP_PASS }
+    })
+  : null;
+
+if (mailer) {
+  mailer.verify().then(
+    () => console.log("[SMTP] ready"),
+    (e) => console.error("[SMTP] ERROR:", e?.message || e)
+  );
+} else {
+  console.log("[SMTP] disabled (missing SMTP env vars)");
+}
+
+async function sendWelcomeEmail({ to, fullName }) {
+  if (!mailer) return;
+
+  const name = escapeHtml(fullName || ""); // imię/nazwa użytkownika
+
+  // ====== TU JEST TREŚĆ WIADOMOŚCI ======
+  const html = `
+    <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;line-height:1.6;color:#111">
+      <h2 style="margin:0 0 12px">Witam ${name}! 👋</h2>
+      <p style="margin:0 0 12px">
+        Witamy w <strong>eatmi</strong> — cieszymy się, że do nas dołączyłeś.
+      </p>
+      <p style="margin:0 0 12px">
+        Twoje konto zostało właśnie utworzone i jest już aktywne.
+        Od teraz możesz zamawiać szybciej i wygodniej.
+      </p>
+      <p style="margin:0 0 16px">
+        Jeśli to nie Ty zakładałeś konto, zignoruj tę wiadomość.
+      </p>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:18px 0" />
+      <p style="margin:0;color:#6b7280;font-size:12px">
+        Wiadomość wygenerowana automatycznie — prosimy na nią nie odpowiadać.
+      </p>
+    </div>
+  `;
+
+  await mailer.sendMail({
+    from: MAIL_FROM || SMTP_USER,
+    to,
+    subject: "Witamy w eatmi 👋",
+    html
+  });
 }
 
 // ===============================
@@ -143,7 +217,7 @@ function authRequired(req, res, next) {
 // AUTH API (bez kodu mailowego)
 // ===============================
 
-// Register -> zapis usera + token (od razu aktywne konto)
+// Register -> zapis usera + token (od razu aktywne konto) + mail powitalny
 app.post("/api/auth/register", async (req, res) => {
   try {
     const email = normalizeEmail(req.body?.email);
@@ -166,6 +240,13 @@ app.post("/api/auth/register", async (req, res) => {
       fullName,
       passwordHash
     });
+
+    // ====== MAIL POWITALNY (nie blokuje rejestracji, jeśli SMTP padnie) ======
+    try {
+      await sendWelcomeEmail({ to: user.email, fullName: user.fullName });
+    } catch (e) {
+      console.log("WELCOME EMAIL ERROR:", e?.message || e);
+    }
 
     const token = signAuthToken(user);
 
@@ -666,17 +747,14 @@ app.get("/api/admin/stream", requireStaffForStream, (req, res) => {
 
 app.get("/api/admin/stats", requireStaff, async (req, res) => {
   try {
-    // total
     const ordersTotal = await Order.countDocuments({});
 
-    // today window (local server time)
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
     const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
     const ordersToday = await Order.countDocuments({ createdAt: { $gte: start, $lte: end } });
 
-    // revenue total paid
     const revenueAgg = await Order.aggregate([
       { $match: { status: { $in: ["PAID", "COMPLETED"] } } },
       { $group: { _id: null, sum: { $sum: "$totalPLN" } } }
