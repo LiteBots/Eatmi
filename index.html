@@ -13,7 +13,6 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/logo-192x192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="/logo-512x512.png">
 
-
   <title>eatmi.pl — Zamów online</title>
   <meta name="description" content="eatmi.pl — Boxy śniadaniowe, lunche, kanapki, zdrowe, słodkie i napoje." />
 
@@ -153,14 +152,17 @@
        MENU
     ======================= */
 
+    // ✅ Jeden obraz dla każdej kategorii i każdego produktu (Imgur direct)
+    const DEFAULT_IMAGE_URL = "https://i.imgur.com/5Vg6Fk2.png";
+
     const PRODUCT_CATEGORIES = [
-      { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open', description: 'Małe, średnie i duże zestawy. Także VEGE.', image: '/boxy.png' },
-      { id: 'lunche', name: 'Lunche', icon: 'utensils-crossed', description: 'Lunch tygodnia, miesiąca i vege (12:00–16:00).', image: '/lunch.png' },
-      { id: 'kanapki', name: 'Kanapki', icon: 'sandwich', description: 'Kanapki i buritto na maślanym pieczywie.', image: '/kanapki.png' },
-      { id: 'zdrowe', name: 'Zdrowe', icon: 'leaf', description: 'Granola i sałatki w wersjach fit.', image: '/zdrowe.png' },
-      { id: 'slodkie', name: 'Słodkie', icon: 'ice-cream', description: 'Desery, pancakes, tost francuski i smoothie.', image: '/slodkie.png' },
-      { id: 'napoje', name: 'Napoje', icon: 'cup-soda', description: 'Kawy, herbaty, lemoniada i sok.', image: 'https://imgur.com/lMuPBNL' },
-    ];
+      { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open', description: 'Małe, średnie i duże zestawy. Także VEGE.' },
+      { id: 'lunche', name: 'Lunche', icon: 'utensils-crossed', description: 'Lunch tygodnia, miesiąca i vege (12:00–16:00).' },
+      { id: 'kanapki', name: 'Kanapki', icon: 'sandwich', description: 'Kanapki i buritto na maślanym pieczywie.' },
+      { id: 'zdrowe', name: 'Zdrowe', icon: 'leaf', description: 'Granola i sałatki w wersjach fit.' },
+      { id: 'slodkie', name: 'Słodkie', icon: 'ice-cream', description: 'Desery, pancakes, tost francuski i smoothie.' },
+      { id: 'napoje', name: 'Napoje', icon: 'cup-soda', description: 'Kawy, herbaty, lemoniada i sok.' },
+    ].map(c => ({ ...c, image: DEFAULT_IMAGE_URL }));
 
     const BREAKFAST_BOXES = [
       { id:'bs-small-1', name:'Box śniadaniowy mały nr 1', price: 38, subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Sok pomarańczowy 250 ml' },
@@ -222,13 +224,16 @@
       { id:'n-zimowa', name:'Zimowa herbata z miodem, cytrusami, goździkami i sokiem malinowym 300 ml', price: 15 },
     ];
 
+    // ✅ dodaje image do KAŻDEGO produktu w tablicy
+    const withImage = (arr) => arr.map(p => ({ ...p, image: DEFAULT_IMAGE_URL }));
+
     const PRODUCTS = {
-      'boxy-sniadaniowe': BREAKFAST_BOXES,
-      'lunche': LUNCHES,
-      'kanapki': SANDWICHES,
-      'zdrowe': HEALTHY,
-      'slodkie': SWEETS,
-      'napoje': DRINKS,
+      'boxy-sniadaniowe': withImage(BREAKFAST_BOXES),
+      'lunche': withImage(LUNCHES),
+      'kanapki': withImage(SANDWICHES),
+      'zdrowe': withImage(HEALTHY),
+      'slodkie': withImage(SWEETS),
+      'napoje': withImage(DRINKS),
     };
 
     /* =======================
@@ -459,7 +464,6 @@
           setUser(data?.user || null);
           showToast?.("Konto utworzone ✅");
         } else {
-          // Jeśli backend nie zwraca tokena, to przynajmniej pokaż komunikat
           showToast?.("Konto utworzone ✅");
         }
 
@@ -755,6 +759,17 @@
         <div className="relative bg-white border border-gray-200 rounded-3xl p-5 md:p-6 shadow-soft hover:shadow-kiosk transition group overflow-hidden hover:ring-2 hover:ring-brand-yellow/40">
           <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 opacity-70"></div>
 
+          {/* ✅ zdjęcie produktu */}
+          <div className="relative mt-3 h-36 w-full overflow-hidden rounded-2xl border border-gray-200">
+            <img
+              src={item.image || DEFAULT_IMAGE_URL}
+              alt={item.name}
+              loading="lazy"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent"></div>
+          </div>
+
           <div className="mt-3 inline-flex items-center gap-2">
             <span className="text-[10px] font-extrabold tracking-widest uppercase px-2.5 py-1 rounded-full bg-brand-yellow text-gray-900 shadow-sm">
               HIT
@@ -874,10 +889,11 @@
        KOSZYK / CHECKOUT
     ======================= */
 
+    // ✅ EXTRA też dostają image
     const EXTRA_ITEMS = [
-      { id:'extra-granola', name:'Domowa granola', price: 19 },
-      { id:'extra-lemoniada',name:'Domowa lemoniada', price: 12 },
-      { id:'extra-deser', name:'Deser czekoladowy', price: 19 },
+      { id:'extra-granola', name:'Domowa granola', price: 19, image: DEFAULT_IMAGE_URL },
+      { id:'extra-lemoniada',name:'Domowa lemoniada', price: 12, image: DEFAULT_IMAGE_URL },
+      { id:'extra-deser', name:'Deser czekoladowy', price: 19, image: DEFAULT_IMAGE_URL },
     ];
 
     const Koszyk = () => {
@@ -907,10 +923,22 @@
                     {cart.map(item => (
                       <div key={item.id}
                         className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col md:flex-row gap-4 md:items-center justify-between w-full hover:ring-2 hover:ring-brand-yellow/30 transition">
-                        <div className="min-w-0 flex-1">
-                          <div className="font-bold break-words">{item.name}</div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            ID produktu: <span className="font-mono">{item.productId || 'brak'}</span>
+
+                        <div className="flex items-start gap-3 min-w-0 flex-1">
+                          <div className="w-14 h-14 rounded-2xl overflow-hidden border border-gray-200 shrink-0">
+                            <img
+                              src={item.image || DEFAULT_IMAGE_URL}
+                              alt={item.name}
+                              loading="lazy"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="font-bold break-words">{item.name}</div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              ID produktu: <span className="font-mono">{item.productId || 'brak'}</span>
+                            </div>
                           </div>
                         </div>
 
@@ -973,9 +1001,13 @@
                           type:'extra',
                           productId: extra.id,
                           name: extra.name,
-                          price: extra.price
+                          price: extra.price,
+                          image: extra.image || DEFAULT_IMAGE_URL
                         })}
-                        className="flex items-center gap-2 px-4 py-3 rounded-full bg-white border border-gray-200 shadow-soft text-sm hover:shadow-md hover:-translate-y-0.5 transition hover:ring-2 hover:ring-brand-yellow/30 min-h-[44px]">
+                        className="flex items-center gap-3 px-4 py-3 rounded-full bg-white border border-gray-200 shadow-soft text-sm hover:shadow-md hover:-translate-y-0.5 transition hover:ring-2 hover:ring-brand-yellow/30 min-h-[44px]">
+                        <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-200 shrink-0">
+                          <img src={extra.image || DEFAULT_IMAGE_URL} alt={extra.name} className="w-full h-full object-cover" loading="lazy" />
+                        </div>
                         <span className="text-base font-extrabold text-brand-yellow">+</span>
                         <span>{extra.name}</span>
                         <span className="font-extrabold text-gray-900">{currency(extra.price)}</span>
