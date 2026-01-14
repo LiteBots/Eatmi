@@ -44,7 +44,12 @@ const {
   SMTP_SECURE = "true",
   SMTP_USER,
   SMTP_PASS,
-  MAIL_FROM
+  MAIL_FROM,
+
+  // ====== MANAGEMENT PANEL (panel.html) ======
+  MGMT_PASSWORD, // hasło do kroku 1
+  MGMT_PIN, // 4 cyfry do kroku 2
+  MGMT_TOKEN_TTL_MIN = "120" // TTL tokena panelu (minuty)
 } = process.env;
 
 // Railway daje MONGO_URL (czasem ludzie mają MONGO_URI) — wspieramy oba
@@ -139,15 +144,25 @@ console.log("Mongo connected");
 
 // -------------------------------
 // USERS (kolekcja: users)
+// Rozszerzamy schema o pola, których potrzebuje panel.
+// Działa też na starych dokumentach (pola będą po prostu undefined).
 // -------------------------------
 const UserSchema = new mongoose.Schema(
   {
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     fullName: { type: String, required: true, trim: true },
-    passwordHash: { type: String, required: true }
+    passwordHash: { type: String, required: true },
+
+    // ✅ Panel fields:
+    firstName: { type: String, default: "", trim: true },
+    lastName: { type: String, default: "", trim: true },
+    phone: { type: String, default: "", trim: true },
+    address: { type: String, default: "", trim: true }
   },
   { timestamps: true, collection: "users" }
 );
+
+UserSchema.index({ email: 1 }, { unique: true });
 
 const User = mongoose.models.User || mongoose.model("User", UserSchema);
 
@@ -177,7 +192,7 @@ const OrderSchema = new mongoose.Schema(
     payuOrderId: { type: String, default: null, index: true },
     status: { type: String, default: "PENDING", index: true },
 
-    // ✅ NOWE: metoda płatności + flaga offline
+    // ✅ metoda płatności + flaga offline
     // payu | card | cash
     paymentMethod: { type: String, default: "payu", index: true },
     isOffline: { type: Boolean, default: false, index: true },
@@ -194,6 +209,7 @@ const OrderSchema = new mongoose.Schema(
 );
 
 OrderSchema.index({ createdAt: -1 });
+OrderSchema.index({ "customer.email": 1 }); // ✅ szybkie wyszukiwanie po mailu
 
 const Order = mongoose.models.Order || mongoose.model("Order", OrderSchema);
 
@@ -243,10 +259,17 @@ app.post("/api/auth/register", async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
+    // spróbuj wyciągnąć first/last z fullName (opcjonalnie)
+    const parts = fullName.split(/\s+/).filter(Boolean);
+    const firstName = parts[0] || "";
+    const lastName = parts.slice(1).join(" ") || "";
+
     const user = await User.create({
       email,
       fullName,
-      passwordHash
+      passwordHash,
+      firstName,
+      lastName
     });
 
     // ✅ MAIL POWITALNY — NIE BLOKUJE REJESTRACJI (bez await)
@@ -299,7 +322,7 @@ app.post("/api/auth/login", async (req, res) => {
 // Me (po tokenie)
 app.get("/api/auth/me", authRequired, async (req, res) => {
   try {
-    const user = await User.findById(req.user.uid).select("email fullName createdAt");
+    const user = await User.findById(req.user.uid).select("email fullName firstName lastName phone address createdAt");
     if (!user) return res.status(404).json({ error: "Not found" });
     return res.json({ ok: true, user });
   } catch (e) {
@@ -372,6 +395,367 @@ function sseBroadcast(event, data) {
 }
 
 // ===============================
+// ✅ MANAGEMENT PANEL (panel.html) — silna ochrona
+// 2-step: hasło -> (min 5s) -> PIN -> token
+// ===============================
+function nowMs() {
+  return Date.now();
+}
+
+function normalizePin(pin) {
+  return String(pin || "").trim();
+}
+
+function timingSafeEq(a, b) {
+  const x = Buffer.from(String(a));
+  const y = Buffer.from(String(b));
+  if (x.length !== y.length) return false;
+  return crypto.timingSafeEqual(x, y);
+}
+
+// proste rate-limit w pamięci (na IP)
+const mgmtRate = new Map(); // key => { count, resetAt }
+function mgmtRateLimit(req, res, next) {
+  const ip = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "ip").split(",")[0].trim();
+  const key = `mgmt:${ip}`;
+  const winMs = 60_000;
+  const max = 30;
+
+  const rec = mgmtRate.get(key) || { count: 0, resetAt: nowMs() + winMs };
+  if (nowMs() > rec.resetAt) {
+    rec.count = 0;
+    rec.resetAt = nowMs() + winMs;
+  }
+  rec.count += 1;
+  mgmtRate.set(key, rec);
+
+  if (rec.count > max) {
+    return res.status(429).json({ error: "Too many requests" });
+  }
+  next();
+}
+
+// challenge store (pamięć) — żeby backend mógł wymusić 5s
+const mgmtChallenges = new Map(); // challengeId => { iat, ip, used }
+function createMgmtChallenge(ip) {
+  const id = crypto.randomBytes(16).toString("hex");
+  mgmtChallenges.set(id, { iat: nowMs(), ip, used: false });
+  return id;
+}
+function consumeMgmtChallenge(id, ip) {
+  const rec = mgmtChallenges.get(id);
+  if (!rec) return { ok: false, error: "Invalid challenge" };
+  if (rec.used) return { ok: false, error: "Challenge used" };
+  if (rec.ip !== ip) return { ok: false, error: "Challenge mismatch" };
+  // challenge ważny 10 minut
+  if (nowMs() - rec.iat > 10 * 60_000) return { ok: false, error: "Challenge expired" };
+  // wymuś min 5 sekund
+  if (nowMs() - rec.iat < 5000) return { ok: false, error: "Wait 5 seconds" };
+  rec.used = true;
+  mgmtChallenges.set(id, rec);
+  return { ok: true };
+}
+
+function signMgmtToken() {
+  const ttlMin = Math.max(5, Number(MGMT_TOKEN_TTL_MIN || 120));
+  const payload = {
+    role: "mgmt",
+    name: "Management",
+    iat: nowMs(),
+    exp: nowMs() + ttlMin * 60_000
+  };
+  return signToken(payload);
+}
+
+function requireMgmt(req, res, next) {
+  const token = getBearer(req);
+  const data = verifyToken(token);
+  if (!data) return res.status(401).json({ error: "Unauthorized" });
+  if (data.role !== "mgmt") return res.status(403).json({ error: "Forbidden" });
+  if (data.exp && nowMs() > Number(data.exp)) return res.status(401).json({ error: "Token expired" });
+  req.mgmt = data;
+  next();
+}
+
+// Step 1: hasło -> challenge
+app.post("/api/management/login-step1", mgmtRateLimit, async (req, res) => {
+  try {
+    requireEnv("MGMT_PASSWORD", MGMT_PASSWORD);
+    const ip = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "ip").split(",")[0].trim();
+
+    const password = String(req.body?.password || "").trim();
+    if (!password) return res.status(400).json({ ok: false, error: "Missing password" });
+
+    if (!timingSafeEq(password, String(MGMT_PASSWORD))) {
+      return res.status(401).json({ ok: false, error: "Bad password" });
+    }
+
+    const challenge = createMgmtChallenge(ip);
+    return res.json({ ok: true, challenge });
+  } catch (e) {
+    console.log("MGMT STEP1 ERROR:", e?.message || e);
+    return res.status(500).json({ ok: false, error: e?.message || "Server error" });
+  }
+});
+
+// Step 2: pin + (opcjonalnie) challenge -> token
+app.post("/api/management/login-step2", mgmtRateLimit, async (req, res) => {
+  try {
+    requireEnv("MGMT_PIN", MGMT_PIN);
+    const ip = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "ip").split(",")[0].trim();
+
+    const pin = normalizePin(req.body?.pin);
+    if (!/^\d{4}$/.test(pin)) return res.status(400).json({ error: "PIN must be 4 digits" });
+
+    // jeśli front poda challenge, wymuś 5 sekund
+    const challenge = String(req.body?.challenge || "").trim();
+    if (challenge) {
+      const chk = consumeMgmtChallenge(challenge, ip);
+      if (!chk.ok) return res.status(403).json({ error: chk.error || "Forbidden" });
+    }
+
+    if (!timingSafeEq(pin, String(MGMT_PIN))) {
+      return res.status(401).json({ error: "Bad PIN" });
+    }
+
+    const token = signMgmtToken();
+    return res.json({ ok: true, token });
+  } catch (e) {
+    console.log("MGMT STEP2 ERROR:", e?.message || e);
+    return res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+// ========== MANAGEMENT: USERS + ORDERS (Mongo) ==========
+function splitFullName(fullName) {
+  const parts = String(fullName || "").trim().split(/\s+/).filter(Boolean);
+  const firstName = parts[0] || "";
+  const lastName = parts.slice(1).join(" ") || "";
+  return { firstName, lastName };
+}
+
+function sanitizeUserForList(u, ordersCount = 0) {
+  const fullName = String(u.fullName || "").trim();
+  const fallback = splitFullName(fullName);
+
+  return {
+    id: String(u._id),
+    email: u.email,
+    fullName: u.fullName,
+    firstName: u.firstName || fallback.firstName,
+    lastName: u.lastName || fallback.lastName,
+    phone: u.phone || "",
+    address: u.address || "",
+    createdAt: u.createdAt,
+    updatedAt: u.updatedAt,
+    ordersCount: Number(ordersCount || 0)
+  };
+}
+
+function sanitizeUserForDetail(u) {
+  const fullName = String(u.fullName || "").trim();
+  const fallback = splitFullName(fullName);
+  return {
+    id: String(u._id),
+    email: u.email,
+    fullName: u.fullName,
+    firstName: u.firstName || fallback.firstName,
+    lastName: u.lastName || fallback.lastName,
+    phone: u.phone || "",
+    address: u.address || "",
+    createdAt: u.createdAt,
+    updatedAt: u.updatedAt
+  };
+}
+
+// LIST users + ordersCount
+app.get("/api/management/users", requireMgmt, async (req, res) => {
+  try {
+    const users = await User.find({})
+      .select("email fullName firstName lastName phone address createdAt updatedAt")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const emails = users.map((u) => u.email).filter(Boolean);
+
+    // policz zamówienia per email (orders.customer.email)
+    const agg = await Order.aggregate([
+      { $match: { "customer.email": { $in: emails } } },
+      { $group: { _id: "$customer.email", count: { $sum: 1 } } }
+    ]);
+
+    const map = new Map();
+    for (const row of agg) map.set(String(row._id || "").toLowerCase(), Number(row.count || 0));
+
+    const out = users.map((u) => sanitizeUserForList(u, map.get(String(u.email).toLowerCase()) || 0));
+    res.json({ users: out });
+  } catch (e) {
+    console.log("MGMT USERS LIST ERROR:", e?.message || e);
+    res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+// GET user by id
+app.get("/api/management/users/:id", requireMgmt, async (req, res) => {
+  try {
+    const id = String(req.params.id || "");
+    if (!id) return res.status(400).json({ error: "Missing id" });
+
+    const user = await User.findById(id)
+      .select("email fullName firstName lastName phone address createdAt updatedAt")
+      .lean();
+
+    if (!user) return res.status(404).json({ error: "Not found" });
+    res.json({ user: sanitizeUserForDetail(user) });
+  } catch (e) {
+    console.log("MGMT USER GET ERROR:", e?.message || e);
+    res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+// PATCH user (edit any data)
+app.patch("/api/management/users/:id", requireMgmt, async (req, res) => {
+  try {
+    const id = String(req.params.id || "");
+    if (!id) return res.status(400).json({ error: "Missing id" });
+
+    const email = req.body?.email !== undefined ? normalizeEmail(req.body?.email) : undefined;
+    const firstName = req.body?.firstName !== undefined ? String(req.body?.firstName || "").trim() : undefined;
+    const lastName = req.body?.lastName !== undefined ? String(req.body?.lastName || "").trim() : undefined;
+    const phone = req.body?.phone !== undefined ? String(req.body?.phone || "").trim() : undefined;
+    const address = req.body?.address !== undefined ? String(req.body?.address || "").trim() : undefined;
+
+    const patch = {};
+    if (email !== undefined) {
+      if (!email || !email.includes("@")) return res.status(400).json({ error: "Invalid email" });
+      patch.email = email;
+    }
+    if (firstName !== undefined) patch.firstName = firstName;
+    if (lastName !== undefined) patch.lastName = lastName;
+    if (phone !== undefined) patch.phone = phone;
+    if (address !== undefined) patch.address = address;
+
+    // aktualizuj fullName na podstawie first/last, jeśli podano
+    if (firstName !== undefined || lastName !== undefined) {
+      const current = await User.findById(id).select("fullName firstName lastName").lean();
+      if (!current) return res.status(404).json({ error: "Not found" });
+
+      const fn = firstName !== undefined ? firstName : (current.firstName || splitFullName(current.fullName).firstName);
+      const ln = lastName !== undefined ? lastName : (current.lastName || splitFullName(current.fullName).lastName);
+      const newFull = `${String(fn || "").trim()} ${String(ln || "").trim()}`.trim();
+      if (newFull) patch.fullName = newFull;
+    }
+
+    const updated = await User.findOneAndUpdate(
+      { _id: id },
+      { $set: patch },
+      { new: true }
+    )
+      .select("email fullName firstName lastName phone address createdAt updatedAt")
+      .lean();
+
+    if (!updated) return res.status(404).json({ error: "Not found" });
+
+    res.json({ ok: true, user: sanitizeUserForDetail(updated) });
+  } catch (e) {
+    const msg = String(e?.message || "");
+    if (msg.includes("E11000") || msg.toLowerCase().includes("duplicate")) {
+      return res.status(409).json({ error: "Email already in use" });
+    }
+    console.log("MGMT USER PATCH ERROR:", e?.message || e);
+    res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+// Change user password (NO preview)
+app.post("/api/management/users/:id/password", requireMgmt, async (req, res) => {
+  try {
+    const id = String(req.params.id || "");
+    if (!id) return res.status(400).json({ error: "Missing id" });
+
+    const newPassword = String(req.body?.newPassword || "");
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: "New password must be at least 6 chars" });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    const updated = await User.findOneAndUpdate(
+      { _id: id },
+      { $set: { passwordHash } },
+      { new: true }
+    )
+      .select("_id email")
+      .lean();
+
+    if (!updated) return res.status(404).json({ error: "Not found" });
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.log("MGMT USER PASSWORD ERROR:", e?.message || e);
+    res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+// Delete user account
+app.delete("/api/management/users/:id", requireMgmt, async (req, res) => {
+  try {
+    const id = String(req.params.id || "");
+    if (!id) return res.status(400).json({ error: "Missing id" });
+
+    const existing = await User.findById(id).select("email").lean();
+    if (!existing) return res.status(404).json({ error: "Not found" });
+
+    // Usuwamy konto usera. Zamówień nie kasujemy automatycznie (historia sprzedaży).
+    await User.deleteOne({ _id: id });
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.log("MGMT USER DELETE ERROR:", e?.message || e);
+    res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+// Orders per user (by email match)
+app.get("/api/management/users/:id/orders", requireMgmt, async (req, res) => {
+  try {
+    const id = String(req.params.id || "");
+    if (!id) return res.status(400).json({ error: "Missing id" });
+
+    const user = await User.findById(id).select("email").lean();
+    if (!user?.email) return res.status(404).json({ error: "Not found" });
+
+    const email = String(user.email).toLowerCase();
+
+    const orders = await Order.find({ "customer.email": email })
+      .sort({ createdAt: -1 })
+      .limit(1000)
+      .lean();
+
+    // zwracamy czysto do panelu (i tak ma renderować)
+    const mapped = orders.map((o) => ({
+      id: String(o._id),
+      extOrderId: o.extOrderId,
+      payuOrderId: o.payuOrderId,
+      status: o.status,
+      paymentMethod: o.paymentMethod || (o.isOffline ? "offline" : "payu"),
+      isOffline: !!o.isOffline,
+      totalAmount: o.totalAmount,
+      totalPLN: o.totalPLN,
+      customer: o.customer || {},
+      cart: Array.isArray(o.cart) ? o.cart : [],
+      createdAt: o.createdAt,
+      updatedAt: o.updatedAt
+    }));
+
+    res.json({ orders: mapped });
+  } catch (e) {
+    console.log("MGMT USER ORDERS ERROR:", e?.message || e);
+    res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+// ===============================
 // PAYU HELPERS
 // ===============================
 function safeCustomer(customer) {
@@ -379,7 +763,7 @@ function safeCustomer(customer) {
   return {
     imieNazwisko: c.imieNazwisko || c.name || "",
     telefon: c.telefon || c.phone || "",
-    email: c.email || "",
+    email: normalizeEmail(c.email || ""),
     miasto: c.miasto || "",
     kod: c.kod || "",
     ulica: c.ulica || "",
@@ -398,7 +782,7 @@ function isPaidStatus(status) {
   return s === "COMPLETED" || s === "PAID";
 }
 
-// ✅ NOWE: statusy offline
+// ✅ statusy offline
 const OFFLINE_PENDING_STATUS = "AWAITING_PICKUP_PAYMENT";
 
 // ====== PRICE LIST (server-side truth) ======
@@ -575,7 +959,7 @@ async function upsertOrderMongo(patch) {
 }
 
 // ===============================
-// ✅ NOWE: Offline order (karta/gotówka przy odbiorze)
+// ✅ Offline order (karta/gotówka przy odbiorze)
 // ===============================
 app.post("/api/order/offline", async (req, res) => {
   try {
@@ -603,8 +987,8 @@ app.post("/api/order/offline", async (req, res) => {
       extOrderId,
       payuOrderId: null,
       status: OFFLINE_PENDING_STATUS,
-      paymentMethod,       // ✅ card|cash
-      isOffline: true,      // ✅
+      paymentMethod,
+      isOffline: true,
       totalAmount,
       totalPLN: totalAmount / 100,
       customer,
@@ -842,7 +1226,6 @@ app.get("/api/admin/stats", requireStaff, async (req, res) => {
     const ordersToday = await Order.countDocuments({ createdAt: { $gte: start, $lte: end } });
 
     // ✅ revenueTotal: liczymy tylko realnie opłacone PayU (PAID/COMPLETED)
-    // offline "AWAITING_PICKUP_PAYMENT" nie liczymy jako revenue (bo jeszcze nieopłacone).
     const revenueAgg = await Order.aggregate([
       { $match: { status: { $in: ["PAID", "COMPLETED"] } } },
       { $group: { _id: null, sum: { $sum: "$totalPLN" } } }
@@ -871,7 +1254,6 @@ app.get("/api/admin/orders", requireStaff, async (req, res) => {
       or.push({ "customer.email": { $regex: escapeRegex(q), $options: "i" } });
       or.push({ "customer.telefon": { $regex: escapeRegex(q), $options: "i" } });
 
-      // ✅ nowości:
       or.push({ paymentMethod: { $regex: escapeRegex(q), $options: "i" } });
       or.push({ status: { $regex: escapeRegex(q), $options: "i" } });
     }
