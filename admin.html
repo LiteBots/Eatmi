@@ -816,14 +816,14 @@
               value={stats.ordersToday.toLocaleString("pl-PL")}
               icon="calendar"
               loading={loading}
-              hint="Zamówienia z bieżącego dnia (wg backendu)."
+              hint="Zamówienia z bieżącego dnia (per day)."
             />
             <Card
               title="Zarobek"
               value={currency(stats.revenueTotal)}
               icon="wallet"
               loading={loading}
-              hint="Łączny przychód (wg backendu)."
+              hint="Łączny przychód (per start)."
             />
           </div>
         </div>
@@ -1075,7 +1075,7 @@
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex-1">
               <div className="text-sm text-gray-600">
-                Lista zamówień z pełnymi danymi klienta (wg backendu).
+                Lista zamówień z pełnymi danymi klienta (per priority).
               </div>
             </div>
 
@@ -1262,7 +1262,7 @@
                 <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Wysyłka push</div>
                 <div className="text-xl font-extrabold mt-1">Powiadomienia push</div>
                 <div className="text-sm text-gray-600 mt-2">
-                  Wpisz treść i wyślij — każdy użytkownik aplikacji otrzyma powiadomienie (wg backendu).
+                  Wpisz treść i wyślij — każdy użytkownik aplikacji otrzyma powiadomienie (beta).
                 </div>
               </div>
               <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 border border-brand-yellow/30 grid place-items-center">
@@ -1300,9 +1300,7 @@
                 {loading ? "Wysyłanie..." : "Wyślij powiadomienie"}
               </button>
 
-              <div className="text-xs text-gray-500">
-                Uwaga: backend powinien mieć zaimplementowany mechanizm push (np. Web Push / FCM / APNs).
-              </div>
+             
             </div>
           </div>
         </div>
@@ -1443,9 +1441,7 @@
                   {saving ? "Dodawanie..." : "Dodaj"}
                 </button>
 
-                <div className="text-xs text-gray-500">
-                  Backend powinien przechowywać pracowników i weryfikować PIN w /api/admin/login.
-                </div>
+                
               </div>
             </div>
 
