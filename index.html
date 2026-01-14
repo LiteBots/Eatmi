@@ -60,7 +60,6 @@
     :root{
       --tabbar-h: 72px;
       --cta-h: 56px;
-      --orderbar-h: 92px; /* new */
       --safe-b: env(safe-area-inset-bottom, 0px);
       --safe-t: env(safe-area-inset-top, 0px);
     }
@@ -96,13 +95,6 @@
     .app-content-pad.has-cta {
       padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--cta-h) + 22px);
     }
-    /* new: order tracking bar */
-    .app-content-pad.has-orderbar {
-      padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--orderbar-h) + 22px);
-    }
-    .app-content-pad.has-cta.has-orderbar {
-      padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--cta-h) + var(--orderbar-h) + 28px);
-    }
 
     .no-overscroll { overscroll-behavior: none; }
 
@@ -137,24 +129,6 @@
     }
     .nudge-in { animation: nudgeIn .38s cubic-bezier(.2,.9,.2,1) both; }
     .nudge-out { animation: nudgeOut .26s ease-in both; }
-
-    /* tiny progress shimmer */
-    @keyframes shimmer {
-      0% { transform: translateX(-35%); opacity: .0; }
-      20% { opacity: .25; }
-      50% { opacity: .25; }
-      100% { transform: translateX(135%); opacity: 0; }
-    }
-    .shimmer::after{
-      content:"";
-      position:absolute;
-      inset:0;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);
-      transform: translateX(-35%);
-      animation: shimmer 1.8s ease-in-out infinite;
-      pointer-events:none;
-      mix-blend-mode: overlay;
-    }
   </style>
 
   <!-- React 18 + ReactDOM 18 -->
@@ -370,49 +344,6 @@
     };
 
     /* =======================
-       ORDER TRACKING (localStorage) ✅ NEW
-    ======================= */
-    const ACTIVE_ORDER_KEY = "eatmi-active-order";
-
-    const loadActiveOrder = () => {
-      try {
-        const raw = localStorage.getItem(ACTIVE_ORDER_KEY);
-        if (!raw) return null;
-        const v = JSON.parse(raw);
-        if (!v || typeof v !== "object") return null;
-        return v;
-      } catch { return null; }
-    };
-    const saveActiveOrder = (orderObj) => {
-      try { localStorage.setItem(ACTIVE_ORDER_KEY, JSON.stringify(orderObj)); } catch {}
-    };
-    const clearActiveOrder = () => {
-      try { localStorage.removeItem(ACTIVE_ORDER_KEY); } catch {}
-    };
-
-    // Statusy wymagane przez Ciebie:
-    // W przygotowaniu, W drodze, Zrealizowane, Anulowane
-    const ORDER_STATUS = {
-      preparing: "W przygotowaniu",
-      on_the_way: "W drodze",
-      done: "Zrealizowane",
-      canceled: "Anulowane"
-    };
-
-    // Helper dla późniejszego server.js (SSE/polling/webhook) — możesz wywołać w konsoli:
-    // window.__eatmiUpdateOrderStatus("on_the_way") albo "done" / "canceled"
-    const createOrderStatusUpdater = (setActiveOrder) => {
-      window.__eatmiUpdateOrderStatus = (nextStatus) => {
-        setActiveOrder(prev => {
-          if (!prev) return prev;
-          const updated = { ...prev, status: nextStatus };
-          saveActiveOrder(updated);
-          return updated;
-        });
-      };
-    };
-
-    /* =======================
        TOAST
     ======================= */
 
@@ -546,37 +477,6 @@
         <AuthContext.Provider value={{ token, user, loading, login, register, logout, refreshMe }}>
           {children}
         </AuthContext.Provider>
-      );
-    };
-
-    /* =======================
-       ACTIVE ORDER (CONTEXT) ✅ NEW
-    ======================= */
-    const ActiveOrderContext = React.createContext();
-    const useActiveOrder = () => React.useContext(ActiveOrderContext);
-
-    const ActiveOrderProvider = ({ children }) => {
-      const [activeOrder, setActiveOrder] = useState(() => loadActiveOrder());
-
-      useEffect(() => { createOrderStatusUpdater(setActiveOrder); }, []);
-
-      // auto-hide when done/canceled
-      useEffect(() => {
-        if (!activeOrder) return;
-        if (activeOrder.status === "done" || activeOrder.status === "canceled") {
-          // tiny delay so user sees final status
-          const t = setTimeout(() => {
-            setActiveOrder(null);
-            clearActiveOrder();
-          }, 1200);
-          return () => clearTimeout(t);
-        }
-      }, [activeOrder]);
-
-      return (
-        <ActiveOrderContext.Provider value={{ activeOrder, setActiveOrder }}>
-          {children}
-        </ActiveOrderContext.Provider>
       );
     };
 
@@ -1109,13 +1009,12 @@
     };
 
     /* =======================
-       ZAMOWIENIE (3 metody płatności) + ✅ GREEN NOTIF + TRACKER
+       ZAMOWIENIE (3 metody płatności) + ✅ GREEN NOTIF (bez status-bar)
     ======================= */
 
     const Zamowienie = () => {
       const { cart, total, lineTotal, clear } = useCart();
       const { user } = useAuth();
-      const { setActiveOrder } = useActiveOrder(); // ✅ NEW
       const toast = useToast();
       const showToast = toast?.show;
 
@@ -1186,18 +1085,6 @@
         return true;
       };
 
-      const startLocalTracker = ({ orderId }) => {
-        const obj = {
-          orderId: orderId || `OFF-${Date.now()}`,
-          createdAt: Date.now(),
-          etaMin: 60,
-          etaMax: 80,
-          status: "preparing",
-        };
-        setActiveOrder(obj);
-        saveActiveOrder(obj);
-      };
-
       const placeOrder = async (method) => {
         if (!validateBeforeOrder()) return;
 
@@ -1235,7 +1122,7 @@
               return;
             }
 
-            // PayU redirect — po powrocie podepniemy statusy po stronie server.js
+            // PayU redirect
             window.location.href = data.redirectUri;
             return;
           }
@@ -1262,9 +1149,8 @@
             return;
           }
 
-          // ✅ ZAMIANA: zamiast alert/notification -> zielone powiadomienie + pasek postępu
+          // ✅ TYLKO ZIELONE POWIADOMIENIE — bez okienka/statusu/czasu
           showToast?.("Twoje zamówienie zostało złożone ✅");
-          startLocalTracker({ orderId: data2?.orderId });
 
           // czyścimy koszyk i wracamy na start
           clear();
@@ -1779,7 +1665,7 @@
     };
 
     /* =======================
-       HOME
+       HOME (bez formularza kontaktowego)
     ======================= */
 
     const Home = () => (
@@ -1792,22 +1678,6 @@
             <div className="mt-8 grid gap-5 md:grid-cols-3 md:gap-6">
               {PRODUCT_CATEGORIES.map(cat => <CategoryCard key={cat.id} category={cat} />)}
             </div>
-          </div>
-        </section>
-
-        <section id="kontakt" className="py-12 bg-white">
-          <div className="max-w-6xl mx-auto px-4">
-            <SectionTitle title="Kontakt" subtitle="Masz pytania? Napisz do nas." />
-            <form className="max-w-xl mx-auto mt-8 bg-white border border-gray-200 rounded-2xl p-6 shadow-soft hover:ring-2 hover:ring-brand-yellow/20 transition">
-              <div className="grid md:grid-cols-2 gap-4">
-                <input className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 min-h-[44px]" placeholder="Imię" />
-                <input className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 min-h-[44px]" placeholder="Email" />
-              </div>
-              <textarea className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 mt-4" rows="4" placeholder="Wiadomość"></textarea>
-              <button type="button" className="mt-4 bg-brand-yellow text-gray-900 rounded-xl px-5 py-3 font-extrabold hover:ring-2 hover:ring-brand-yellow/40 min-h-[44px]">
-                Wyślij
-              </button>
-            </form>
           </div>
         </section>
       </>
@@ -2047,125 +1917,6 @@
     };
 
     /* =======================
-       OrderStatusBar ✅ NEW
-    ======================= */
-    const OrderStatusBar = ({ visible, offsetBottomPx = 0 }) => {
-      const { activeOrder } = useActiveOrder();
-      const [now, setNow] = useState(Date.now());
-
-      useEffect(() => {
-        if (!activeOrder) return;
-        const t = setInterval(() => setNow(Date.now()), 1000);
-        return () => clearInterval(t);
-      }, [activeOrder]);
-
-      useEffect(() => { window.lucide?.createIcons?.(); }, [activeOrder, visible, now]);
-
-      if (!visible || !activeOrder) return null;
-
-      const etaMin = Number(activeOrder.etaMin || 60);
-      const etaMax = Number(activeOrder.etaMax || 80);
-      const createdAt = Number(activeOrder.createdAt || Date.now());
-
-      const elapsedMs = Math.max(0, now - createdAt);
-      const maxMs = etaMax * 60 * 1000;
-      const pct = Math.max(0, Math.min(1, elapsedMs / maxMs));
-
-      const status = activeOrder.status || "preparing";
-      const statusLabel = ORDER_STATUS[status] || "W przygotowaniu";
-
-      const remainingMinApprox = Math.max(0, Math.round((maxMs - elapsedMs) / 60000));
-
-      const StatusPill = ({ label, active, icon }) => (
-        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-extrabold tracking-wider uppercase ${
-          active ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-gray-50 border-gray-200 text-gray-500"
-        }`}>
-          <i data-lucide={icon} className="w-3.5 h-3.5"></i>
-          <span>{label}</span>
-        </div>
-      );
-
-      const isPreparing = status === "preparing";
-      const isOnTheWay = status === "on_the_way";
-      const isDone = status === "done";
-      const isCanceled = status === "canceled";
-
-      return (
-        <div
-          className="fixed inset-x-0 z-[74]"
-          style={{ bottom: `calc(${offsetBottomPx}px + var(--tabbar-h) + var(--safe-b) + 10px)` }}
-        >
-          <div className="mx-auto w-full max-w-2xl px-3">
-            <div className="bg-white/95 backdrop-blur border border-emerald-200 shadow-glass rounded-3xl p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-2xl bg-emerald-100 grid place-items-center text-emerald-700 ring-1 ring-emerald-200 shrink-0">
-                      <i data-lucide="check-circle-2" className="w-5 h-5"></i>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-extrabold text-gray-900 truncate">
-                        Twoje zamówienie zostało złożone
-                      </div>
-                      <div className="text-xs text-gray-600 mt-0.5">
-                        Przewidywany czas dostawy: <span className="font-extrabold text-gray-900">{etaMin}–{etaMax} min</span>
-                        {status !== "done" && status !== "canceled" && (
-                          <> • pozostało ~ <span className="font-extrabold text-gray-900">{remainingMinApprox} min</span></>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <StatusPill label="W przygotowaniu" icon="chef-hat" active={isPreparing} />
-                    <StatusPill label="W drodze" icon="truck" active={isOnTheWay} />
-                    <StatusPill label="Zrealizowane" icon="badge-check" active={isDone} />
-                    <StatusPill label="Anulowane" icon="x-circle" active={isCanceled} />
-                  </div>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-emerald-700 font-extrabold">
-                    Status
-                  </div>
-                  <div className={`mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-extrabold ${
-                    isCanceled
-                      ? "bg-red-50 border-red-200 text-red-700"
-                      : isDone
-                        ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                        : "bg-amber-50 border-amber-200 text-amber-800"
-                  }`}>
-                    <span className={`w-2 h-2 rounded-full ${
-                      isCanceled ? "bg-red-500" : isDone ? "bg-emerald-500" : "bg-amber-500"
-                    }`}></span>
-                    {statusLabel}
-                  </div>
-                  <div className="mt-2 text-[11px] text-gray-500 font-mono">
-                    {activeOrder.orderId ? `#${activeOrder.orderId}` : ""}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <div className="flex items-center justify-between text-[11px] text-gray-500 font-semibold">
-                  <span>Postęp</span>
-                  <span>{Math.round(pct * 100)}%</span>
-                </div>
-                <div className="mt-2 h-3 rounded-full bg-emerald-50 border border-emerald-200 overflow-hidden relative">
-                  <div
-                    className="h-full bg-emerald-500 relative shimmer"
-                    style={{ width: `${Math.max(6, Math.round(pct * 100))}%` }}
-                    aria-label="Pasek postępu dostawy"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    };
-
-    /* =======================
        PWA: SERVICE WORKER REGISTER
     ======================= */
 
@@ -2207,43 +1958,8 @@
 
       const { count } = useCart();
       const { user, loading } = useAuth();
-      const { activeOrder, setActiveOrder } = useActiveOrder();
 
-      // ✅ fallback demo statusów (dopóki nie podepniemy server.js)
-      useEffect(() => {
-        if (!activeOrder) return;
-        if (activeOrder.status === "done" || activeOrder.status === "canceled") return;
-
-        const createdAt = Number(activeOrder.createdAt || Date.now());
-        const etaMin = Number(activeOrder.etaMin || 60);
-
-        // po ~30 min: "W drodze"
-        const t1 = setTimeout(() => {
-          // jeśli nadal w przygotowaniu
-          const cur = loadActiveOrder();
-          if (!cur) return;
-          if (cur.status === "preparing") {
-            const upd = { ...cur, status: "on_the_way" };
-            saveActiveOrder(upd);
-            setActiveOrder(upd);
-          }
-        }, Math.max(1000, (30 * 60 * 1000) - (Date.now() - createdAt)));
-
-        // po ~etaMin+10 min: "Zrealizowane" (żeby nie czekać pełnych 80 w demie)
-        const t2 = setTimeout(() => {
-          const cur = loadActiveOrder();
-          if (!cur) return;
-          if (cur.status === "on_the_way" || cur.status === "preparing") {
-            const upd = { ...cur, status: "done" };
-            saveActiveOrder(upd);
-            setActiveOrder(upd);
-          }
-        }, Math.max(1000, ((etaMin + 10) * 60 * 1000) - (Date.now() - createdAt)));
-
-        return () => { clearTimeout(t1); clearTimeout(t2); };
-      }, [activeOrder?.orderId]);
-
-      useEffect(() => { window.lucide?.createIcons?.(); }, [authOpen, orderOpen, route, count, user, loading, activeOrder]);
+      useEffect(() => { window.lucide?.createIcons?.(); }, [authOpen, orderOpen, route, count, user, loading]);
       useEffect(() => { registerSW(); }, []);
 
       const showCTA =
@@ -2252,17 +1968,12 @@
         route !== "#/koszyk" &&
         !route.startsWith("#/zamowienie");
 
-      const showOrderBar = isMobile && !!activeOrder;
-
-      // Order bar sits above tabbar; if CTA visible, put it above CTA (so both are readable)
-      const orderBarOffsetPx = showCTA ? (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cta-h') || '56', 10) + 10) : 0;
-
       return (
         <div className="min-h-screen no-overscroll">
           <TopInfoBar />
           <Header onOpenAuth={() => { setAuthInitialStep("login"); setAuthOpen(true); }} />
 
-          <main className={`app-content-pad ${showCTA ? "has-cta" : ""} ${showOrderBar ? "has-orderbar" : ""}`}>
+          <main className={`app-content-pad ${showCTA ? "has-cta" : ""}`}>
             <Router />
 
             <footer className="py-10 text-center text-sm text-gray-500">
@@ -2304,9 +2015,6 @@
 
           <FloatingCheckoutCTA visible={showCTA} />
 
-          {/* ✅ NEW: status + pasek postępu (znika po Zrealizowane/Anulowane) */}
-          <OrderStatusBar visible={showOrderBar} offsetBottomPx={orderBarOffsetPx} />
-
           <BottomTabBar
             route={route}
             onOpenOrder={() => setOrderOpen(true)}
@@ -2319,11 +2027,9 @@
     ReactDOM.createRoot(document.getElementById('root')).render(
       <ToastProvider>
         <AuthProvider>
-          <ActiveOrderProvider>
-            <CartProvider>
-              <App />
-            </CartProvider>
-          </ActiveOrderProvider>
+          <CartProvider>
+            <App />
+          </CartProvider>
         </AuthProvider>
       </ToastProvider>
     );
