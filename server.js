@@ -149,8 +149,6 @@ const UserSchema = new mongoose.Schema(
   { timestamps: true, collection: "users" }
 );
 
-// ✅ USUNIĘTE: UserSchema.index({ email: 1 }, { unique: true });
-
 const User = mongoose.models.User || mongoose.model("User", UserSchema);
 
 // -------------------------------
@@ -178,6 +176,11 @@ const OrderSchema = new mongoose.Schema(
     extOrderId: { type: String, required: true, unique: true, index: true },
     payuOrderId: { type: String, default: null, index: true },
     status: { type: String, default: "PENDING", index: true },
+
+    // ✅ NOWE: metoda płatności + flaga offline
+    // payu | card | cash
+    paymentMethod: { type: String, default: "payu", index: true },
+    isOffline: { type: Boolean, default: false, index: true },
 
     totalAmount: { type: Number, required: true }, // grosze
     totalPLN: { type: Number, required: true }, // zł (np 49.0)
@@ -395,6 +398,9 @@ function isPaidStatus(status) {
   return s === "COMPLETED" || s === "PAID";
 }
 
+// ✅ NOWE: statusy offline
+const OFFLINE_PENDING_STATUS = "AWAITING_PICKUP_PAYMENT";
+
 // ====== PRICE LIST (server-side truth) ======
 const PRICE_LIST = {
   "bs-small-1": 3800,
@@ -488,6 +494,31 @@ const NAME_LIST = {
   "extra-deser": "Deser czekoladowy (extra)"
 };
 
+function validateAndBuildCart(cart) {
+  const arr = Array.isArray(cart) ? cart : [];
+  if (!arr.length) throw new Error("Empty cart");
+
+  const normalized = arr.map((i) => {
+    const productId = i?.productId;
+    const qty = Number(i?.qty || 1);
+
+    if (!productId || !PRICE_LIST[productId]) {
+      throw new Error(`Unknown productId: ${productId}`);
+    }
+    if (!Number.isFinite(qty) || qty < 1 || qty > 50) {
+      throw new Error(`Invalid qty for ${productId}`);
+    }
+
+    return { productId, qty };
+  });
+
+  return normalized;
+}
+
+function calcTotalAmount(cartNorm) {
+  return cartNorm.reduce((sum, i) => sum + PRICE_LIST[i.productId] * i.qty, 0);
+}
+
 async function getPayuToken() {
   requireEnv("PAYU_CLIENT_ID", PAYU_CLIENT_ID);
   requireEnv("PAYU_CLIENT_SECRET", PAYU_CLIENT_SECRET);
@@ -544,6 +575,66 @@ async function upsertOrderMongo(patch) {
 }
 
 // ===============================
+// ✅ NOWE: Offline order (karta/gotówka przy odbiorze)
+// ===============================
+app.post("/api/order/offline", async (req, res) => {
+  try {
+    const methodRaw = String(req.body?.paymentMethod || "").trim().toLowerCase();
+    const paymentMethod = methodRaw === "card" ? "card" : methodRaw === "cash" ? "cash" : "";
+
+    if (!paymentMethod) {
+      return res.status(400).json({ error: "Invalid paymentMethod (expected 'card' or 'cash')" });
+    }
+
+    const customer = safeCustomer(req.body?.customer);
+
+    // minimalne wymagania (zgodne z frontem)
+    if (!customer.imieNazwisko || !customer.telefon || !customer.miasto || !customer.ulica) {
+      return res.status(400).json({ error: "Missing required customer fields" });
+    }
+
+    const cartNorm = validateAndBuildCart(req.body?.cart);
+    const totalAmount = calcTotalAmount(cartNorm);
+
+    const extOrderId = `eatmi-offline-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    // zapis do mongo
+    const saved = await upsertOrderMongo({
+      extOrderId,
+      payuOrderId: null,
+      status: OFFLINE_PENDING_STATUS,
+      paymentMethod,       // ✅ card|cash
+      isOffline: true,      // ✅
+      totalAmount,
+      totalPLN: totalAmount / 100,
+      customer,
+      cart: cartNorm,
+      payuRaw: null
+    });
+
+    // SSE: alarm w panelu admina (jak new order)
+    sseBroadcast("new_order", {
+      extOrderId: saved.extOrderId,
+      payuOrderId: null,
+      totalPLN: saved.totalPLN,
+      customer: saved.customer?.imieNazwisko || null,
+      status: saved.status,
+      paymentMethod: saved.paymentMethod
+    });
+
+    return res.json({
+      ok: true,
+      orderId: saved.extOrderId,
+      extOrderId: saved.extOrderId,
+      status: saved.status
+    });
+  } catch (e) {
+    console.log("OFFLINE ORDER ERROR:", e?.message, e);
+    return res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+// ===============================
 // PayU: Create order
 // ===============================
 app.post("/api/payu/order", async (req, res) => {
@@ -552,28 +643,18 @@ app.post("/api/payu/order", async (req, res) => {
     requireEnv("PAYU_NOTIFY_URL", PAYU_NOTIFY_URL);
     requireEnv("PAYU_CONTINUE_URL", PAYU_CONTINUE_URL);
 
-    const cart = Array.isArray(req.body?.cart) ? req.body.cart : [];
-    if (!cart.length) return res.status(400).json({ error: "Empty cart" });
+    const cartNorm = validateAndBuildCart(req.body?.cart);
 
-    const products = cart.map((i) => {
-      const productId = i.productId;
-      const qty = Number(i.qty || 1);
+    const products = cartNorm.map((i) => ({
+      name: NAME_LIST[i.productId] || "Pozycja",
+      unitPrice: String(PRICE_LIST[i.productId]),
+      quantity: String(i.qty)
+    }));
 
-      if (!productId || !PRICE_LIST[productId]) {
-        throw new Error(`Unknown productId: ${productId}`);
-      }
-      if (!Number.isFinite(qty) || qty < 1 || qty > 50) {
-        throw new Error(`Invalid qty for ${productId}`);
-      }
-
-      return {
-        name: NAME_LIST[productId] || "Pozycja",
-        unitPrice: String(PRICE_LIST[productId]),
-        quantity: String(qty)
-      };
-    });
-
-    const totalAmount = products.reduce((sum, p) => sum + Number(p.unitPrice) * Number(p.quantity), 0);
+    const totalAmount = products.reduce(
+      (sum, p) => sum + Number(p.unitPrice) * Number(p.quantity),
+      0
+    );
 
     const { access_token } = await getPayuToken();
 
@@ -590,10 +671,12 @@ app.post("/api/payu/order", async (req, res) => {
       extOrderId,
       payuOrderId: null,
       status: "PENDING",
+      paymentMethod: "payu",
+      isOffline: false,
       totalAmount,
       totalPLN: totalAmount / 100,
       customer,
-      cart
+      cart: cartNorm
     });
 
     const orderBody = {
@@ -683,7 +766,8 @@ app.post("/api/payu/notify", async (req, res) => {
           payuOrderId: updated.payuOrderId,
           totalPLN: updated.totalPLN,
           customer: updated.customer?.imieNazwisko || updated.customer?.name || null,
-          status: updated.status
+          status: updated.status,
+          paymentMethod: updated.paymentMethod || "payu"
         });
       }
     }
@@ -757,6 +841,8 @@ app.get("/api/admin/stats", requireStaff, async (req, res) => {
 
     const ordersToday = await Order.countDocuments({ createdAt: { $gte: start, $lte: end } });
 
+    // ✅ revenueTotal: liczymy tylko realnie opłacone PayU (PAID/COMPLETED)
+    // offline "AWAITING_PICKUP_PAYMENT" nie liczymy jako revenue (bo jeszcze nieopłacone).
     const revenueAgg = await Order.aggregate([
       { $match: { status: { $in: ["PAID", "COMPLETED"] } } },
       { $group: { _id: null, sum: { $sum: "$totalPLN" } } }
@@ -784,6 +870,10 @@ app.get("/api/admin/orders", requireStaff, async (req, res) => {
       or.push({ "customer.imieNazwisko": { $regex: escapeRegex(q), $options: "i" } });
       or.push({ "customer.email": { $regex: escapeRegex(q), $options: "i" } });
       or.push({ "customer.telefon": { $regex: escapeRegex(q), $options: "i" } });
+
+      // ✅ nowości:
+      or.push({ paymentMethod: { $regex: escapeRegex(q), $options: "i" } });
+      or.push({ status: { $regex: escapeRegex(q), $options: "i" } });
     }
 
     const filter = q ? { $or: or } : {};
