@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#FFC107" />
   <title>eatmi.pl — Panel Administratora</title>
   <meta name="description" content="Panel administratora eatmi.pl" />
-    <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
 
   <!-- Tailwind config MUST be before tailwindcdn script -->
   <script>
@@ -125,8 +125,57 @@
     /* =======================
       Utils
     ======================= */
-    const currency = (n) => {
-      const num = Number(n || 0);
+
+    /**
+     * Naprawa: grosze vs zł
+     * - PayU typowo zwraca totalAmount/unitPrice jako grosze (integer, np. 3800 = 38.00 PLN)
+     * - Twój panel formatował to jak PLN => 3800 zł.
+     *
+     * Zasada:
+     * - jeśli wiemy, że pole jest "payu-like" (hint), dzielimy przez 100.
+     * - jeśli nie wiemy, zostawiamy jak jest (PLN).
+     */
+    const toNumber = (v) => {
+      if (v === null || v === undefined) return 0;
+      if (typeof v === "number") return v;
+      if (typeof v === "string") {
+        const s = v.trim().replace(",", ".");
+        const n = Number(s);
+        return Number.isFinite(n) ? n : 0;
+      }
+      return 0;
+    };
+
+    const toPLNFromMaybeGrosze = (value, hint = "") => {
+      const n = toNumber(value);
+
+      // Jeżeli hint sugeruje PayU grosze -> PLN
+      const h = String(hint || "").toLowerCase();
+      const looksLikePayUGrosze =
+        h.includes("totalamount") ||
+        h.includes("unitprice") ||
+        h.includes("unit_amount") ||
+        h.includes("unitamount") ||
+        h.includes("payu");
+
+      if (looksLikePayUGrosze) {
+        // PayU potrafi zwrócić "3800" jako string lub number
+        return n / 100;
+      }
+
+      // Heurystyka awaryjna (gdy backend miesza nazwy pól):
+      // jeśli liczba wygląda na "grosze" (duża, całkowita), a jednocześnie typowe zamówienia są < 2000 PLN
+      // to zakładamy grosze.
+      if (Number.isInteger(n) && n >= 1000 && n <= 200000) {
+        return n / 100;
+      }
+
+      // W pozostałych przypadkach traktujemy jako PLN.
+      return n;
+    };
+
+    const currency = (nPln) => {
+      const num = Number(nPln || 0);
       return new Intl.NumberFormat('pl-PL', { style:'currency', currency:'PLN' }).format(num);
     };
 
@@ -138,6 +187,46 @@
 
     const pickOrderId = (o, idx=0) => o?.id || o?.orderId || o?.extOrderId || o?._id || `row-${idx}`;
     const pickCreatedAt = (o) => o?.createdAt || o?.created_at || o?.date || o?.timestamp || o?.orderDate || null;
+
+    // Zwraca TOTAL w PLN niezależnie od tego, czy backend trzyma w groszach
+    const getOrderTotalPLN = (order) => {
+      if (!order) return 0;
+
+      // Najlepiej: jeśli backend już podaje totalPLN
+      if (order.totalPLN !== undefined) return toPLNFromMaybeGrosze(order.totalPLN, "pln");
+
+      // Jeśli masz pole "total" i ono jest w PLN, to zostanie w PLN (heurystyka też zadziała)
+      if (order.total !== undefined) return toPLNFromMaybeGrosze(order.total, "total");
+
+      // PayU / backend często: totalAmount = grosze
+      if (order.totalAmount !== undefined) return toPLNFromMaybeGrosze(order.totalAmount, "totalAmount");
+
+      // Czasem "amount" bywa w groszach albo w PLN - heurystyka zadziała
+      if (order.amount !== undefined) return toPLNFromMaybeGrosze(order.amount, "amount");
+
+      // Fallback: spróbuj jeszcze innych popularnych pól
+      if (order.price !== undefined) return toPLNFromMaybeGrosze(order.price, "price");
+      if (order.sum !== undefined) return toPLNFromMaybeGrosze(order.sum, "sum");
+
+      return 0;
+    };
+
+    // Zwraca cenę jednostkową pozycji w PLN
+    const getItemUnitPricePLN = (it) => {
+      if (!it) return 0;
+
+      // PayU: unitPrice = grosze
+      if (it.unitPrice !== undefined) return toPLNFromMaybeGrosze(it.unitPrice, "unitPrice");
+
+      // Czasem backend: unit_amount (grosze)
+      if (it.unit_amount !== undefined) return toPLNFromMaybeGrosze(it.unit_amount, "unit_amount");
+
+      // Twoje pola: price może być PLN lub grosze (heurystyka)
+      if (it.price !== undefined) return toPLNFromMaybeGrosze(it.price, "price");
+
+      // Fallback
+      return 0;
+    };
 
     /* =======================
       Mapowanie productId -> pełna nazwa (EDYTUJ wg swoich ID)
@@ -364,7 +453,9 @@
       const id = orderPreview?.id || orderPreview?.orderId || orderPreview?.extOrderId || orderPreview?._id || "—";
       const name = orderPreview?.customer?.imieNazwisko || orderPreview?.customer?.name || orderPreview?.name || "—";
       const phone = orderPreview?.customer?.telefon || orderPreview?.customer?.phone || orderPreview?.telefon || "—";
-      const total = orderPreview?.total ?? orderPreview?.totalAmount ?? orderPreview?.amount ?? 0;
+
+      // ✅ FIX: total w PLN
+      const totalPLN = getOrderTotalPLN(orderPreview);
 
       return (
         <div className={`fixed inset-0 z-[999] ${bgClass}`}>
@@ -402,7 +493,7 @@
                 </div>
                 <div className="bg-white border border-gray-200 rounded-2xl p-4">
                   <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 font-black">Kwota</div>
-                  <div className="mt-2 text-2xl font-black">{currency(total)}</div>
+                  <div className="mt-2 text-2xl font-black">{currency(totalPLN)}</div>
                 </div>
               </div>
 
@@ -676,10 +767,14 @@
             setLoading(false);
             return;
           }
+
+          // revenueTotal bywa w PLN lub groszach - heurystyka zadziała
+          const revenuePLN = toPLNFromMaybeGrosze(data.revenueTotal || 0, "revenueTotal");
+
           setStats({
             ordersTotal: Number(data.ordersTotal || 0),
             ordersToday: Number(data.ordersToday || 0),
-            revenueTotal: Number(data.revenueTotal || 0),
+            revenueTotal: Number(revenuePLN || 0),
           });
         } catch (e) {
           console.log(e);
@@ -802,7 +897,9 @@
     const OrderDetails = ({ order }) => {
       const c = order.customer || {};
       const cart = Array.isArray(order.cart) ? order.cart : (Array.isArray(order.items) ? order.items : []);
-      const total = order.total ?? order.totalAmount ?? order.amount ?? 0;
+
+      // ✅ FIX: total w PLN
+      const totalPLN = getOrderTotalPLN(order);
 
       return (
         <div className="space-y-6">
@@ -816,7 +913,7 @@
               </div>
               <div className="text-right">
                 <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Kwota</div>
-                <div className="mt-2 text-2xl font-black">{currency(total)}</div>
+                <div className="mt-2 text-2xl font-black">{currency(totalPLN)}</div>
               </div>
             </div>
           </div>
@@ -851,10 +948,12 @@
                 <div className="text-sm text-gray-600">Brak danych koszyka w obiekcie zamówienia.</div>
               ) : (
                 cart.map((it, i) => {
-                  const qty = it.qty || it.quantity || 1;
+                  const qty = Number(it.qty || it.quantity || 1) || 1;
                   const name = resolveProductName(it); /* ✅ ZAMIANA ID NA PEŁNĄ NAZWĘ */
-                  const price = it.price ?? it.unitPrice ?? it.unit_amount ?? 0;
-                  const line = (Number(price)||0) * (Number(qty)||1);
+
+                  // ✅ FIX: ceny pozycji w PLN
+                  const unitPricePLN = getItemUnitPricePLN(it);
+                  const linePLN = unitPricePLN * qty;
 
                   return (
                     <div key={i} className="border border-gray-200 rounded-2xl p-4 hover:ring-2 hover:ring-brand-yellow/15 transition">
@@ -867,9 +966,9 @@
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="font-black">{currency(line)}</div>
+                          <div className="font-black">{currency(linePLN)}</div>
                           <div className="text-xs text-gray-500 mt-1">
-                            {currency(price)} / szt.
+                            {currency(unitPricePLN)} / szt.
                           </div>
                         </div>
                       </div>
@@ -966,8 +1065,9 @@
       };
 
       const sumOrder = (o) => {
-        const total = o?.total ?? o?.totalAmount ?? o?.amount ?? 0;
-        return currency(total);
+        // ✅ FIX: total w PLN
+        const totalPLN = getOrderTotalPLN(o);
+        return currency(totalPLN);
       };
 
       return (
