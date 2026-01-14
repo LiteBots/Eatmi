@@ -126,15 +126,6 @@
       Utils
     ======================= */
 
-    /**
-     * Naprawa: grosze vs zł
-     * - PayU typowo zwraca totalAmount/unitPrice jako grosze (integer, np. 3800 = 38.00 PLN)
-     * - Twój panel formatował to jak PLN => 3800 zł.
-     *
-     * Zasada:
-     * - jeśli wiemy, że pole jest "payu-like" (hint), dzielimy przez 100.
-     * - jeśli nie wiemy, zostawiamy jak jest (PLN).
-     */
     const toNumber = (v) => {
       if (v === null || v === undefined) return 0;
       if (typeof v === "number") return v;
@@ -149,7 +140,6 @@
     const toPLNFromMaybeGrosze = (value, hint = "") => {
       const n = toNumber(value);
 
-      // Jeżeli hint sugeruje PayU grosze -> PLN
       const h = String(hint || "").toLowerCase();
       const looksLikePayUGrosze =
         h.includes("totalamount") ||
@@ -158,19 +148,10 @@
         h.includes("unitamount") ||
         h.includes("payu");
 
-      if (looksLikePayUGrosze) {
-        // PayU potrafi zwrócić "3800" jako string lub number
-        return n / 100;
-      }
+      if (looksLikePayUGrosze) return n / 100;
 
-      // Heurystyka awaryjna (gdy backend miesza nazwy pól):
-      // jeśli liczba wygląda na "grosze" (duża, całkowita), a jednocześnie typowe zamówienia są < 2000 PLN
-      // to zakładamy grosze.
-      if (Number.isInteger(n) && n >= 1000 && n <= 200000) {
-        return n / 100;
-      }
+      if (Number.isInteger(n) && n >= 1000 && n <= 200000) return n / 100;
 
-      // W pozostałych przypadkach traktujemy jako PLN.
       return n;
     };
 
@@ -188,43 +169,24 @@
     const pickOrderId = (o, idx=0) => o?.id || o?.orderId || o?.extOrderId || o?._id || `row-${idx}`;
     const pickCreatedAt = (o) => o?.createdAt || o?.created_at || o?.date || o?.timestamp || o?.orderDate || null;
 
-    // Zwraca TOTAL w PLN niezależnie od tego, czy backend trzyma w groszach
     const getOrderTotalPLN = (order) => {
       if (!order) return 0;
 
-      // Najlepiej: jeśli backend już podaje totalPLN
       if (order.totalPLN !== undefined) return toPLNFromMaybeGrosze(order.totalPLN, "pln");
-
-      // Jeśli masz pole "total" i ono jest w PLN, to zostanie w PLN (heurystyka też zadziała)
       if (order.total !== undefined) return toPLNFromMaybeGrosze(order.total, "total");
-
-      // PayU / backend często: totalAmount = grosze
       if (order.totalAmount !== undefined) return toPLNFromMaybeGrosze(order.totalAmount, "totalAmount");
-
-      // Czasem "amount" bywa w groszach albo w PLN - heurystyka zadziała
       if (order.amount !== undefined) return toPLNFromMaybeGrosze(order.amount, "amount");
-
-      // Fallback: spróbuj jeszcze innych popularnych pól
       if (order.price !== undefined) return toPLNFromMaybeGrosze(order.price, "price");
       if (order.sum !== undefined) return toPLNFromMaybeGrosze(order.sum, "sum");
 
       return 0;
     };
 
-    // Zwraca cenę jednostkową pozycji w PLN
     const getItemUnitPricePLN = (it) => {
       if (!it) return 0;
-
-      // PayU: unitPrice = grosze
       if (it.unitPrice !== undefined) return toPLNFromMaybeGrosze(it.unitPrice, "unitPrice");
-
-      // Czasem backend: unit_amount (grosze)
       if (it.unit_amount !== undefined) return toPLNFromMaybeGrosze(it.unit_amount, "unit_amount");
-
-      // Twoje pola: price może być PLN lub grosze (heurystyka)
       if (it.price !== undefined) return toPLNFromMaybeGrosze(it.price, "price");
-
-      // Fallback
       return 0;
     };
 
@@ -253,12 +215,11 @@
         !!o.payOnPickup ||
         !!o.pay_on_pickup ||
         pm === "offline" ||
+        pm.includes("odbior") ||
+        pm.includes("odbiór") ||
         pm === "pickup" ||
-        pm === "odbior" ||
-        pm === "odbiór" ||
         pm === "cod";
 
-      // Rozpoznanie form
       if (pm.includes("cash") || pm.includes("got") || pm === "gotowka" || pm === "gotówka") {
         return { kind: "offline_cash", label: "Gotówka przy odbiorze", badge: "GOTÓWKA" };
       }
@@ -266,22 +227,18 @@
         return { kind: "offline_card", label: "Karta przy odbiorze", badge: "KARTA" };
       }
 
-      // Jeśli offline ale bez szczegółu
       if (offlineFlag) {
         return { kind: "offline", label: "Płatność przy odbiorze", badge: "ODBIÓR" };
       }
 
-      // Jeśli wygląda na PayU / online
-      if (pm.includes("payu") || pm.includes("online") || pm.includes("card_online") || pm.includes("przelew")) {
+      if (pm.includes("payu") || pm.includes("online") || pm.includes("przelew")) {
         return { kind: "online", label: "PayU (online)", badge: "PAYU" };
       }
 
-      // Heurystyka: jeśli jest payuOrderId -> online
       if (o.payuOrderId || o.payu?.orderId) {
         return { kind: "online", label: "PayU (online)", badge: "PAYU" };
       }
 
-      // domyślnie online
       return { kind: "online", label: "PayU (online)", badge: "PAYU" };
     };
 
@@ -301,7 +258,6 @@
       "bs-big-2": "Box śniadaniowy duży nr 2",
       "bs-big-3": "Box śniadaniowy duży nr 3",
 
-      // dodatki (przykład)
       "extra-granola": "Granola",
       "extra-lemoniada": "Lemoniada",
       "extra-deser": "Deser",
@@ -408,9 +364,6 @@
       <i data-lucide={name} className={className}></i>
     );
 
-    /* =======================
-      ✅ Payment pill (tabela / overlay / szczegóły)
-    ======================= */
     const PaymentPill = ({ order }) => {
       const p = resolvePayment(order);
       const kind = p.kind;
@@ -537,11 +490,7 @@
       const id = orderPreview?.id || orderPreview?.orderId || orderPreview?.extOrderId || orderPreview?._id || "—";
       const name = orderPreview?.customer?.imieNazwisko || orderPreview?.customer?.name || orderPreview?.name || "—";
       const phone = orderPreview?.customer?.telefon || orderPreview?.customer?.phone || orderPreview?.telefon || "—";
-
-      // ✅ FIX: total w PLN
       const totalPLN = getOrderTotalPLN(orderPreview);
-
-      // ✅ Płatność
       const pay = resolvePayment(orderPreview);
 
       return (
@@ -562,8 +511,7 @@
                     Dopóki nie klikniesz <span className="font-black">OK</span>, nie da się zamknąć tego ekranu.
                   </div>
 
-                  {/* ✅ Metoda płatności na overlay */}
-                  <div className="mt-3 flex items-center gap-2">
+                  <div className="mt-3 flex items-center gap-2 flex-wrap">
                     <span className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Płatność:</span>
                     <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 shadow-soft text-xs font-black">
                       {pay.label}
@@ -864,7 +812,6 @@
             return;
           }
 
-          // revenueTotal bywa w PLN lub groszach - heurystyka zadziała
           const revenuePLN = toPLNFromMaybeGrosze(data.revenueTotal || 0, "revenueTotal");
 
           setStats({
@@ -994,10 +941,7 @@
       const c = order.customer || {};
       const cart = Array.isArray(order.cart) ? order.cart : (Array.isArray(order.items) ? order.items : []);
 
-      // ✅ FIX: total w PLN
       const totalPLN = getOrderTotalPLN(order);
-
-      // ✅ Płatność
       const pay = resolvePayment(order);
 
       return (
@@ -1052,9 +996,8 @@
               ) : (
                 cart.map((it, i) => {
                   const qty = Number(it.qty || it.quantity || 1) || 1;
-                  const name = resolveProductName(it); /* ✅ ZAMIANA ID NA PEŁNĄ NAZWĘ */
+                  const name = resolveProductName(it);
 
-                  // ✅ FIX: ceny pozycji w PLN
                   const unitPricePLN = getItemUnitPricePLN(it);
                   const linePLN = unitPricePLN * qty;
 
@@ -1097,7 +1040,7 @@
       );
     };
 
-    const STORAGE_LAST_ACK = "eatmi-admin-last-ack"; // { lastSeenKey: string, ts: number }
+    const STORAGE_LAST_ACK = "eatmi-admin-last-ack";
 
     const Orders = ({ token, onNewOrderDetected, setOrdersCount }) => {
       const toast = useToast();
@@ -1169,11 +1112,7 @@
         } catch { return String(iso); }
       };
 
-      const sumOrder = (o) => {
-        // ✅ FIX: total w PLN
-        const totalPLN = getOrderTotalPLN(o);
-        return currency(totalPLN);
-      };
+      const sumOrder = (o) => currency(getOrderTotalPLN(o));
 
       return (
         <div className="p-4 md:p-6">
@@ -1191,7 +1130,7 @@
                 </span>
                 <input
                   className="input-focus w-full sm:w-[320px] bg-white border border-gray-200 rounded-2xl pl-9 pr-4 py-3 shadow-soft"
-                  placeholder="Szukaj (ID, email, telefon, produkt, payu, karta, gotówka...)"
+                  placeholder="Szukaj (ID, email, telefon, produkt, payu, gotówka...)"
                   value={query}
                   onChange={(e)=>setQuery(e.target.value)}
                 />
@@ -1219,7 +1158,6 @@
             </div>
 
             <div className="overflow-auto">
-              <!-- ✅ poszerzamy tabelę: dodana kolumna Płatność -->
               <table className="min-w-[1040px] w-full">
                 <thead className="bg-gray-50">
                   <tr className="text-left text-xs uppercase tracking-widest text-gray-500">
@@ -1283,12 +1221,9 @@
                           <td className="px-4 py-4">
                             <StatusPill status={status} />
                           </td>
-
-                          {/* ✅ NOWA kolumna: płatność */}
                           <td className="px-4 py-4">
                             <PaymentPill order={o} />
                           </td>
-
                           <td className="px-4 py-4 text-right font-extrabold whitespace-nowrap">
                             {sumOrder(o)}
                           </td>
@@ -1316,16 +1251,14 @@
             onClose={() => setSelected(null)}
             title={selected ? `Zamówienie: ${pickOrderId(selected)}` : ""}
           >
-            {selected && (
-              <OrderDetails order={selected} />
-            )}
+            {selected && <OrderDetails order={selected} />}
           </Drawer>
         </div>
       );
     };
 
     /* =======================
-      Pages: Push notifications (zostawione, jeśli masz backend)
+      Pages: Push notifications
     ======================= */
     const Push = ({ token }) => {
       const toast = useToast();
@@ -1413,7 +1346,6 @@
                 <Icon name="send" className="w-5 h-5" />
                 {loading ? "Wysyłanie..." : "Wyślij powiadomienie"}
               </button>
-
             </div>
           </div>
         </div>
@@ -1421,7 +1353,7 @@
     };
 
     /* =======================
-      Pages: Staff (zostawione, jeśli masz backend)
+      Pages: Staff
     ======================= */
     const Staff = ({ token }) => {
       const toast = useToast();
@@ -1925,3 +1857,4 @@
   </script>
 </body>
 </html>
+
