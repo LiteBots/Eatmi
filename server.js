@@ -1,4 +1,6 @@
 // server.js (ESM) — bez weryfikacji mailowej (bez Resend) + mail powitalny SMTP
+// + PANEL MANAGEMENT (users/orders) z 2-step auth: password -> wait 5s -> pin
+
 import express from "express";
 import path from "path";
 import crypto from "crypto";
@@ -46,10 +48,12 @@ const {
   SMTP_PASS,
   MAIL_FROM,
 
-  // ====== MANAGEMENT PANEL (panel.html) ======
-  MGMT_PASSWORD, // hasło do kroku 1
-  MGMT_PIN, // 4 cyfry do kroku 2
-  MGMT_TOKEN_TTL_MIN = "120" // TTL tokena panelu (minuty)
+  // ====== MANAGEMENT PANEL ======
+  // hasło (krok 1) i pin (krok 2) — ustaw w Railway Variables
+  MGMT_PASSWORD,
+  MGMT_PIN,
+  // osobny sekret tokenów panelu (jak nie ustawisz, poleci na ADMIN_TOKEN_SECRET)
+  MGMT_TOKEN_SECRET
 } = process.env;
 
 // Railway daje MONGO_URL (czasem ludzie mają MONGO_URI) — wspieramy oba
@@ -82,8 +86,6 @@ const mailer = smtpEnabled
       port: Number(SMTP_PORT),
       secure: String(SMTP_SECURE) === "true", // 465 => true
       auth: { user: SMTP_USER, pass: SMTP_PASS },
-
-      // ====== TIMEOUTY (żeby nie wisiało) ======
       connectionTimeout: 5000,
       greetingTimeout: 5000,
       socketTimeout: 7000
@@ -144,16 +146,16 @@ console.log("Mongo connected");
 
 // -------------------------------
 // USERS (kolekcja: users)
-// Rozszerzamy schema o pola, których potrzebuje panel.
-// Działa też na starych dokumentach (pola będą po prostu undefined).
 // -------------------------------
+// ✅ Rozszerzamy o pola wymagane przez panel (opcjonalne):
+// firstName, lastName, phone, address
 const UserSchema = new mongoose.Schema(
   {
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     fullName: { type: String, required: true, trim: true },
     passwordHash: { type: String, required: true },
 
-    // ✅ Panel fields:
+    // Panel fields:
     firstName: { type: String, default: "", trim: true },
     lastName: { type: String, default: "", trim: true },
     phone: { type: String, default: "", trim: true },
@@ -192,15 +194,14 @@ const OrderSchema = new mongoose.Schema(
     payuOrderId: { type: String, default: null, index: true },
     status: { type: String, default: "PENDING", index: true },
 
-    // ✅ metoda płatności + flaga offline
     // payu | card | cash
     paymentMethod: { type: String, default: "payu", index: true },
     isOffline: { type: Boolean, default: false, index: true },
 
     totalAmount: { type: Number, required: true }, // grosze
-    totalPLN: { type: Number, required: true }, // zł (np 49.0)
+    totalPLN: { type: Number, required: true }, // zł
 
-    customer: { type: Object, default: {} }, // bez narzucania struktury
+    customer: { type: Object, default: {} },
     cart: { type: Array, default: [] },
 
     payuRaw: { type: Object, default: null }
@@ -209,12 +210,13 @@ const OrderSchema = new mongoose.Schema(
 );
 
 OrderSchema.index({ createdAt: -1 });
-OrderSchema.index({ "customer.email": 1 }); // ✅ szybkie wyszukiwanie po mailu
+OrderSchema.index({ "customer.email": 1 });
+OrderSchema.index({ "customer.telefon": 1 });
 
 const Order = mongoose.models.Order || mongoose.model("Order", OrderSchema);
 
 // ===============================
-// AUTH HELPERS
+// AUTH HELPERS (USER)
 // ===============================
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -259,10 +261,10 @@ app.post("/api/auth/register", async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // spróbuj wyciągnąć first/last z fullName (opcjonalnie)
+    // spróbuj rozbić fullName na first/last
     const parts = fullName.split(/\s+/).filter(Boolean);
     const firstName = parts[0] || "";
-    const lastName = parts.slice(1).join(" ") || "";
+    const lastName = parts.slice(1).join(" ");
 
     const user = await User.create({
       email,
@@ -339,16 +341,16 @@ function hashPin(pin) {
 }
 
 // ====== Minimal token (HMAC) ======
-function signToken(payload) {
+function signToken(payload, secret) {
   const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const sig = crypto.createHmac("sha256", ADMIN_TOKEN_SECRET).update(`${header}.${body}`).digest("base64url");
+  const sig = crypto.createHmac("sha256", secret).update(`${header}.${body}`).digest("base64url");
   return `${header}.${body}.${sig}`;
 }
-function verifyToken(token) {
+function verifyToken(token, secret) {
   const [h, b, s] = String(token || "").split(".");
   if (!h || !b || !s) return null;
-  const sig = crypto.createHmac("sha256", ADMIN_TOKEN_SECRET).update(`${h}.${b}`).digest("base64url");
+  const sig = crypto.createHmac("sha256", secret).update(`${h}.${b}`).digest("base64url");
   if (sig !== s) return null;
   try {
     return JSON.parse(Buffer.from(b, "base64url").toString("utf8"));
@@ -360,16 +362,18 @@ function getBearer(req) {
   const auth = req.headers.authorization || "";
   return auth.startsWith("Bearer ") ? auth.slice(7) : "";
 }
+
+// ====== Admin middleware (existing) ======
 function requireStaff(req, res, next) {
   const token = getBearer(req);
-  const data = verifyToken(token);
+  const data = verifyToken(token, ADMIN_TOKEN_SECRET);
   if (!data) return res.status(401).json({ error: "Unauthorized" });
   req.admin = data;
   next();
 }
 function requireAdminOnly(req, res, next) {
   const token = getBearer(req);
-  const data = verifyToken(token);
+  const data = verifyToken(token, ADMIN_TOKEN_SECRET);
   if (!data) return res.status(401).json({ error: "Unauthorized" });
   if (data.role !== "admin") return res.status(403).json({ error: "Forbidden" });
   req.admin = data;
@@ -377,7 +381,7 @@ function requireAdminOnly(req, res, next) {
 }
 function requireStaffForStream(req, res, next) {
   const token = String(req.query.token || "");
-  const data = verifyToken(token);
+  const data = verifyToken(token, ADMIN_TOKEN_SECRET);
   if (!data) return res.status(401).end();
   req.admin = data;
   next();
@@ -395,367 +399,6 @@ function sseBroadcast(event, data) {
 }
 
 // ===============================
-// ✅ MANAGEMENT PANEL (panel.html) — silna ochrona
-// 2-step: hasło -> (min 5s) -> PIN -> token
-// ===============================
-function nowMs() {
-  return Date.now();
-}
-
-function normalizePin(pin) {
-  return String(pin || "").trim();
-}
-
-function timingSafeEq(a, b) {
-  const x = Buffer.from(String(a));
-  const y = Buffer.from(String(b));
-  if (x.length !== y.length) return false;
-  return crypto.timingSafeEqual(x, y);
-}
-
-// proste rate-limit w pamięci (na IP)
-const mgmtRate = new Map(); // key => { count, resetAt }
-function mgmtRateLimit(req, res, next) {
-  const ip = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "ip").split(",")[0].trim();
-  const key = `mgmt:${ip}`;
-  const winMs = 60_000;
-  const max = 30;
-
-  const rec = mgmtRate.get(key) || { count: 0, resetAt: nowMs() + winMs };
-  if (nowMs() > rec.resetAt) {
-    rec.count = 0;
-    rec.resetAt = nowMs() + winMs;
-  }
-  rec.count += 1;
-  mgmtRate.set(key, rec);
-
-  if (rec.count > max) {
-    return res.status(429).json({ error: "Too many requests" });
-  }
-  next();
-}
-
-// challenge store (pamięć) — żeby backend mógł wymusić 5s
-const mgmtChallenges = new Map(); // challengeId => { iat, ip, used }
-function createMgmtChallenge(ip) {
-  const id = crypto.randomBytes(16).toString("hex");
-  mgmtChallenges.set(id, { iat: nowMs(), ip, used: false });
-  return id;
-}
-function consumeMgmtChallenge(id, ip) {
-  const rec = mgmtChallenges.get(id);
-  if (!rec) return { ok: false, error: "Invalid challenge" };
-  if (rec.used) return { ok: false, error: "Challenge used" };
-  if (rec.ip !== ip) return { ok: false, error: "Challenge mismatch" };
-  // challenge ważny 10 minut
-  if (nowMs() - rec.iat > 10 * 60_000) return { ok: false, error: "Challenge expired" };
-  // wymuś min 5 sekund
-  if (nowMs() - rec.iat < 5000) return { ok: false, error: "Wait 5 seconds" };
-  rec.used = true;
-  mgmtChallenges.set(id, rec);
-  return { ok: true };
-}
-
-function signMgmtToken() {
-  const ttlMin = Math.max(5, Number(MGMT_TOKEN_TTL_MIN || 120));
-  const payload = {
-    role: "mgmt",
-    name: "Management",
-    iat: nowMs(),
-    exp: nowMs() + ttlMin * 60_000
-  };
-  return signToken(payload);
-}
-
-function requireMgmt(req, res, next) {
-  const token = getBearer(req);
-  const data = verifyToken(token);
-  if (!data) return res.status(401).json({ error: "Unauthorized" });
-  if (data.role !== "mgmt") return res.status(403).json({ error: "Forbidden" });
-  if (data.exp && nowMs() > Number(data.exp)) return res.status(401).json({ error: "Token expired" });
-  req.mgmt = data;
-  next();
-}
-
-// Step 1: hasło -> challenge
-app.post("/api/management/login-step1", mgmtRateLimit, async (req, res) => {
-  try {
-    requireEnv("MGMT_PASSWORD", MGMT_PASSWORD);
-    const ip = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "ip").split(",")[0].trim();
-
-    const password = String(req.body?.password || "").trim();
-    if (!password) return res.status(400).json({ ok: false, error: "Missing password" });
-
-    if (!timingSafeEq(password, String(MGMT_PASSWORD))) {
-      return res.status(401).json({ ok: false, error: "Bad password" });
-    }
-
-    const challenge = createMgmtChallenge(ip);
-    return res.json({ ok: true, challenge });
-  } catch (e) {
-    console.log("MGMT STEP1 ERROR:", e?.message || e);
-    return res.status(500).json({ ok: false, error: e?.message || "Server error" });
-  }
-});
-
-// Step 2: pin + (opcjonalnie) challenge -> token
-app.post("/api/management/login-step2", mgmtRateLimit, async (req, res) => {
-  try {
-    requireEnv("MGMT_PIN", MGMT_PIN);
-    const ip = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "ip").split(",")[0].trim();
-
-    const pin = normalizePin(req.body?.pin);
-    if (!/^\d{4}$/.test(pin)) return res.status(400).json({ error: "PIN must be 4 digits" });
-
-    // jeśli front poda challenge, wymuś 5 sekund
-    const challenge = String(req.body?.challenge || "").trim();
-    if (challenge) {
-      const chk = consumeMgmtChallenge(challenge, ip);
-      if (!chk.ok) return res.status(403).json({ error: chk.error || "Forbidden" });
-    }
-
-    if (!timingSafeEq(pin, String(MGMT_PIN))) {
-      return res.status(401).json({ error: "Bad PIN" });
-    }
-
-    const token = signMgmtToken();
-    return res.json({ ok: true, token });
-  } catch (e) {
-    console.log("MGMT STEP2 ERROR:", e?.message || e);
-    return res.status(500).json({ error: e?.message || "Server error" });
-  }
-});
-
-// ========== MANAGEMENT: USERS + ORDERS (Mongo) ==========
-function splitFullName(fullName) {
-  const parts = String(fullName || "").trim().split(/\s+/).filter(Boolean);
-  const firstName = parts[0] || "";
-  const lastName = parts.slice(1).join(" ") || "";
-  return { firstName, lastName };
-}
-
-function sanitizeUserForList(u, ordersCount = 0) {
-  const fullName = String(u.fullName || "").trim();
-  const fallback = splitFullName(fullName);
-
-  return {
-    id: String(u._id),
-    email: u.email,
-    fullName: u.fullName,
-    firstName: u.firstName || fallback.firstName,
-    lastName: u.lastName || fallback.lastName,
-    phone: u.phone || "",
-    address: u.address || "",
-    createdAt: u.createdAt,
-    updatedAt: u.updatedAt,
-    ordersCount: Number(ordersCount || 0)
-  };
-}
-
-function sanitizeUserForDetail(u) {
-  const fullName = String(u.fullName || "").trim();
-  const fallback = splitFullName(fullName);
-  return {
-    id: String(u._id),
-    email: u.email,
-    fullName: u.fullName,
-    firstName: u.firstName || fallback.firstName,
-    lastName: u.lastName || fallback.lastName,
-    phone: u.phone || "",
-    address: u.address || "",
-    createdAt: u.createdAt,
-    updatedAt: u.updatedAt
-  };
-}
-
-// LIST users + ordersCount
-app.get("/api/management/users", requireMgmt, async (req, res) => {
-  try {
-    const users = await User.find({})
-      .select("email fullName firstName lastName phone address createdAt updatedAt")
-      .sort({ createdAt: -1 })
-      .lean();
-
-    const emails = users.map((u) => u.email).filter(Boolean);
-
-    // policz zamówienia per email (orders.customer.email)
-    const agg = await Order.aggregate([
-      { $match: { "customer.email": { $in: emails } } },
-      { $group: { _id: "$customer.email", count: { $sum: 1 } } }
-    ]);
-
-    const map = new Map();
-    for (const row of agg) map.set(String(row._id || "").toLowerCase(), Number(row.count || 0));
-
-    const out = users.map((u) => sanitizeUserForList(u, map.get(String(u.email).toLowerCase()) || 0));
-    res.json({ users: out });
-  } catch (e) {
-    console.log("MGMT USERS LIST ERROR:", e?.message || e);
-    res.status(500).json({ error: e?.message || "Server error" });
-  }
-});
-
-// GET user by id
-app.get("/api/management/users/:id", requireMgmt, async (req, res) => {
-  try {
-    const id = String(req.params.id || "");
-    if (!id) return res.status(400).json({ error: "Missing id" });
-
-    const user = await User.findById(id)
-      .select("email fullName firstName lastName phone address createdAt updatedAt")
-      .lean();
-
-    if (!user) return res.status(404).json({ error: "Not found" });
-    res.json({ user: sanitizeUserForDetail(user) });
-  } catch (e) {
-    console.log("MGMT USER GET ERROR:", e?.message || e);
-    res.status(500).json({ error: e?.message || "Server error" });
-  }
-});
-
-// PATCH user (edit any data)
-app.patch("/api/management/users/:id", requireMgmt, async (req, res) => {
-  try {
-    const id = String(req.params.id || "");
-    if (!id) return res.status(400).json({ error: "Missing id" });
-
-    const email = req.body?.email !== undefined ? normalizeEmail(req.body?.email) : undefined;
-    const firstName = req.body?.firstName !== undefined ? String(req.body?.firstName || "").trim() : undefined;
-    const lastName = req.body?.lastName !== undefined ? String(req.body?.lastName || "").trim() : undefined;
-    const phone = req.body?.phone !== undefined ? String(req.body?.phone || "").trim() : undefined;
-    const address = req.body?.address !== undefined ? String(req.body?.address || "").trim() : undefined;
-
-    const patch = {};
-    if (email !== undefined) {
-      if (!email || !email.includes("@")) return res.status(400).json({ error: "Invalid email" });
-      patch.email = email;
-    }
-    if (firstName !== undefined) patch.firstName = firstName;
-    if (lastName !== undefined) patch.lastName = lastName;
-    if (phone !== undefined) patch.phone = phone;
-    if (address !== undefined) patch.address = address;
-
-    // aktualizuj fullName na podstawie first/last, jeśli podano
-    if (firstName !== undefined || lastName !== undefined) {
-      const current = await User.findById(id).select("fullName firstName lastName").lean();
-      if (!current) return res.status(404).json({ error: "Not found" });
-
-      const fn = firstName !== undefined ? firstName : (current.firstName || splitFullName(current.fullName).firstName);
-      const ln = lastName !== undefined ? lastName : (current.lastName || splitFullName(current.fullName).lastName);
-      const newFull = `${String(fn || "").trim()} ${String(ln || "").trim()}`.trim();
-      if (newFull) patch.fullName = newFull;
-    }
-
-    const updated = await User.findOneAndUpdate(
-      { _id: id },
-      { $set: patch },
-      { new: true }
-    )
-      .select("email fullName firstName lastName phone address createdAt updatedAt")
-      .lean();
-
-    if (!updated) return res.status(404).json({ error: "Not found" });
-
-    res.json({ ok: true, user: sanitizeUserForDetail(updated) });
-  } catch (e) {
-    const msg = String(e?.message || "");
-    if (msg.includes("E11000") || msg.toLowerCase().includes("duplicate")) {
-      return res.status(409).json({ error: "Email already in use" });
-    }
-    console.log("MGMT USER PATCH ERROR:", e?.message || e);
-    res.status(500).json({ error: e?.message || "Server error" });
-  }
-});
-
-// Change user password (NO preview)
-app.post("/api/management/users/:id/password", requireMgmt, async (req, res) => {
-  try {
-    const id = String(req.params.id || "");
-    if (!id) return res.status(400).json({ error: "Missing id" });
-
-    const newPassword = String(req.body?.newPassword || "");
-    if (newPassword.length < 6) {
-      return res.status(400).json({ error: "New password must be at least 6 chars" });
-    }
-
-    const passwordHash = await bcrypt.hash(newPassword, 10);
-
-    const updated = await User.findOneAndUpdate(
-      { _id: id },
-      { $set: { passwordHash } },
-      { new: true }
-    )
-      .select("_id email")
-      .lean();
-
-    if (!updated) return res.status(404).json({ error: "Not found" });
-
-    res.json({ ok: true });
-  } catch (e) {
-    console.log("MGMT USER PASSWORD ERROR:", e?.message || e);
-    res.status(500).json({ error: e?.message || "Server error" });
-  }
-});
-
-// Delete user account
-app.delete("/api/management/users/:id", requireMgmt, async (req, res) => {
-  try {
-    const id = String(req.params.id || "");
-    if (!id) return res.status(400).json({ error: "Missing id" });
-
-    const existing = await User.findById(id).select("email").lean();
-    if (!existing) return res.status(404).json({ error: "Not found" });
-
-    // Usuwamy konto usera. Zamówień nie kasujemy automatycznie (historia sprzedaży).
-    await User.deleteOne({ _id: id });
-
-    res.json({ ok: true });
-  } catch (e) {
-    console.log("MGMT USER DELETE ERROR:", e?.message || e);
-    res.status(500).json({ error: e?.message || "Server error" });
-  }
-});
-
-// Orders per user (by email match)
-app.get("/api/management/users/:id/orders", requireMgmt, async (req, res) => {
-  try {
-    const id = String(req.params.id || "");
-    if (!id) return res.status(400).json({ error: "Missing id" });
-
-    const user = await User.findById(id).select("email").lean();
-    if (!user?.email) return res.status(404).json({ error: "Not found" });
-
-    const email = String(user.email).toLowerCase();
-
-    const orders = await Order.find({ "customer.email": email })
-      .sort({ createdAt: -1 })
-      .limit(1000)
-      .lean();
-
-    // zwracamy czysto do panelu (i tak ma renderować)
-    const mapped = orders.map((o) => ({
-      id: String(o._id),
-      extOrderId: o.extOrderId,
-      payuOrderId: o.payuOrderId,
-      status: o.status,
-      paymentMethod: o.paymentMethod || (o.isOffline ? "offline" : "payu"),
-      isOffline: !!o.isOffline,
-      totalAmount: o.totalAmount,
-      totalPLN: o.totalPLN,
-      customer: o.customer || {},
-      cart: Array.isArray(o.cart) ? o.cart : [],
-      createdAt: o.createdAt,
-      updatedAt: o.updatedAt
-    }));
-
-    res.json({ orders: mapped });
-  } catch (e) {
-    console.log("MGMT USER ORDERS ERROR:", e?.message || e);
-    res.status(500).json({ error: e?.message || "Server error" });
-  }
-});
-
-// ===============================
 // PAYU HELPERS
 // ===============================
 function safeCustomer(customer) {
@@ -763,7 +406,7 @@ function safeCustomer(customer) {
   return {
     imieNazwisko: c.imieNazwisko || c.name || "",
     telefon: c.telefon || c.phone || "",
-    email: normalizeEmail(c.email || ""),
+    email: c.email || "",
     miasto: c.miasto || "",
     kod: c.kod || "",
     ulica: c.ulica || "",
@@ -782,7 +425,6 @@ function isPaidStatus(status) {
   return s === "COMPLETED" || s === "PAID";
 }
 
-// ✅ statusy offline
 const OFFLINE_PENDING_STATUS = "AWAITING_PICKUP_PAYMENT";
 
 // ====== PRICE LIST (server-side truth) ======
@@ -892,7 +534,6 @@ function validateAndBuildCart(cart) {
     if (!Number.isFinite(qty) || qty < 1 || qty > 50) {
       throw new Error(`Invalid qty for ${productId}`);
     }
-
     return { productId, qty };
   });
 
@@ -972,7 +613,6 @@ app.post("/api/order/offline", async (req, res) => {
 
     const customer = safeCustomer(req.body?.customer);
 
-    // minimalne wymagania (zgodne z frontem)
     if (!customer.imieNazwisko || !customer.telefon || !customer.miasto || !customer.ulica) {
       return res.status(400).json({ error: "Missing required customer fields" });
     }
@@ -982,7 +622,6 @@ app.post("/api/order/offline", async (req, res) => {
 
     const extOrderId = `eatmi-offline-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-    // zapis do mongo
     const saved = await upsertOrderMongo({
       extOrderId,
       payuOrderId: null,
@@ -996,7 +635,6 @@ app.post("/api/order/offline", async (req, res) => {
       payuRaw: null
     });
 
-    // SSE: alarm w panelu admina (jak new order)
     sseBroadcast("new_order", {
       extOrderId: saved.extOrderId,
       payuOrderId: null,
@@ -1168,7 +806,7 @@ app.get("/api/payu/notify", (req, res) => {
 });
 
 // ===============================
-// ADMIN API (Mongo)
+// ADMIN API (Mongo) — EXISTING
 // ===============================
 app.post("/api/admin/login", async (req, res) => {
   try {
@@ -1179,7 +817,7 @@ app.post("/api/admin/login", async (req, res) => {
 
     // admin PIN (env)
     if (pin === String(ADMIN_PIN)) {
-      const token = signToken({ role: "admin", name: "Administrator", iat: Date.now() });
+      const token = signToken({ role: "admin", name: "Administrator", iat: Date.now() }, ADMIN_TOKEN_SECRET);
       return res.json({ token });
     }
 
@@ -1188,12 +826,15 @@ app.post("/api/admin/login", async (req, res) => {
     const found = await Staff.findOne({ pinHash: h }).lean();
     if (!found) return res.status(401).json({ error: "Bad PIN" });
 
-    const token = signToken({
-      role: "staff",
-      name: found.name || "Pracownik",
-      staffId: String(found._id),
-      iat: Date.now()
-    });
+    const token = signToken(
+      {
+        role: "staff",
+        name: found.name || "Pracownik",
+        staffId: String(found._id),
+        iat: Date.now()
+      },
+      ADMIN_TOKEN_SECRET
+    );
     return res.json({ token });
   } catch (e) {
     console.log("ADMIN LOGIN ERROR:", e?.message, e);
@@ -1225,7 +866,6 @@ app.get("/api/admin/stats", requireStaff, async (req, res) => {
 
     const ordersToday = await Order.countDocuments({ createdAt: { $gte: start, $lte: end } });
 
-    // ✅ revenueTotal: liczymy tylko realnie opłacone PayU (PAID/COMPLETED)
     const revenueAgg = await Order.aggregate([
       { $match: { status: { $in: ["PAID", "COMPLETED"] } } },
       { $group: { _id: null, sum: { $sum: "$totalPLN" } } }
@@ -1330,6 +970,430 @@ app.delete("/api/admin/staff/:id", requireAdminOnly, async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     console.log("ADMIN STAFF DELETE ERROR:", e?.message, e);
+    res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+// ==========================================================
+// ✅ MANAGEMENT PANEL API (users + orders) — NEW
+// 2-step auth:
+//   POST /api/management/login-step1 {password} -> sets httpOnly cookie (ts)
+//   POST /api/management/login-step2 {pin}      -> checks cookie age>=5s, returns token
+//
+// Token is HMAC-signed and short-lived (default 2h).
+// ==========================================================
+
+const MGMT_SECRET_EFFECTIVE = MGMT_TOKEN_SECRET || ADMIN_TOKEN_SECRET;
+
+// Cookie name:
+const MGMT_STEP1_COOKIE = "eatmi_mgmt_step1";
+const MGMT_STEP1_TTL_MS = 2 * 60 * 1000; // 2 min
+const MGMT_STEP1_MIN_WAIT_MS = 5 * 1000; // 5 sec
+
+function parseCookies(req) {
+  const header = String(req.headers.cookie || "");
+  const out = {};
+  header.split(";").forEach((part) => {
+    const [k, ...rest] = part.split("=");
+    if (!k) return;
+    const key = k.trim();
+    const val = rest.join("=").trim();
+    if (!key) return;
+    out[key] = decodeURIComponent(val || "");
+  });
+  return out;
+}
+
+function setCookie(res, name, value, opts = {}) {
+  const {
+    maxAge = 120,
+    httpOnly = true,
+    secure = true,
+    sameSite = "Strict",
+    path = "/"
+  } = opts;
+
+  const parts = [];
+  parts.push(`${name}=${encodeURIComponent(value)}`);
+  parts.push(`Path=${path}`);
+  parts.push(`Max-Age=${Math.floor(maxAge)}`);
+  parts.push(`SameSite=${sameSite}`);
+  if (httpOnly) parts.push("HttpOnly");
+  if (secure) parts.push("Secure");
+
+  res.setHeader("Set-Cookie", parts.join("; "));
+}
+
+function clearCookie(res, name) {
+  res.setHeader("Set-Cookie", `${name}=; Path=/; Max-Age=0; SameSite=Strict; HttpOnly; Secure`);
+}
+
+// signed payload for step1 cookie:
+function signMgmtStep1(ts) {
+  const payload = { ts, rnd: crypto.randomBytes(8).toString("hex") };
+  const b64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const sig = crypto.createHmac("sha256", MGMT_SECRET_EFFECTIVE).update(b64).digest("base64url");
+  return `${b64}.${sig}`;
+}
+function verifyMgmtStep1(value) {
+  const [b64, sig] = String(value || "").split(".");
+  if (!b64 || !sig) return null;
+  const check = crypto.createHmac("sha256", MGMT_SECRET_EFFECTIVE).update(b64).digest("base64url");
+  if (check !== sig) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(b64, "base64url").toString("utf8"));
+    if (!payload?.ts) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function signMgmtToken(payload) {
+  // exp in ms
+  const now = Date.now();
+  const body = {
+    ...payload,
+    scope: "mgmt",
+    iat: now,
+    exp: now + 2 * 60 * 60 * 1000 // 2h
+  };
+  return signToken(body, MGMT_SECRET_EFFECTIVE);
+}
+function verifyMgmtToken(token) {
+  const data = verifyToken(token, MGMT_SECRET_EFFECTIVE);
+  if (!data) return null;
+  if (data.scope !== "mgmt") return null;
+  if (typeof data.exp === "number" && Date.now() > data.exp) return null;
+  return data;
+}
+function requireMgmt(req, res, next) {
+  const token = getBearer(req);
+  const data = verifyMgmtToken(token);
+  if (!data) return res.status(401).json({ error: "Unauthorized" });
+  req.mgmt = data;
+  next();
+}
+
+// Helpers do danych usera:
+function splitFullName(fullName) {
+  const s = String(fullName || "").trim();
+  if (!s) return { firstName: "", lastName: "" };
+  const parts = s.split(/\s+/).filter(Boolean);
+  return { firstName: parts[0] || "", lastName: parts.slice(1).join(" ") };
+}
+
+function composeFullName(firstName, lastName, fallback = "") {
+  const a = String(firstName || "").trim();
+  const b = String(lastName || "").trim();
+  const joined = [a, b].filter(Boolean).join(" ").trim();
+  return joined || String(fallback || "").trim() || a || b || "";
+}
+
+function normalizePhone(v) {
+  return String(v || "").trim();
+}
+
+function normalizeAddress(v) {
+  return String(v || "").trim();
+}
+
+function buildAddressFromOrderCustomer(cust) {
+  const c = cust || {};
+  const parts = [
+    c.ulica || c.street,
+    c.nrBud || c.houseNumber,
+    c.lokal || c.flatNumber
+  ].filter(Boolean);
+  const line1 = parts.join(" ").trim();
+
+  const line2Parts = [
+    c.kod || c.zip,
+    c.miasto || c.city
+  ].filter(Boolean);
+  const line2 = line2Parts.join(" ").trim();
+
+  const out = [line1, line2].filter(Boolean).join(", ").trim();
+  return out;
+}
+
+async function getLatestOrderByEmail(email) {
+  if (!email) return null;
+  return Order.findOne({ "customer.email": email }).sort({ createdAt: -1 }).lean();
+}
+
+async function countOrdersByEmail(email) {
+  if (!email) return 0;
+  return Order.countDocuments({ "customer.email": email });
+}
+
+function publicUser(u) {
+  if (!u) return null;
+  const id = String(u._id);
+
+  // prefer explicit first/last, fallback split fullName
+  const split = splitFullName(u.fullName);
+  const firstName = String(u.firstName || "").trim() || split.firstName;
+  const lastName = String(u.lastName || "").trim() || split.lastName;
+
+  const phone = String(u.phone || "").trim();
+  const address = String(u.address || "").trim();
+
+  return {
+    id,
+    _id: id,
+    email: u.email,
+    fullName: u.fullName,
+    firstName,
+    lastName,
+    phone,
+    address,
+    createdAt: u.createdAt,
+    updatedAt: u.updatedAt
+  };
+}
+
+// STEP 1: password -> set cookie
+app.post("/api/management/login-step1", async (req, res) => {
+  try {
+    requireEnv("MGMT_PASSWORD", MGMT_PASSWORD);
+    const password = String(req.body?.password || "").trim();
+
+    if (!password) return res.status(400).json({ ok: false, error: "Missing password" });
+    if (password !== String(MGMT_PASSWORD)) return res.status(401).json({ ok: false, error: "Bad password" });
+
+    const ts = Date.now();
+    const signed = signMgmtStep1(ts);
+
+    // Secure cookie: w Railway masz HTTPS, więc Secure jest OK.
+    setCookie(res, MGMT_STEP1_COOKIE, signed, {
+      maxAge: Math.floor(MGMT_STEP1_TTL_MS / 1000),
+      httpOnly: true,
+      secure: true,
+      sameSite: "Strict",
+      path: "/"
+    });
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.log("MGMT STEP1 ERROR:", e?.message, e);
+    return res.status(500).json({ ok: false, error: e?.message || "Server error" });
+  }
+});
+
+// STEP 2: pin -> require cookie + min 5s wait -> token
+app.post("/api/management/login-step2", async (req, res) => {
+  try {
+    requireEnv("MGMT_PIN", MGMT_PIN);
+
+    const pin = String(req.body?.pin || "").trim();
+    if (!/^\d{4}$/.test(pin)) return res.status(400).json({ error: "PIN must be 4 digits" });
+
+    const cookies = parseCookies(req);
+    const step1 = verifyMgmtStep1(cookies[MGMT_STEP1_COOKIE]);
+
+    if (!step1) return res.status(401).json({ error: "Step1 required" });
+
+    const age = Date.now() - Number(step1.ts || 0);
+    if (!Number.isFinite(age) || age < 0 || age > MGMT_STEP1_TTL_MS) {
+      clearCookie(res, MGMT_STEP1_COOKIE);
+      return res.status(401).json({ error: "Step1 expired" });
+    }
+
+    if (age < MGMT_STEP1_MIN_WAIT_MS) {
+      return res.status(429).json({ error: "Wait 5 seconds before PIN" });
+    }
+
+    if (pin !== String(MGMT_PIN)) {
+      return res.status(401).json({ error: "Bad PIN" });
+    }
+
+    // success -> clear step1 cookie and return token
+    clearCookie(res, MGMT_STEP1_COOKIE);
+
+    const token = signMgmtToken({ role: "manager", name: "Management" });
+    return res.json({ token });
+  } catch (e) {
+    console.log("MGMT STEP2 ERROR:", e?.message, e);
+    return res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+// Logout endpoint (optional)
+app.post("/api/management/logout", (req, res) => {
+  clearCookie(res, MGMT_STEP1_COOKIE);
+  res.json({ ok: true });
+});
+
+// USERS: list
+app.get("/api/management/users", requireMgmt, async (req, res) => {
+  try {
+    const users = await User.find({}).sort({ createdAt: -1 }).limit(2000).lean();
+
+    // policz orders per email (1 agregacja)
+    const emails = users.map((u) => u.email).filter(Boolean);
+    const agg = await Order.aggregate([
+      { $match: { "customer.email": { $in: emails } } },
+      { $group: { _id: "$customer.email", count: { $sum: 1 } } }
+    ]);
+    const mapCount = new Map(agg.map((x) => [String(x._id || "").toLowerCase(), Number(x.count || 0)]));
+
+    // uzupełnij phone/address z ostatniego zamówienia jeśli brak w user doc
+    // (robimy to oszczędnie: po 1 lookup per user tylko gdy brak danych)
+    const out = [];
+    for (const u of users) {
+      const pu = publicUser(u);
+      const ordersCount = mapCount.get(String(pu.email || "").toLowerCase()) || 0;
+
+      if ((!pu.phone || !pu.address) && ordersCount > 0) {
+        const last = await getLatestOrderByEmail(pu.email);
+        if (last?.customer) {
+          if (!pu.phone) pu.phone = String(last.customer.telefon || last.customer.phone || "").trim();
+          if (!pu.address) pu.address = buildAddressFromOrderCustomer(last.customer);
+        }
+      }
+
+      out.push({ ...pu, ordersCount });
+    }
+
+    res.json({ users: out });
+  } catch (e) {
+    console.log("MGMT USERS LIST ERROR:", e?.message, e);
+    res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+// USERS: get one + derived fields
+app.get("/api/management/users/:id", requireMgmt, async (req, res) => {
+  try {
+    const id = String(req.params.id || "");
+    const user = await User.findById(id).lean();
+    if (!user) return res.status(404).json({ error: "Not found" });
+
+    const pu = publicUser(user);
+    const ordersCount = await countOrdersByEmail(pu.email);
+
+    if ((!pu.phone || !pu.address) && ordersCount > 0) {
+      const last = await getLatestOrderByEmail(pu.email);
+      if (last?.customer) {
+        if (!pu.phone) pu.phone = String(last.customer.telefon || last.customer.phone || "").trim();
+        if (!pu.address) pu.address = buildAddressFromOrderCustomer(last.customer);
+      }
+    }
+
+    res.json({ user: { ...pu, ordersCount } });
+  } catch (e) {
+    console.log("MGMT USER GET ERROR:", e?.message, e);
+    res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+// USERS: patch/edit
+app.patch("/api/management/users/:id", requireMgmt, async (req, res) => {
+  try {
+    const id = String(req.params.id || "");
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ error: "Not found" });
+
+    const email = req.body?.email !== undefined ? normalizeEmail(req.body.email) : undefined;
+    const firstName = req.body?.firstName !== undefined ? String(req.body.firstName || "").trim() : undefined;
+    const lastName = req.body?.lastName !== undefined ? String(req.body.lastName || "").trim() : undefined;
+    const phone = req.body?.phone !== undefined ? normalizePhone(req.body.phone) : undefined;
+    const address = req.body?.address !== undefined ? normalizeAddress(req.body.address) : undefined;
+
+    if (email !== undefined) {
+      if (!email || !email.includes("@")) return res.status(400).json({ error: "Invalid email" });
+      // unique check
+      const exists = await User.findOne({ email, _id: { $ne: user._id } }).lean();
+      if (exists) return res.status(409).json({ error: "Email already in use" });
+      user.email = email;
+    }
+
+    if (firstName !== undefined) user.firstName = firstName;
+    if (lastName !== undefined) user.lastName = lastName;
+    if (phone !== undefined) user.phone = phone;
+    if (address !== undefined) user.address = address;
+
+    // aktualizuj fullName na podstawie first/last jeśli podane
+    const fullNameNew = composeFullName(
+      firstName !== undefined ? firstName : user.firstName,
+      lastName !== undefined ? lastName : user.lastName,
+      user.fullName
+    );
+    if (fullNameNew) user.fullName = fullNameNew;
+
+    await user.save();
+
+    const pu = publicUser(user.toObject());
+    const ordersCount = await countOrdersByEmail(pu.email);
+    res.json({ user: { ...pu, ordersCount } });
+  } catch (e) {
+    const msg = String(e?.message || "");
+    if (msg.includes("E11000") || msg.toLowerCase().includes("duplicate")) {
+      return res.status(409).json({ error: "Email already in use" });
+    }
+    console.log("MGMT USER PATCH ERROR:", e?.message, e);
+    res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+// USERS: change password
+app.post("/api/management/users/:id/password", requireMgmt, async (req, res) => {
+  try {
+    const id = String(req.params.id || "");
+    const newPassword = String(req.body?.newPassword || "");
+    if (newPassword.length < 6) return res.status(400).json({ error: "Password too short (min 6)" });
+
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ error: "Not found" });
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.log("MGMT USER PASS ERROR:", e?.message, e);
+    res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+// USERS: delete account
+app.delete("/api/management/users/:id", requireMgmt, async (req, res) => {
+  try {
+    const id = String(req.params.id || "");
+    const user = await User.findById(id).lean();
+    if (!user) return res.status(404).json({ error: "Not found" });
+
+    await User.deleteOne({ _id: id });
+
+    // Celowo NIE usuwamy orders (historia sprzedaży).
+    // Jeśli chcesz anonimizować: można tu np. usunąć customer.email w orders tego usera.
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.log("MGMT USER DELETE ERROR:", e?.message, e);
+    res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+// ORDERS per user (by email)
+app.get("/api/management/users/:id/orders", requireMgmt, async (req, res) => {
+  try {
+    const id = String(req.params.id || "");
+    const user = await User.findById(id).lean();
+    if (!user) return res.status(404).json({ error: "Not found" });
+
+    const email = String(user.email || "").toLowerCase();
+    if (!email) return res.json({ orders: [] });
+
+    const orders = await Order.find({ "customer.email": email })
+      .sort({ createdAt: -1 })
+      .limit(1000)
+      .lean();
+
+    res.json({ orders });
+  } catch (e) {
+    console.log("MGMT USER ORDERS ERROR:", e?.message, e);
     res.status(500).json({ error: e?.message || "Server error" });
   }
 });
