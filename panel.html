@@ -1,1 +1,1630 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#FFC107" />
+  <title>eatmi.pl — Panel Zarządzania (Użytkownicy)</title>
+  <meta name="description" content="Silnie chroniony panel zarządzania użytkownikami i zamówieniami." />
+  <link rel="icon" type="image/png" href="favicon.png">
+
+  <!-- Tailwind config MUST be before tailwindcdn script -->
+  <script>
+    tailwind = window.tailwind || {};
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              yellow: '#FFC107',
+              dark: '#111827',
+              light: '#F9FAFB'
+            },
+            kiosk: {
+              bg: '#0B0F1A',
+              card: '#0F1629',
+              card2: '#111B34',
+              green: '#22C55E',
+              red: '#EF4444',
+              blue: '#3B82F6',
+              violet: '#8B5CF6',
+              orange: '#F59E0B',
+              gray: '#94A3B8'
+            }
+          },
+          boxShadow: {
+            soft: '0 10px 30px rgba(0,0,0,.08)',
+            glass: '0 8px 25px rgba(0,0,0,.12)',
+            kiosk: '0 14px 50px rgba(0,0,0,.35)'
+          },
+          borderRadius: { xl2: '1.25rem' }
+        }
+      }
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    :root{
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-t: env(safe-area-inset-top, 0px);
+      --sidebar-w: 280px;
+    }
+    html, body { height: 100%; }
+    body { overscroll-behavior-y: none; }
+
+    .liquid { background: rgba(255,255,255,.75); backdrop-filter: blur(12px); }
+    .input-focus { outline: none; }
+    .input-focus:focus { box-shadow: 0 0 0 3px rgba(255,193,7,.35); border-color: rgba(255,193,7,.75); }
+    .toast-enter { animation: toastIn .18s ease-out; }
+    @keyframes toastIn { from { transform: translateY(8px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+
+    /* Subtle background */
+    .bg-soft {
+      background:
+        radial-gradient(900px 500px at 20% -10%, rgba(255,193,7,.22), transparent 55%),
+        radial-gradient(700px 450px at 95% 20%, rgba(59,130,246,.14), transparent 55%),
+        radial-gradient(600px 400px at 30% 110%, rgba(34,197,94,.12), transparent 55%),
+        linear-gradient(#fff, #f7f8fb);
+    }
+
+    /* Drawer scroll */
+    .drawer-scroll { max-height: calc(100vh - 140px); overflow: auto; -webkit-overflow-scrolling: touch; }
+
+    /* iOS/Safari fixed centering helpers */
+    .ios-fixed {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* Prevent selection for security-ish UI */
+    .noselect { user-select: none; -webkit-user-select: none; }
+  </style>
+
+  <!-- React 18 + ReactDOM 18 -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+  <!-- Babel for inline JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Lucide icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    /**
+     * ✅ Docelowo backend wstrzyknie te wartości na /panel-management.html (np. poprzez templating)
+     * albo zwróci je w /api/management/challenge (lepsze).
+     *
+     * Na teraz: placeholdery (NIE trzymaj tego na froncie w produkcji).
+     */
+    window.__PANEL_PASSWORD = "CHANGE_ME_MASTER";
+    window.__PANEL_PIN = "0000";
+  </script>
+</head>
+
+<body class="bg-soft text-gray-900">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useEffect, useMemo, useRef, useState } = React;
+
+    /* =========================================================
+      PLAN ENDPOINTÓW (dodasz w server.js):
+      Auth / Challenge:
+        POST /api/management/login-step1   { password } -> { ok: true }
+        POST /api/management/login-step2   { pin } -> { token }  (token panelu)
+
+      Users:
+        GET    /api/management/users
+        GET    /api/management/users/:id
+        PATCH  /api/management/users/:id      (edycja danych: email, firstName, lastName, phone, address...)
+        DELETE /api/management/users/:id
+        POST   /api/management/users/:id/password  { newPassword }
+
+      Orders (per user):
+        GET /api/management/users/:id/orders
+
+      W tym HTML już jest gotowy klient pod powyższe.
+      ========================================================= */
+
+    const API = {
+      loginStep1: "/api/management/login-step1",
+      loginStep2: "/api/management/login-step2",
+      users: "/api/management/users",
+      user: (id) => `/api/management/users/${encodeURIComponent(id)}`,
+      userPassword: (id) => `/api/management/users/${encodeURIComponent(id)}/password`,
+      userOrders: (id) => `/api/management/users/${encodeURIComponent(id)}/orders`,
+    };
+
+    const STORAGE_TOKEN = "eatmi-mgmt-token";
+
+    /* =======================
+      Utils
+    ======================= */
+    const sleep = (ms) => new Promise((r)=>setTimeout(r, ms));
+
+    const safeJson = async (r) => {
+      try { return await r.json(); } catch { return {}; }
+    };
+
+    const authHeader = (token) => token ? { Authorization: `Bearer ${token}` } : {};
+
+    const toNumber = (v) => {
+      if (v === null || v === undefined) return 0;
+      if (typeof v === "number") return v;
+      if (typeof v === "string") {
+        const s = v.trim().replace(",", ".");
+        const n = Number(s);
+        return Number.isFinite(n) ? n : 0;
+      }
+      return 0;
+    };
+
+    const toPLNFromMaybeGrosze = (value, hint = "") => {
+      const n = toNumber(value);
+      const h = String(hint || "").toLowerCase();
+      const looksLikeGrosze =
+        h.includes("totalamount") ||
+        h.includes("unitprice") ||
+        h.includes("amount") ||
+        h.includes("payu");
+      if (looksLikeGrosze) return n / 100;
+      if (Number.isInteger(n) && n >= 1000 && n <= 500000) return n / 100;
+      return n;
+    };
+
+    const currency = (nPln) => {
+      const num = Number(nPln || 0);
+      return new Intl.NumberFormat('pl-PL', { style:'currency', currency:'PLN' }).format(num);
+    };
+
+    const fmtDateTime = (iso) => {
+      if (!iso) return "—";
+      try { return new Date(iso).toLocaleString("pl-PL"); } catch { return String(iso); }
+    };
+
+    const pickUserId = (u, idx=0) => u?.id || u?._id || u?.userId || u?.uid || `u-${idx}`;
+    const pickOrderId = (o, idx=0) => o?.id || o?._id || o?.orderId || o?.extOrderId || `o-${idx}`;
+
+    /* =======================
+      ✅ Metoda płatności (pod zamówienia)
+    ======================= */
+    const resolvePayment = (order) => {
+      const o = order || {};
+      const pmRaw =
+        o.paymentMethod ??
+        o.payment_type ??
+        o.paymentType ??
+        o.payment?.method ??
+        o.payment?.type ??
+        o.payment?.provider ??
+        o.method ??
+        o.payMethod ??
+        null;
+
+      const pm = String(pmRaw || "").trim().toLowerCase();
+
+      const offlineFlag =
+        !!o.isOffline ||
+        !!o.cashOnDelivery ||
+        !!o.cod ||
+        !!o.payOnPickup ||
+        !!o.pay_on_pickup ||
+        pm === "offline" ||
+        pm.includes("odbior") ||
+        pm.includes("odbiór") ||
+        pm === "pickup" ||
+        pm === "cod";
+
+      if (pm.includes("cash") || pm.includes("got") || pm === "gotowka" || pm === "gotówka") {
+        return { kind: "offline_cash", label: "Gotówka przy odbiorze", badge: "GOTÓWKA" };
+      }
+      if (pm.includes("card") || pm.includes("karta") || pm.includes("terminal")) {
+        return { kind: "offline_card", label: "Karta przy odbiorze", badge: "KARTA" };
+      }
+      if (offlineFlag) {
+        return { kind: "offline", label: "Płatność przy odbiorze", badge: "ODBIÓR" };
+      }
+      if (pm.includes("payu") || pm.includes("online") || pm.includes("przelew")) {
+        return { kind: "online", label: "PayU (online)", badge: "PAYU" };
+      }
+      if (o.payuOrderId || o.payu?.orderId) {
+        return { kind: "online", label: "PayU (online)", badge: "PAYU" };
+      }
+      return { kind: "online", label: "PayU (online)", badge: "PAYU" };
+    };
+
+    /* =======================
+      Toast
+    ======================= */
+    const ToastContext = React.createContext();
+    const useToast = () => React.useContext(ToastContext);
+
+    const ToastProvider = ({ children }) => {
+      const [toast, setToast] = useState(null);
+      const tRef = useRef(null);
+
+      const show = (type, title, msg) => {
+        setToast({ type, title, msg });
+        if (tRef.current) clearTimeout(tRef.current);
+        tRef.current = setTimeout(() => setToast(null), 2600);
+      };
+
+      const close = () => {
+        if (tRef.current) clearTimeout(tRef.current);
+        setToast(null);
+      };
+
+      return (
+        <ToastContext.Provider value={{ show }}>
+          {children}
+          {toast && (
+            <div className="fixed bottom-[calc(18px+var(--safe-b))] left-1/2 -translate-x-1/2 z-[200] pointer-events-none">
+              <div className="pointer-events-auto toast-enter bg-white/95 border border-gray-200 shadow-glass rounded-2xl px-4 py-3 min-w-[280px] max-w-[92vw] flex items-start gap-3">
+                <div className={`w-9 h-9 rounded-full grid place-items-center text-lg ${
+                  toast.type === "ok" ? "bg-emerald-100 text-emerald-700" :
+                  toast.type === "error" ? "bg-red-100 text-red-700" :
+                  "bg-gray-100 text-gray-700"
+                }`}>
+                  {toast.type === "ok" ? "✓" : toast.type === "error" ? "!" : "i"}
+                </div>
+                <div className="flex-1">
+                  <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
+                    {toast.title || (toast.type === "ok" ? "Sukces" : toast.type === "error" ? "Błąd" : "Info")}
+                  </div>
+                  <div className="text-sm text-gray-900 mt-0.5">{toast.msg}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={close}
+                  className="ml-2 text-gray-400 hover:text-gray-700 text-xl leading-none"
+                  aria-label="Zamknij"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          )}
+        </ToastContext.Provider>
+      );
+    };
+
+    /* =======================
+      UI bits
+    ======================= */
+    const Icon = ({ name, className="" }) => <i data-lucide={name} className={className}></i>;
+
+    const Skeleton = ({ className="" }) => (
+      <div className={`animate-pulse bg-gray-200/70 rounded-xl ${className}`} />
+    );
+
+    const Logo = () => (
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-2xl bg-white border border-gray-200 shadow-soft grid place-items-center overflow-hidden">
+          <img
+            src="https://i.imgur.com/f9TN0Gh.png"
+            alt="eatmi"
+            className="w-8 h-8 object-contain"
+            loading="lazy"
+          />
+        </div>
+        <div className="leading-tight">
+          <div className="font-extrabold tracking-tight">
+            eatmi<span className="text-brand-yellow">.pl</span>
+          </div>
+          <div className="text-xs text-gray-500 font-semibold">Panel zarządzania</div>
+        </div>
+      </div>
+    );
+
+    const Pill = ({ children }) => (
+      <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 border border-gray-200 shadow-soft text-xs font-extrabold">
+        {children}
+      </span>
+    );
+
+    const Topbar = ({ title, subtitle, onLogout }) => (
+      <div className="sticky top-0 z-40">
+        <div className="mx-auto w-full">
+          <div className="liquid border-b border-white/60">
+            <div className="px-4 md:px-6 py-4 flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">
+                  Panel
+                </div>
+                <div className="text-xl md:text-2xl font-extrabold mt-1 truncate">{title}</div>
+                {subtitle && <div className="text-sm text-gray-600 mt-1">{subtitle}</div>}
+              </div>
+
+              <button
+                type="button"
+                onClick={onLogout}
+                className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
+              >
+                <Icon name="log-out" className="w-4 h-4" />
+                Wyloguj
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+
+    const Drawer = ({ open, onClose, title, children }) => {
+      useEffect(() => {
+        const onKey = (e) => { if (open && e.key === "Escape") onClose?.(); };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+      }, [open, onClose]);
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [open]);
+
+      if (!open) return null;
+
+      return (
+        <div className="fixed inset-0 z-[160]">
+          <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true"></div>
+
+          {/* Tablet/mobile: full screen | Desktop (lg+): right panel */}
+          <div className="absolute inset-0 lg:inset-y-0 lg:right-0 lg:left-auto w-full lg:max-w-2xl bg-white border-l border-gray-200 shadow-kiosk">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between gap-3 sticky top-0 bg-white z-10">
+              <div className="min-w-0">
+                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Szczegóły</div>
+                <div className="text-lg font-extrabold truncate">{title}</div>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-11 h-11 rounded-2xl border border-gray-200 bg-white shadow-soft grid place-items-center hover:ring-2 hover:ring-brand-yellow/25"
+                aria-label="Zamknij"
+              >
+                <Icon name="x" className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 drawer-scroll">
+              {children}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const StatusPill = ({ label="—", tone="gray" }) => {
+      const cls =
+        tone === "green" ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
+        tone === "amber" ? "bg-amber-100 text-amber-800 border-amber-200" :
+        tone === "red" ? "bg-red-100 text-red-800 border-red-200" :
+        tone === "blue" ? "bg-sky-100 text-sky-900 border-sky-200" :
+        "bg-gray-100 text-gray-800 border-gray-200";
+
+      return (
+        <span className={`inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] px-2.5 py-1 rounded-full border ${cls}`}>
+          <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
+          {label}
+        </span>
+      );
+    };
+
+    const PaymentPill = ({ order }) => {
+      const p = resolvePayment(order);
+      const kind = p.kind;
+      const cls =
+        kind === "offline_cash"
+          ? "bg-amber-100 text-amber-900 border-amber-200"
+          : kind === "offline_card"
+          ? "bg-violet-100 text-violet-900 border-violet-200"
+          : kind === "offline"
+          ? "bg-orange-100 text-orange-900 border-orange-200"
+          : "bg-sky-100 text-sky-900 border-sky-200";
+
+      return (
+        <span
+          className={`inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] px-2.5 py-1 rounded-full border ${cls}`}
+          title={p.label}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
+          {p.badge}
+        </span>
+      );
+    };
+
+    const Key = ({ label, onClick, variant="default" }) => {
+      const base =
+        "w-full h-14 rounded-2xl border shadow-soft font-extrabold text-lg active:scale-[0.99] transition";
+      const styles =
+        variant === "primary"
+          ? "bg-brand-yellow text-gray-900 border-black/5 hover:ring-2 hover:ring-brand-yellow/40"
+          : variant === "ghost"
+          ? "bg-white text-gray-800 border-gray-200 hover:ring-2 hover:ring-brand-yellow/25"
+          : "bg-white text-gray-900 border-gray-200 hover:ring-2 hover:ring-brand-yellow/25";
+      return (
+        <button type="button" onClick={onClick} className={`${base} ${styles}`}>
+          {label}
+        </button>
+      );
+    };
+
+    const PinDots = ({ value, max=4 }) => {
+      const filled = value.length;
+      return (
+        <div className="flex items-center justify-center gap-2">
+          {Array.from({ length: max }).map((_, i) => (
+            <div
+              key={i}
+              className={`w-3.5 h-3.5 rounded-full border ${
+                i < filled ? "bg-gray-900 border-gray-900" : "bg-white border-gray-300"
+              }`}
+            />
+          ))}
+        </div>
+      );
+    };
+
+    /* =======================
+      AUTH UI (2-step): password -> wait 5s -> PIN
+    ======================= */
+    const Step1Password = ({ onOk }) => {
+      const toast = useToast();
+      const [pwd, setPwd] = useState("");
+      const [loading, setLoading] = useState(false);
+
+      useEffect(() => { window.lucide?.createIcons?.(); });
+
+      const submit = async () => {
+        const v = pwd.trim();
+        if (!v) return toast.show("error", "Dostęp", "Wpisz hasło.");
+
+        setLoading(true);
+        try {
+          // Front fallback check (w produkcji: zawsze backend)
+          if (window.__PANEL_PASSWORD && v !== String(window.__PANEL_PASSWORD)) {
+            toast.show("error", "Dostęp", "Nieprawidłowe hasło.");
+            setPwd("");
+            setLoading(false);
+            return;
+          }
+
+          // Backend hook (optional)
+          try {
+            const r = await fetch(API.loginStep1, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ password: v }),
+            });
+            if (r.ok) {
+              const data = await safeJson(r);
+              if (data && data.ok === false) {
+                toast.show("error", "Dostęp", data.error || "Nieprawidłowe hasło.");
+                setPwd("");
+                setLoading(false);
+                return;
+              }
+            }
+          } catch {}
+
+          toast.show("ok", "Dostęp", "Hasło poprawne. Poczekaj 5 sekund...");
+          onOk?.();
+        } catch (e) {
+          toast.show("error", "Dostęp", "Błąd połączenia.");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      return (
+        <div className="min-h-screen flex items-center justify-center px-4 py-10 noselect">
+          <div className="w-full max-w-md">
+            <div className="bg-white/85 border border-white/60 shadow-glass rounded-3xl p-6 md:p-7">
+              <div className="flex items-center justify-between gap-3">
+                <Logo />
+                <Pill>
+                  <Icon name="shield-check" className="w-4 h-4" />
+                  <span className="font-black text-gray-900">Krok 1/2</span>
+                </Pill>
+              </div>
+
+              <div className="mt-6 text-center">
+                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">
+                  Silnie chroniony dostęp
+                </div>
+                <div className="text-2xl font-extrabold mt-1">Wpisz hasło</div>
+                <div className="text-sm text-gray-600 mt-2">
+                  Po poprawnym haśle odczekasz 5 sekund i dopiero wtedy wpiszesz PIN.
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">Hasło</label>
+                <div className="relative mt-2">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <Icon name="key-round" className="w-4 h-4" />
+                  </span>
+                  <input
+                    type="password"
+                    className="input-focus w-full bg-white border border-gray-200 rounded-2xl pl-9 pr-4 py-3 shadow-soft"
+                    placeholder="••••••••"
+                    value={pwd}
+                    onChange={(e)=>setPwd(e.target.value)}
+                    onKeyDown={(e)=>{ if (e.key === "Enter") submit(); }}
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={submit}
+                disabled={loading}
+                className="mt-4 w-full bg-gray-900 text-white font-extrabold rounded-2xl px-5 py-4 shadow-glass hover:ring-2 hover:ring-brand-yellow/35 disabled:opacity-60 disabled:cursor-not-allowed transition"
+              >
+                {loading ? "Sprawdzanie..." : "Dalej"}
+              </button>
+
+              <div className="mt-4 text-xs text-gray-500 text-center">
+                Uwaga: produkcyjnie weryfikację hasła powinien robić backend (bez trzymania sekretów w HTML).
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const WaitGate = ({ seconds=5, onDone }) => {
+      const [left, setLeft] = useState(seconds);
+
+      useEffect(() => {
+        let t = setInterval(() => setLeft((s)=>Math.max(0, s-1)), 1000);
+        return () => clearInterval(t);
+      }, []);
+
+      useEffect(() => { if (left === 0) onDone?.(); }, [left]);
+
+      return (
+        <div className="min-h-screen flex items-center justify-center px-4 py-10 noselect">
+          <div className="w-full max-w-md">
+            <div className="bg-white/85 border border-white/60 shadow-glass rounded-3xl p-6 md:p-7 text-center">
+              <div className="flex items-center justify-between gap-3">
+                <Logo />
+                <Pill>
+                  <Icon name="timer" className="w-4 h-4" />
+                  <span className="font-black text-gray-900">Krok 2/2</span>
+                </Pill>
+              </div>
+
+              <div className="mt-6">
+                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">
+                  Odczekaj chwilę
+                </div>
+                <div className="text-2xl font-extrabold mt-1">
+                  Weryfikacja czasu
+                </div>
+                <div className="text-sm text-gray-600 mt-2">
+                  Dla bezpieczeństwa panel odblokuje PIN po określonym czasie.
+                </div>
+
+                <div className="mt-6">
+                  <div className="text-6xl font-black tracking-tight">{left}</div>
+                  <div className="text-xs text-gray-500 font-semibold mt-2">sekund</div>
+                </div>
+
+                <div className="mt-6 bg-gray-50 border border-gray-200 rounded-3xl p-4 text-left">
+                  <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">
+                    Dlaczego?
+                  </div>
+                  <div className="text-sm text-gray-700 mt-2">
+                    To utrudnia automaty i szybkie brute-force na warstwie UI. Prawdziwa ochrona i tak jest po stronie backendu.
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 text-xs text-gray-500">
+                Jeśli odświeżysz stronę — zaczniesz od początku.
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const Step2Pin = ({ onAuth }) => {
+      const toast = useToast();
+      const [pin, setPin] = useState("");
+      const [loading, setLoading] = useState(false);
+
+      useEffect(() => {
+        const onKeyDown = (e) => {
+          const k = e.key;
+          if (/^\d$/.test(k)) setPin((p) => (p.length < 4 ? p + k : p));
+          if (k === "Backspace") setPin((p) => p.slice(0, -1));
+          if (k === "Escape") setPin("");
+          if (k === "Enter" && pin.length === 4) submit(pin);
+        };
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+      }, [pin]);
+
+      useEffect(() => { window.lucide?.createIcons?.(); });
+
+      const addDigit = (d) => setPin((p) => (p.length < 4 ? p + d : p));
+      const back = () => setPin((p) => p.slice(0, -1));
+      const clear = () => setPin("");
+
+      const submit = async (currentPin) => {
+        const v = (currentPin ?? pin).trim();
+        if (v.length !== 4) return;
+
+        setLoading(true);
+        try {
+          // Front fallback check (w produkcji: backend)
+          if (window.__PANEL_PIN && v !== String(window.__PANEL_PIN)) {
+            toast.show("error", "PIN", "Nieprawidłowy kod.");
+            setPin("");
+            setLoading(false);
+            return;
+          }
+
+          // Backend hook (docelowo to JEDYNA weryfikacja)
+          let token = null;
+          try {
+            const r = await fetch(API.loginStep2, {
+              method: "POST",
+              headers: { "Content-Type":"application/json" },
+              body: JSON.stringify({ pin: v }),
+            });
+            const data = await safeJson(r);
+            if (r.ok && data.token) token = data.token;
+            if (!r.ok && data.error) {
+              toast.show("error", "PIN", data.error);
+              setPin("");
+              setLoading(false);
+              return;
+            }
+          } catch {}
+
+          // Jeśli backend jeszcze nie gotowy, generujemy pseudo-token lokalny:
+          if (!token) token = "local-dev-token";
+
+          toast.show("ok", "PIN", "Dostęp przyznany.");
+          onAuth?.(token);
+        } catch (e) {
+          toast.show("error", "PIN", "Błąd połączenia.");
+          setPin("");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      return (
+        <div className="min-h-screen flex items-center justify-center px-4 py-10 noselect">
+          <div className="w-full max-w-md">
+            <div className="bg-white/85 border border-white/60 shadow-glass rounded-3xl p-6 md:p-7">
+              <div className="flex items-center justify-between gap-3">
+                <Logo />
+                <Pill>
+                  <span className="text-[10px] uppercase tracking-[0.16em] text-gray-500">PIN</span>
+                  <span className="font-black text-gray-900">4 cyfry</span>
+                </Pill>
+              </div>
+
+              <div className="mt-6 text-center">
+                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">
+                  Krok 2/2
+                </div>
+                <div className="text-2xl font-extrabold mt-1">Wpisz kod</div>
+                <div className="text-sm text-gray-600 mt-2">
+                  Użyj klawiatury ekranowej lub klawiatury fizycznej.
+                </div>
+
+                <div className="mt-5">
+                  <PinDots value={pin} />
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-3 gap-3">
+                {["1","2","3","4","5","6","7","8","9"].map((d) => (
+                  <Key key={d} label={d} onClick={() => addDigit(d)} />
+                ))}
+                <Key label="Wyczyść" variant="ghost" onClick={clear} />
+                <Key label="0" onClick={() => addDigit("0")} />
+                <Key label="⌫" variant="ghost" onClick={back} />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => submit()}
+                disabled={loading || pin.length !== 4}
+                className="mt-4 w-full bg-gray-900 text-white font-extrabold rounded-2xl px-5 py-4 shadow-glass hover:ring-2 hover:ring-brand-yellow/35 disabled:opacity-60 disabled:cursor-not-allowed transition"
+              >
+                {loading ? "Sprawdzanie..." : "Odblokuj panel"}
+              </button>
+
+              <div className="mt-4 text-xs text-gray-500 text-center">
+                Produkcyjnie: PIN musi być weryfikowany na backendzie, a token powinien mieć krótki TTL.
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    /* =======================
+      Users data layer
+    ======================= */
+    const useUsersApi = (token) => {
+      const toast = useToast();
+
+      const listUsers = async () => {
+        const r = await fetch(API.users, { headers: { ...authHeader(token) } });
+        const data = await safeJson(r);
+        if (!r.ok) throw new Error(data.error || "Nie udało się pobrać użytkowników.");
+        return Array.isArray(data.users) ? data.users : (Array.isArray(data) ? data : []);
+      };
+
+      const getUser = async (id) => {
+        const r = await fetch(API.user(id), { headers: { ...authHeader(token) } });
+        const data = await safeJson(r);
+        if (!r.ok) throw new Error(data.error || "Nie udało się pobrać użytkownika.");
+        return data.user || data;
+      };
+
+      const patchUser = async (id, payload) => {
+        const r = await fetch(API.user(id), {
+          method: "PATCH",
+          headers: { "Content-Type":"application/json", ...authHeader(token) },
+          body: JSON.stringify(payload),
+        });
+        const data = await safeJson(r);
+        if (!r.ok) throw new Error(data.error || "Nie udało się zapisać zmian.");
+        return data.user || data;
+      };
+
+      const deleteUser = async (id) => {
+        const r = await fetch(API.user(id), {
+          method: "DELETE",
+          headers: { ...authHeader(token) },
+        });
+        const data = await safeJson(r);
+        if (!r.ok) throw new Error(data.error || "Nie udało się usunąć konta.");
+        return data;
+      };
+
+      const setUserPassword = async (id, newPassword) => {
+        const r = await fetch(API.userPassword(id), {
+          method: "POST",
+          headers: { "Content-Type":"application/json", ...authHeader(token) },
+          body: JSON.stringify({ newPassword }),
+        });
+        const data = await safeJson(r);
+        if (!r.ok) throw new Error(data.error || "Nie udało się zmienić hasła.");
+        return data;
+      };
+
+      const getUserOrders = async (id) => {
+        const r = await fetch(API.userOrders(id), { headers: { ...authHeader(token) } });
+        const data = await safeJson(r);
+        if (!r.ok) throw new Error(data.error || "Nie udało się pobrać zamówień.");
+        return Array.isArray(data.orders) ? data.orders : (Array.isArray(data) ? data : []);
+      };
+
+      return { listUsers, getUser, patchUser, deleteUser, setUserPassword, getUserOrders };
+    };
+
+    /* =======================
+      Users UI
+    ======================= */
+    const KV = ({ k, v, mono=false }) => (
+      <div className="flex items-start justify-between gap-4 border-b border-gray-100 py-3">
+        <div className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">{k}</div>
+        <div className={`text-sm text-gray-900 text-right ${mono ? "font-mono" : "font-semibold"} break-words max-w-[65%]`}>
+          {v ?? "—"}
+        </div>
+      </div>
+    );
+
+    const Field = ({ label, value, onChange, placeholder="", mono=false, type="text", inputMode }) => (
+      <div>
+        <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">{label}</label>
+        <input
+          type={type}
+          className={`input-focus mt-2 w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft ${mono ? "font-mono tracking-widest" : ""}`}
+          placeholder={placeholder}
+          value={value ?? ""}
+          onChange={(e)=>onChange(e.target.value)}
+          inputMode={inputMode}
+        />
+      </div>
+    );
+
+    const TextArea = ({ label, value, onChange, placeholder="" }) => (
+      <div>
+        <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">{label}</label>
+        <textarea
+          className="input-focus mt-2 w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft min-h-[120px]"
+          placeholder={placeholder}
+          value={value ?? ""}
+          onChange={(e)=>onChange(e.target.value)}
+        />
+      </div>
+    );
+
+    const ConfirmOverlay = ({ open, title="Potwierdź", desc, dangerLabel="Usuń", onCancel, onConfirm, loading }) => {
+      useEffect(()=>{ window.lucide?.createIcons?.(); }, [open]);
+      if (!open) return null;
+      return (
+        <div className="fixed inset-0 z-[300]">
+          <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
+          <div className="absolute inset-0 flex items-center justify-center px-4 py-6">
+            <div className="w-full max-w-md bg-white border border-gray-200 shadow-kiosk rounded-3xl p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">{title}</div>
+                  <div className="text-xl font-extrabold mt-1">Czy na pewno?</div>
+                  <div className="text-sm text-gray-600 mt-2">{desc}</div>
+                </div>
+                <div className="w-11 h-11 rounded-2xl bg-red-100 border border-red-200 grid place-items-center">
+                  <Icon name="triangle-alert" className="w-6 h-6 text-red-700" />
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-col sm:flex-row gap-2 sm:justify-end">
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="inline-flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
+                >
+                  <Icon name="x" className="w-4 h-4" />
+                  Anuluj
+                </button>
+                <button
+                  type="button"
+                  onClick={onConfirm}
+                  disabled={loading}
+                  className="inline-flex items-center justify-center gap-2 bg-red-600 text-white border border-red-700/20 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-red-200 transition font-extrabold text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <Icon name="trash-2" className="w-4 h-4" />
+                  {loading ? "Usuwanie..." : dangerLabel}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const UsersPage = ({ token }) => {
+      const toast = useToast();
+      const api = useUsersApi(token);
+
+      const [loading, setLoading] = useState(true);
+      const [users, setUsers] = useState([]);
+      const [query, setQuery] = useState("");
+
+      const [selected, setSelected] = useState(null);
+      const [selectedOrders, setSelectedOrders] = useState([]);
+      const [detailLoading, setDetailLoading] = useState(false);
+
+      const [edit, setEdit] = useState(null);
+      const [saving, setSaving] = useState(false);
+
+      const [pwdNew, setPwdNew] = useState("");
+      const [pwdSaving, setPwdSaving] = useState(false);
+
+      const [confirmDelete, setConfirmDelete] = useState(false);
+      const [deleteLoading, setDeleteLoading] = useState(false);
+
+      const load = async () => {
+        setLoading(true);
+        try {
+          const list = await api.listUsers();
+          setUsers(list);
+        } catch (e) {
+          toast.show("error", "Użytkownicy", e.message || "Błąd pobierania.");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      useEffect(() => { load(); }, []);
+      useEffect(() => { window.lucide?.createIcons?.(); });
+
+      const rows = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return users;
+        return users.filter((u)=>JSON.stringify(u||{}).toLowerCase().includes(q));
+      }, [users, query]);
+
+      const openUser = async (u) => {
+        const id = pickUserId(u);
+        setDetailLoading(true);
+        setSelected(u);
+        setSelectedOrders([]);
+        try {
+          const full = await api.getUser(id);
+          setSelected(full);
+          setEdit({
+            email: full.email || "",
+            firstName: full.firstName || full.imie || full.name || "",
+            lastName: full.lastName || full.nazwisko || "",
+            phone: full.phone || full.telefon || "",
+            address: full.address || full.adres || full.addressText || "",
+          });
+
+          const ord = await api.getUserOrders(id);
+          setSelectedOrders(ord);
+        } catch (e) {
+          toast.show("error", "Użytkownik", e.message || "Błąd pobierania danych.");
+        } finally {
+          setDetailLoading(false);
+        }
+      };
+
+      const saveUser = async () => {
+        if (!selected) return;
+        const id = pickUserId(selected);
+        setSaving(true);
+        try {
+          const payload = {
+            email: edit.email.trim(),
+            firstName: edit.firstName.trim(),
+            lastName: edit.lastName.trim(),
+            phone: edit.phone.trim() || undefined,
+            address: edit.address.trim() || undefined,
+          };
+          const updated = await api.patchUser(id, payload);
+          toast.show("ok", "Użytkownik", "Zapisano zmiany.");
+          setSelected(updated);
+          await load();
+        } catch (e) {
+          toast.show("error", "Użytkownik", e.message || "Nie udało się zapisać.");
+        } finally {
+          setSaving(false);
+        }
+      };
+
+      const changePassword = async () => {
+        if (!selected) return;
+        const id = pickUserId(selected);
+        const p = pwdNew.trim();
+        if (p.length < 6) return toast.show("error", "Hasło", "Nowe hasło musi mieć min. 6 znaków.");
+        setPwdSaving(true);
+        try {
+          await api.setUserPassword(id, p);
+          setPwdNew("");
+          toast.show("ok", "Hasło", "Hasło użytkownika zostało zmienione.");
+        } catch (e) {
+          toast.show("error", "Hasło", e.message || "Nie udało się zmienić hasła.");
+        } finally {
+          setPwdSaving(false);
+        }
+      };
+
+      const doDelete = async () => {
+        if (!selected) return;
+        const id = pickUserId(selected);
+        setDeleteLoading(true);
+        try {
+          await api.deleteUser(id);
+          toast.show("ok", "Użytkownik", "Konto usunięte.");
+          setConfirmDelete(false);
+          setSelected(null);
+          setSelectedOrders([]);
+          await load();
+        } catch (e) {
+          toast.show("error", "Użytkownik", e.message || "Nie udało się usunąć konta.");
+        } finally {
+          setDeleteLoading(false);
+        }
+      };
+
+      const UserCard = ({ u, idx }) => {
+        const id = pickUserId(u, idx);
+        const email = u.email || "—";
+        const fn = u.firstName || u.imie || u.name || "—";
+        const ln = u.lastName || u.nazwisko || "";
+        const phone = u.phone || u.telefon || "";
+        const address = u.address || u.adres || "";
+        const ordersCount = Number(u.ordersCount || u.orders_count || (Array.isArray(u.orders) ? u.orders.length : 0) || 0);
+
+        return (
+          <div className="bg-white border border-gray-200 rounded-3xl shadow-soft p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">Użytkownik</div>
+                <div className="mt-1 font-extrabold text-gray-900 truncate">{fn} {ln}</div>
+                <div className="text-xs text-gray-500 mt-1 truncate">{email}</div>
+                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                  <StatusPill label={`${ordersCount} zam.`} tone={ordersCount > 0 ? "green" : "gray"} />
+                  {phone ? <StatusPill label="TEL ✓" tone="blue" /> : <StatusPill label="TEL —" tone="gray" />}
+                  {address ? <StatusPill label="ADRES ✓" tone="blue" /> : <StatusPill label="ADRES —" tone="gray" />}
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">ID</div>
+                <div className="mt-1 font-mono text-xs text-gray-700 break-all max-w-[160px]">{String(id)}</div>
+              </div>
+            </div>
+
+            <div className="mt-3 grid sm:grid-cols-2 gap-2 text-sm text-gray-700">
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3">
+                <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 font-black">Telefon</div>
+                <div className="mt-1 font-semibold truncate">{phone || "— (po 1 zam.)"}</div>
+              </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3">
+                <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 font-black">Adres</div>
+                <div className="mt-1 font-semibold truncate">{address || "— (po 1 zam.)"}</div>
+              </div>
+            </div>
+
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => openUser(u)}
+                className="w-full inline-flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
+              >
+                <Icon name="eye" className="w-4 h-4" />
+                Otwórz konto
+              </button>
+            </div>
+          </div>
+        );
+      };
+
+      const OrdersList = ({ orders }) => {
+        if (!orders || orders.length === 0) {
+          return (
+            <div className="bg-gray-50 border border-gray-200 rounded-3xl p-4 text-sm text-gray-600">
+              Brak zamówień na tym koncie.
+            </div>
+          );
+        }
+
+        return (
+          <div className="space-y-3">
+            {orders.map((o, idx) => {
+              const id = pickOrderId(o, idx);
+              const createdAt = o.createdAt || o.date || o.created_at || o.timestamp;
+              const totalPLN =
+                toPLNFromMaybeGrosze(
+                  o.totalPLN ?? o.total ?? o.totalAmount ?? o.amount ?? 0,
+                  (o.totalAmount !== undefined ? "totalAmount" : "total")
+                );
+
+              const ship =
+                o.address ||
+                o.deliveryAddress ||
+                o.customer?.address ||
+                o.customer?.adres ||
+                o.shipping ||
+                null;
+
+              const addrText = (() => {
+                if (!ship) return "—";
+                if (typeof ship === "string") return ship;
+                const parts = [
+                  ship.ulica || ship.street,
+                  ship.nrBud || ship.houseNumber,
+                  ship.lokal || ship.flatNumber,
+                  ship.kod || ship.zip,
+                  ship.miasto || ship.city
+                ].filter(Boolean);
+                return parts.length ? parts.join(", ") : "—";
+              })();
+
+              const pay = resolvePayment(o);
+
+              return (
+                <div key={id} className="border border-gray-200 rounded-2xl p-4 hover:ring-2 hover:ring-brand-yellow/15 transition bg-white">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">Zamówienie</div>
+                      <div className="mt-1 font-mono text-xs text-gray-700 break-all">{String(id)}</div>
+                      <div className="mt-2 text-sm text-gray-700">
+                        <span className="font-extrabold">Data:</span> {fmtDateTime(createdAt)}
+                      </div>
+                      <div className="mt-1 text-sm text-gray-700">
+                        <span className="font-extrabold">Adres:</span> {addrText}
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <div className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">Kwota</div>
+                      <div className="mt-1 text-lg font-black">{currency(totalPLN)}</div>
+                      <div className="mt-2 flex items-center justify-end gap-2">
+                        <PaymentPill order={o} />
+                        <StatusPill label={pay.label} tone={pay.kind.includes("offline") ? "amber" : "blue"} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {Array.isArray(o.cart || o.items) && (o.cart || o.items).length > 0 && (
+                    <div className="mt-3 bg-gray-50 border border-gray-200 rounded-2xl p-3">
+                      <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 font-black">
+                        Pozycje
+                      </div>
+                      <div className="mt-2 space-y-1 text-sm text-gray-700">
+                        {(o.cart || o.items).slice(0, 6).map((it, i) => {
+                          const name = it.name || it.productName || it.title || it.productId || it.sku || "Pozycja";
+                          const qty = Number(it.qty || it.quantity || 1) || 1;
+                          return (
+                            <div key={i} className="flex items-center justify-between gap-3">
+                              <div className="truncate">{name}</div>
+                              <div className="font-mono text-xs text-gray-600">{qty}×</div>
+                            </div>
+                          );
+                        })}
+                        {(o.cart || o.items).length > 6 && (
+                          <div className="text-xs text-gray-500 mt-1">…i więcej</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      };
+
+      return (
+        <div className="p-4 md:p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            <div className="flex-1">
+              <div className="text-sm text-gray-600">
+                Zarządzaj kontami: edycja danych, reset hasła, usuwanie oraz wgląd w zamówienia.
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  <Icon name="search" className="w-4 h-4" />
+                </span>
+                <input
+                  className="input-focus w-full sm:w-[360px] bg-white border border-gray-200 rounded-2xl pl-9 pr-4 py-3 shadow-soft"
+                  placeholder="Szukaj (email, imię, nazwisko, telefon, adres...)"
+                  value={query}
+                  onChange={(e)=>setQuery(e.target.value)}
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={load}
+                className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
+              >
+                <Icon name="refresh-cw" className="w-4 h-4" />
+                Odśwież
+              </button>
+            </div>
+          </div>
+
+          {/* Cards below lg */}
+          <div className="mt-4 lg:hidden">
+            {loading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-44 w-full" />
+                <Skeleton className="h-44 w-full" />
+                <Skeleton className="h-44 w-full" />
+              </div>
+            ) : rows.length === 0 ? (
+              <div className="bg-white border border-gray-200 rounded-3xl shadow-soft p-8 text-center text-gray-600">
+                Brak użytkowników do wyświetlenia.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {rows.map((u, idx) => <UserCard key={pickUserId(u, idx)} u={u} idx={idx} />)}
+              </div>
+            )}
+          </div>
+
+          {/* Desktop table lg+ */}
+          <div className="mt-4 bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden hidden lg:block">
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+              <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">
+                Użytkownicy
+              </div>
+              <div className="text-xs text-gray-500 font-semibold">
+                {loading ? "Ładowanie..." : `${rows.length} pozycji`}
+              </div>
+            </div>
+
+            <div className="overflow-auto">
+              <table className="min-w-[1100px] w-full">
+                <thead className="bg-gray-50">
+                  <tr className="text-left text-xs uppercase tracking-widest text-gray-500">
+                    <th className="px-4 py-3 font-extrabold">Email</th>
+                    <th className="px-4 py-3 font-extrabold">Imię</th>
+                    <th className="px-4 py-3 font-extrabold">Nazwisko</th>
+                    <th className="px-4 py-3 font-extrabold">Telefon</th>
+                    <th className="px-4 py-3 font-extrabold">Adres</th>
+                    <th className="px-4 py-3 font-extrabold text-right">Zamówienia</th>
+                    <th className="px-4 py-3 font-extrabold"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    Array.from({ length: 7 }).map((_, i) => (
+                      <tr key={i} className="border-t border-gray-100">
+                        <td className="px-4 py-4"><Skeleton className="h-5 w-64" /></td>
+                        <td className="px-4 py-4"><Skeleton className="h-5 w-28" /></td>
+                        <td className="px-4 py-4"><Skeleton className="h-5 w-32" /></td>
+                        <td className="px-4 py-4"><Skeleton className="h-5 w-32" /></td>
+                        <td className="px-4 py-4"><Skeleton className="h-5 w-56" /></td>
+                        <td className="px-4 py-4 text-right"><Skeleton className="h-5 w-14 ml-auto" /></td>
+                        <td className="px-4 py-4"><Skeleton className="h-10 w-28" /></td>
+                      </tr>
+                    ))
+                  ) : rows.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="px-4 py-10 text-center text-gray-600">
+                        Brak użytkowników do wyświetlenia.
+                      </td>
+                    </tr>
+                  ) : (
+                    rows.map((u, idx) => {
+                      const email = u.email || "—";
+                      const fn = u.firstName || u.imie || u.name || "—";
+                      const ln = u.lastName || u.nazwisko || "—";
+                      const phone = u.phone || u.telefon || "";
+                      const address = u.address || u.adres || "";
+                      const ordersCount = Number(u.ordersCount || u.orders_count || (Array.isArray(u.orders) ? u.orders.length : 0) || 0);
+
+                      return (
+                        <tr key={pickUserId(u, idx)} className="border-t border-gray-100 hover:bg-gray-50/60">
+                          <td className="px-4 py-4 text-sm text-gray-700">{email}</td>
+                          <td className="px-4 py-4 font-extrabold text-sm text-gray-900">{fn}</td>
+                          <td className="px-4 py-4 font-extrabold text-sm text-gray-900">{ln}</td>
+                          <td className="px-4 py-4 text-sm text-gray-700">{phone || "— (po 1 zam.)"}</td>
+                          <td className="px-4 py-4 text-sm text-gray-700">{address || "— (po 1 zam.)"}</td>
+                          <td className="px-4 py-4 text-right font-extrabold">{ordersCount}</td>
+                          <td className="px-4 py-4">
+                            <button
+                              type="button"
+                              onClick={() => openUser(u)}
+                              className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2.5 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
+                            >
+                              <Icon name="eye" className="w-4 h-4" />
+                              Otwórz
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <ConfirmOverlay
+            open={confirmDelete}
+            title="Usuwanie konta"
+            desc="Ta operacja jest nieodwracalna. Użytkownik straci dostęp do konta."
+            dangerLabel="Usuń konto"
+            onCancel={()=>setConfirmDelete(false)}
+            onConfirm={doDelete}
+            loading={deleteLoading}
+          />
+
+          <Drawer
+            open={!!selected}
+            onClose={() => { setSelected(null); setSelectedOrders([]); setEdit(null); setPwdNew(""); }}
+            title={selected ? `Konto: ${selected.email || pickUserId(selected)}` : ""}
+          >
+            {detailLoading || !selected ? (
+              <div className="space-y-3">
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-24 w-full" />
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="bg-gray-50 border border-gray-200 rounded-3xl p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Szybki podgląd</div>
+                      <div className="mt-2 font-extrabold text-gray-900">
+                        {(selected.firstName || selected.imie || selected.name || "—")} {(selected.lastName || selected.nazwisko || "")}
+                      </div>
+                      <div className="mt-1 text-sm text-gray-700">{selected.email || "—"}</div>
+                      <div className="mt-2 flex items-center gap-2 flex-wrap">
+                        <StatusPill label={(selected.phone || selected.telefon) ? "TEL ✓" : "TEL —"} tone={(selected.phone || selected.telefon) ? "blue" : "gray"} />
+                        <StatusPill label={(selected.address || selected.adres) ? "ADRES ✓" : "ADRES —"} tone={(selected.address || selected.adres) ? "blue" : "gray"} />
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">ID</div>
+                      <div className="mt-1 font-mono text-xs text-gray-700 break-all max-w-[180px]">
+                        {pickUserId(selected)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Edycja danych */}
+                <div className="bg-white border border-gray-200 rounded-3xl p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Dane konta</div>
+                      <div className="text-lg font-extrabold mt-1">Edytuj dane</div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        Możesz edytować każdy element profilu. Telefon/adres zwykle pojawiają się po 1 zamówieniu.
+                      </div>
+                    </div>
+                    <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 border border-brand-yellow/30 grid place-items-center">
+                      <Icon name="user-cog" className="w-6 h-6" />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid md:grid-cols-2 gap-4">
+                    <Field label="Email" value={edit.email} onChange={(v)=>setEdit(e=>({ ...e, email:v }))} placeholder="email@domena.pl" />
+                    <Field label="Telefon" value={edit.phone} onChange={(v)=>setEdit(e=>({ ...e, phone:v }))} placeholder="np. 500 000 000" mono />
+                    <Field label="Imię" value={edit.firstName} onChange={(v)=>setEdit(e=>({ ...e, firstName:v }))} placeholder="Jan" />
+                    <Field label="Nazwisko" value={edit.lastName} onChange={(v)=>setEdit(e=>({ ...e, lastName:v }))} placeholder="Kowalski" />
+                    <div className="md:col-span-2">
+                      <TextArea label="Adres zamieszkania" value={edit.address} onChange={(v)=>setEdit(e=>({ ...e, address:v }))} placeholder="Ulica, nr, kod, miasto" />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-col sm:flex-row gap-2 sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={saveUser}
+                      disabled={saving}
+                      className="inline-flex items-center justify-center gap-2 bg-gray-900 text-white font-extrabold rounded-2xl px-5 py-4 shadow-glass hover:ring-2 hover:ring-brand-yellow/35 disabled:opacity-60 disabled:cursor-not-allowed transition"
+                    >
+                      <Icon name="save" className="w-5 h-5" />
+                      {saving ? "Zapisywanie..." : "Zapisz zmiany"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Hasło */}
+                <div className="bg-white border border-gray-200 rounded-3xl p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Bezpieczeństwo</div>
+                      <div className="text-lg font-extrabold mt-1">Zmień hasło użytkownika</div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        Ustaw nowe hasło z panelu. Użytkownik będzie mógł zalogować się nowym hasłem.
+                      </div>
+                    </div>
+                    <div className="w-11 h-11 rounded-2xl bg-sky-100 border border-sky-200 grid place-items-center">
+                      <Icon name="lock" className="w-6 h-6 text-sky-900" />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid sm:grid-cols-2 gap-4 items-end">
+                    <Field
+                      label="Nowe hasło"
+                      type="password"
+                      value={pwdNew}
+                      onChange={setPwdNew}
+                      placeholder="min. 6 znaków"
+                    />
+                    <button
+                      type="button"
+                      onClick={changePassword}
+                      disabled={pwdSaving}
+                      className="h-[54px] inline-flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <Icon name="key-round" className="w-4 h-4" />
+                      {pwdSaving ? "Zmienianie..." : "Zmień hasło"}
+                    </button>
+                  </div>
+
+                  <div className="mt-3 text-xs text-gray-500">
+                    Hasła w bazie muszą być hashowane (bcrypt/argon2). Panel nigdy nie powinien ich “podglądać”.
+                  </div>
+                </div>
+
+                {/* Zamówienia */}
+                <div className="bg-white border border-gray-200 rounded-3xl p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Historia</div>
+                      <div className="text-lg font-extrabold mt-1">Zamówienia na koncie</div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        Wgląd w: co zamówił, adres, kwota, data, metoda płatności.
+                      </div>
+                    </div>
+                    <div className="w-11 h-11 rounded-2xl bg-emerald-100 border border-emerald-200 grid place-items-center">
+                      <Icon name="shopping-bag" className="w-6 h-6 text-emerald-800" />
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <OrdersList orders={selectedOrders} />
+                  </div>
+                </div>
+
+                {/* Usuwanie */}
+                <div className="bg-white border border-gray-200 rounded-3xl p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Operacje</div>
+                      <div className="text-lg font-extrabold mt-1">Usuń konto</div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        Trwale usuwa konto użytkownika (i powiązania, jeśli tak zrobisz w backendzie).
+                      </div>
+                    </div>
+                    <div className="w-11 h-11 rounded-2xl bg-red-100 border border-red-200 grid place-items-center">
+                      <Icon name="trash-2" className="w-6 h-6 text-red-700" />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-col sm:flex-row gap-2 sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={()=>setConfirmDelete(true)}
+                      className="inline-flex items-center justify-center gap-2 bg-red-600 text-white border border-red-700/20 rounded-2xl px-5 py-4 shadow-soft hover:ring-2 hover:ring-red-200 transition font-extrabold text-sm"
+                    >
+                      <Icon name="trash-2" className="w-5 h-5" />
+                      Usuń konto
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Drawer>
+        </div>
+      );
+    };
+
+    /* =======================
+      App Shell
+    ======================= */
+    const NavItem = ({ active, icon, label, onClick }) => (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border transition text-left ${
+          active
+            ? "bg-brand-yellow/20 border-brand-yellow/30 ring-1 ring-brand-yellow/30"
+            : "bg-white border-gray-200 hover:ring-2 hover:ring-brand-yellow/20"
+        }`}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span className={`w-10 h-10 rounded-2xl grid place-items-center border ${
+            active ? "bg-brand-yellow/25 border-brand-yellow/30" : "bg-gray-50 border-gray-200"
+          }`}>
+            <Icon name={icon} className="w-5 h-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="font-extrabold text-sm text-gray-900">{label}</div>
+            <div className="text-xs text-gray-500 truncate">
+              {active ? "Aktywne" : "Otwórz"}
+            </div>
+          </div>
+        </div>
+      </button>
+    );
+
+    const AppShell = ({ token, onLogout }) => {
+      const [tab, setTab] = useState("users");
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [tab]);
+
+      const title = tab === "users" ? "Użytkownicy" : "Panel";
+      const subtitle = "Zarządzanie kontami i wgląd w zamówienia.";
+
+      return (
+        <div className="min-h-screen">
+          {/* DESKTOP (lg+) */}
+          <div className="hidden lg:flex">
+            <aside className="fixed top-0 left-0 bottom-0 w-[var(--sidebar-w)] p-4">
+              <div className="bg-white/85 border border-white/60 shadow-glass rounded-3xl p-4 h-full flex flex-col">
+                <Logo />
+
+                <div className="mt-5 space-y-2">
+                  <NavItem
+                    active={tab === "users"}
+                    icon="users"
+                    label="Użytkownicy"
+                    onClick={() => setTab("users")}
+                  />
+                </div>
+
+                <div className="mt-auto pt-3">
+                  <button
+                    type="button"
+                    onClick={onLogout}
+                    className="w-full inline-flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
+                  >
+                    <Icon name="log-out" className="w-4 h-4" />
+                    Wyloguj
+                  </button>
+
+                  <div className="mt-3 text-xs text-gray-500 text-center">
+                    eatmi.pl • panel zarządzania
+                  </div>
+                </div>
+              </div>
+            </aside>
+
+            <main className="ml-[var(--sidebar-w)] w-full">
+              <Topbar title={title} subtitle={subtitle} onLogout={onLogout} />
+              {tab === "users" && <UsersPage token={token} />}
+            </main>
+          </div>
+
+          {/* MOBILE/TABLET */}
+          <div className="lg:hidden">
+            <Topbar title={title} subtitle={subtitle} onLogout={onLogout} />
+            <div className="px-4 pt-4">
+              <div className="bg-white/85 border border-white/60 shadow-glass rounded-3xl p-3 grid grid-cols-1 gap-2">
+                <button
+                  className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${
+                    tab==="users" ? "bg-brand-yellow/20 border-brand-yellow/30" : "bg-white border-gray-200"
+                  }`}
+                  onClick={()=>setTab("users")}
+                >
+                  <Icon name="users" className="w-4 h-4" /> Użytkownicy
+                </button>
+              </div>
+            </div>
+
+            {tab === "users" && <UsersPage token={token} />}
+          </div>
+        </div>
+      );
+    };
+
+    /* =======================
+      Root: Auth flow + token
+    ======================= */
+    const Root = () => {
+      const toast = useToast();
+      const [token, setToken] = useState(() => localStorage.getItem(STORAGE_TOKEN) || "");
+
+      // auth state machine
+      const [stage, setStage] = useState(() => token ? "authed" : "pwd");
+      const [gateDone, setGateDone] = useState(false);
+
+      useEffect(() => { window.lucide?.createIcons?.(); });
+
+      const onAuth = (t) => {
+        setToken(t);
+        localStorage.setItem(STORAGE_TOKEN, t);
+        setStage("authed");
+      };
+
+      const logout = () => {
+        setToken("");
+        localStorage.removeItem(STORAGE_TOKEN);
+        setGateDone(false);
+        setStage("pwd");
+        toast.show("ok", "Panel", "Wylogowano.");
+      };
+
+      if (stage === "authed" && token) {
+        return <AppShell token={token} onLogout={logout} />;
+      }
+
+      if (stage === "pwd") {
+        return <Step1Password onOk={() => { setStage("wait"); setGateDone(false); }} />;
+      }
+
+      if (stage === "wait") {
+        return <WaitGate seconds={5} onDone={() => { setGateDone(true); setStage("pin"); }} />;
+      }
+
+      if (stage === "pin") {
+        return <Step2Pin onAuth={onAuth} />;
+      }
+
+      return null;
+    };
+
+    ReactDOM.createRoot(document.getElementById("root")).render(
+      <ToastProvider>
+        <Root />
+      </ToastProvider>
+    );
+  </script>
+</body>
+</html>
 
