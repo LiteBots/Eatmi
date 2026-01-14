@@ -229,6 +229,63 @@
     };
 
     /* =======================
+      ✅ PŁATNOŚĆ: wykrywanie offline/online
+    ======================= */
+    const resolvePayment = (order) => {
+      const o = order || {};
+      const pmRaw =
+        o.paymentMethod ??
+        o.payment_type ??
+        o.paymentType ??
+        o.payment?.method ??
+        o.payment?.type ??
+        o.payment?.provider ??
+        o.method ??
+        o.payMethod ??
+        null;
+
+      const pm = String(pmRaw || "").trim().toLowerCase();
+
+      const offlineFlag =
+        !!o.isOffline ||
+        !!o.cashOnDelivery ||
+        !!o.cod ||
+        !!o.payOnPickup ||
+        !!o.pay_on_pickup ||
+        pm === "offline" ||
+        pm === "pickup" ||
+        pm === "odbior" ||
+        pm === "odbiór" ||
+        pm === "cod";
+
+      // Rozpoznanie form
+      if (pm.includes("cash") || pm.includes("got") || pm === "gotowka" || pm === "gotówka") {
+        return { kind: "offline_cash", label: "Gotówka przy odbiorze", badge: "GOTÓWKA" };
+      }
+      if (pm.includes("card") || pm.includes("karta") || pm.includes("terminal")) {
+        return { kind: "offline_card", label: "Karta przy odbiorze", badge: "KARTA" };
+      }
+
+      // Jeśli offline ale bez szczegółu
+      if (offlineFlag) {
+        return { kind: "offline", label: "Płatność przy odbiorze", badge: "ODBIÓR" };
+      }
+
+      // Jeśli wygląda na PayU / online
+      if (pm.includes("payu") || pm.includes("online") || pm.includes("card_online") || pm.includes("przelew")) {
+        return { kind: "online", label: "PayU (online)", badge: "PAYU" };
+      }
+
+      // Heurystyka: jeśli jest payuOrderId -> online
+      if (o.payuOrderId || o.payu?.orderId) {
+        return { kind: "online", label: "PayU (online)", badge: "PAYU" };
+      }
+
+      // domyślnie online
+      return { kind: "online", label: "PayU (online)", badge: "PAYU" };
+    };
+
+    /* =======================
       Mapowanie productId -> pełna nazwa (EDYTUJ wg swoich ID)
     ======================= */
     const PRODUCT_NAME_MAP = {
@@ -352,6 +409,33 @@
     );
 
     /* =======================
+      ✅ Payment pill (tabela / overlay / szczegóły)
+    ======================= */
+    const PaymentPill = ({ order }) => {
+      const p = resolvePayment(order);
+      const kind = p.kind;
+
+      const cls =
+        kind === "offline_cash"
+          ? "bg-amber-100 text-amber-900 border-amber-200"
+          : kind === "offline_card"
+          ? "bg-violet-100 text-violet-900 border-violet-200"
+          : kind === "offline"
+          ? "bg-orange-100 text-orange-900 border-orange-200"
+          : "bg-sky-100 text-sky-900 border-sky-200";
+
+      return (
+        <span
+          className={`inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] px-2.5 py-1 rounded-full border ${cls}`}
+          title={p.label}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
+          {p.badge}
+        </span>
+      );
+    };
+
+    /* =======================
       New Order ALERT (full-screen, flashing + loud beep)
     ======================= */
     const useBeep = () => {
@@ -457,6 +541,9 @@
       // ✅ FIX: total w PLN
       const totalPLN = getOrderTotalPLN(orderPreview);
 
+      // ✅ Płatność
+      const pay = resolvePayment(orderPreview);
+
       return (
         <div className={`fixed inset-0 z-[999] ${bgClass}`}>
           <div className="absolute inset-0"></div>
@@ -473,6 +560,15 @@
                   </div>
                   <div className="text-sm text-gray-700 mt-3">
                     Dopóki nie klikniesz <span className="font-black">OK</span>, nie da się zamknąć tego ekranu.
+                  </div>
+
+                  {/* ✅ Metoda płatności na overlay */}
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Płatność:</span>
+                    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 shadow-soft text-xs font-black">
+                      {pay.label}
+                    </span>
+                    <PaymentPill order={orderPreview} />
                   </div>
                 </div>
 
@@ -901,14 +997,21 @@
       // ✅ FIX: total w PLN
       const totalPLN = getOrderTotalPLN(order);
 
+      // ✅ Płatność
+      const pay = resolvePayment(order);
+
       return (
         <div className="space-y-6">
           <div className="bg-gray-50 border border-gray-200 rounded-3xl p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Status</div>
-                <div className="mt-2">
+                <div className="mt-2 flex flex-wrap items-center gap-2">
                   <StatusPill status={order.status || order.paymentStatus || order.payuStatus || "—"} />
+                  <PaymentPill order={order} />
+                </div>
+                <div className="mt-2 text-sm text-gray-600">
+                  <span className="font-extrabold">Płatność:</span> {pay.label}
                 </div>
               </div>
               <div className="text-right">
@@ -960,7 +1063,6 @@
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="font-extrabold text-gray-900">{name}</div>
-                          {/* ❌ USUNIĘTE: productId/sku żeby nie wyświetlać bs-small-3 */}
                           <div className="text-xs text-gray-500 mt-1">
                             <span className="font-black">{qty}×</span> szt.
                           </div>
@@ -982,6 +1084,9 @@
           <div className="bg-white border border-gray-200 rounded-3xl p-4">
             <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Dane techniczne</div>
             <div className="mt-2">
+              <KV k="Płatność" v={pay.label} />
+              <KV k="paymentMethod" v={order.paymentMethod ?? order.paymentType ?? order.payment?.method ?? order.payment?.type ?? "—"} mono />
+              <KV k="isOffline" v={String(!!order.isOffline)} mono />
               <KV k="orderId" v={order.orderId || order.id || order._id} mono />
               <KV k="extOrderId" v={order.extOrderId} mono />
               <KV k="payuOrderId" v={order.payuOrderId || order.payu?.orderId} mono />
@@ -1086,7 +1191,7 @@
                 </span>
                 <input
                   className="input-focus w-full sm:w-[320px] bg-white border border-gray-200 rounded-2xl pl-9 pr-4 py-3 shadow-soft"
-                  placeholder="Szukaj (ID, email, telefon, produkt...)"
+                  placeholder="Szukaj (ID, email, telefon, produkt, payu, karta, gotówka...)"
                   value={query}
                   onChange={(e)=>setQuery(e.target.value)}
                 />
@@ -1114,7 +1219,8 @@
             </div>
 
             <div className="overflow-auto">
-              <table className="min-w-[920px] w-full">
+              <!-- ✅ poszerzamy tabelę: dodana kolumna Płatność -->
+              <table className="min-w-[1040px] w-full">
                 <thead className="bg-gray-50">
                   <tr className="text-left text-xs uppercase tracking-widest text-gray-500">
                     <th className="px-4 py-3 font-extrabold">ID</th>
@@ -1122,6 +1228,7 @@
                     <th className="px-4 py-3 font-extrabold">Klient</th>
                     <th className="px-4 py-3 font-extrabold">Kontakt</th>
                     <th className="px-4 py-3 font-extrabold">Status</th>
+                    <th className="px-4 py-3 font-extrabold">Płatność</th>
                     <th className="px-4 py-3 font-extrabold text-right">Kwota</th>
                     <th className="px-4 py-3 font-extrabold"></th>
                   </tr>
@@ -1135,13 +1242,14 @@
                         <td className="px-4 py-4"><Skeleton className="h-5 w-44" /></td>
                         <td className="px-4 py-4"><Skeleton className="h-5 w-56" /></td>
                         <td className="px-4 py-4"><Skeleton className="h-6 w-28" /></td>
+                        <td className="px-4 py-4"><Skeleton className="h-6 w-28" /></td>
                         <td className="px-4 py-4 text-right"><Skeleton className="h-5 w-24 ml-auto" /></td>
                         <td className="px-4 py-4"><Skeleton className="h-10 w-28" /></td>
                       </tr>
                     ))
                   ) : rows.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="px-4 py-10 text-center text-gray-600">
+                      <td colSpan="8" className="px-4 py-10 text-center text-gray-600">
                         Brak zamówień do wyświetlenia.
                       </td>
                     </tr>
@@ -1175,6 +1283,12 @@
                           <td className="px-4 py-4">
                             <StatusPill status={status} />
                           </td>
+
+                          {/* ✅ NOWA kolumna: płatność */}
+                          <td className="px-4 py-4">
+                            <PaymentPill order={o} />
+                          </td>
+
                           <td className="px-4 py-4 text-right font-extrabold whitespace-nowrap">
                             {sumOrder(o)}
                           </td>
@@ -1300,7 +1414,6 @@
                 {loading ? "Wysyłanie..." : "Wyślij powiadomienie"}
               </button>
 
-             
             </div>
           </div>
         </div>
@@ -1440,8 +1553,6 @@
                   <Icon name="plus" className="w-5 h-5" />
                   {saving ? "Dodawanie..." : "Dodaj"}
                 </button>
-
-                
               </div>
             </div>
 
