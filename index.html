@@ -815,16 +815,15 @@
       );
     };
 
- const CategoryPage = ({ categoryId }) => {
-        const { add } = useCart();
-        const category = PRODUCT_CATEGORIES.find(c => c.id === categoryId);
-        const items = PRODUCTS[categoryId] || [];
+    const CategoryPage = ({ categoryId }) => {
+      const { add } = useCart();
+      const category = PRODUCT_CATEGORIES.find(c => c.id === categoryId);
+      const items = PRODUCTS[categoryId] || [];
 
-        // ✅ ZAWSZE STARTUJ OD GÓRY PO WEJŚCIU W KATEGORIĘ
-        React.useEffect(() => {
-            window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-        }, [categoryId]);
-
+      // ✅ ZAWSZE STARTUJ OD GÓRY PO WEJŚCIU W KATEGORIĘ
+      React.useEffect(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      }, [categoryId]);
 
       if (!category) {
         return (
@@ -879,7 +878,6 @@
         </section>
       );
     };
-
 
     const Koszyk = () => {
       const { cart, remove, clear, total, incQty, decQty, setQty, lineTotal, add } = useCart();
@@ -1975,30 +1973,81 @@
           <main className={`app-content-pad ${showCTA ? "has-cta" : ""}`}>
             <Router />
 
-            <footer className="py-10 text-center text-sm text-gray-500">
+            <!-- ✅ FOOTER Z DANYMI PRZEDSIĘBIORCY -->
+            <footer className="py-12 text-sm text-gray-600 border-t border-gray-200">
               <div className="max-w-6xl mx-auto px-4">
-                <div className="font-semibold text-gray-700">
-                  © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
-                </div>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="text-left">
+                    <div className="font-extrabold text-gray-900 mb-2">
+                      Dane przedsiębiorcy
+                    </div>
 
-                <div className="mt-4 flex flex-wrap justify-center gap-3 text-sm">
-                  <a
-                    href="/rule.html"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-4"
-                  >
-                    Regulamin
-                  </a>
-                  <span className="text-gray-300">•</span>
-                  <a
-                    href="/rule.html"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-4"
-                  >
-                    Polityka prywatności
-                  </a>
+                    <ul className="space-y-1">
+                      <li><span className="font-semibold">Imię:</span> Marcin</li>
+                      <li><span className="font-semibold">Nazwisko:</span> Chojnacki</li>
+                      <li><span className="font-semibold">NIP:</span> 8271982077</li>
+                      <li><span className="font-semibold">REGON:</span> 100473965</li>
+                      <li>
+                        <span className="font-semibold">Firma przedsiębiorcy:</span>{" "}
+                        MARCIN CHOJNACKI MILKSHAKE BAR
+                      </li>
+                    </ul>
+
+                    <div className="mt-4 space-y-3">
+                      <div>
+                        <div className="font-semibold text-gray-700">
+                          Stałe miejsce wykonywania działalności gospodarczej:
+                        </div>
+                        <div className="text-gray-600">
+                          ul. Szczecińska 17, 76-200 Słupsk, pow. Słupsk, gm. Słupsk, woj. POMORSKIE, Polska
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="font-semibold text-gray-700">
+                          Dodatkowe stałe miejsce wykonywania działalności gospodarczej:
+                        </div>
+                        <div className="text-gray-600">
+                          ul. Wydmowa 2, 76-212 Rowy, pow. słupski, gm. Ustka, woj. POMORSKIE, Polska
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="font-semibold text-gray-700">
+                          Adres do doręczeń:
+                        </div>
+                        <div className="text-gray-600">
+                          ul. kard. Stefana Wyszyńskiego 8/52, 76-200 Słupsk, pow. Słupsk, gm. Słupsk, woj. POMORSKIE, Polska
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-left md:text-right flex flex-col justify-between">
+                    <div className="font-semibold text-gray-700">
+                      © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
+                    </div>
+
+                    <div className="mt-6 flex flex-wrap gap-3 md:justify-end text-sm">
+                      <a
+                        href="/rule.html"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-4"
+                      >
+                        Regulamin
+                      </a>
+                      <span className="text-gray-300">•</span>
+                      <a
+                        href="/rule.html"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-4"
+                      >
+                        Polityka prywatności
+                      </a>
+                    </div>
+                  </div>
                 </div>
               </div>
             </footer>
