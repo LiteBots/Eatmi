@@ -822,10 +822,16 @@
       );
     };
 
-    const CategoryPage = ({ categoryId }) => {
-      const { add } = useCart();
-      const category = PRODUCT_CATEGORIES.find(c => c.id === categoryId);
-      const items = PRODUCTS[categoryId] || [];
+ const CategoryPage = ({ categoryId }) => {
+        const { add } = useCart();
+        const category = PRODUCT_CATEGORIES.find(c => c.id === categoryId);
+        const items = PRODUCTS[categoryId] || [];
+
+        // ✅ ZAWSZE STARTUJ OD GÓRY PO WEJŚCIU W KATEGORIĘ
+        React.useEffect(() => {
+            window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+        }, [categoryId]);
+
 
       if (!category) {
         return (
