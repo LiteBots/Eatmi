@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+teraz zaaktualizuj moj admin tak aby w szczegolach pokazywal jesli ktos wybierze dodatek <!DOCTYPE html>
 <html lang="pl">
 <head>
   <meta charset="UTF-8" />
@@ -196,112 +196,6 @@
       if (it.unit_amount !== undefined) return toPLNFromMaybeGrosze(it.unit_amount, "unit_amount");
       if (it.price !== undefined) return toPLNFromMaybeGrosze(it.price, "price");
       return 0;
-    };
-
-    /* =======================
-      ✅ ADDONS (DODATKI do kawy/herbaty) — WYŚWIETLANIE w szczegółach
-      Obsługujemy różne formaty:
-        - it.addons: [{id,name,price}] (price w groszach lub PLN)
-        - it.addOns / it.options.addons
-        - it.addons: ["milk_oat", "honey_50"] itp.
-    ======================= */
-
-    const ADDONS_CATALOG = {
-      milk_oat: { id: "milk_oat", name: "Mleko owsiane", priceGrosze: 200 },
-      milk_coconut: { id: "milk_coconut", name: "Mleko kokosowe", priceGrosze: 200 },
-      milk_pea: { id: "milk_pea", name: "Mleko grochowe", priceGrosze: 200 },
-      honey_50: { id: "honey_50", name: "Miód 50 ml", priceGrosze: 300 },
-      honey: { id: "honey_50", name: "Miód 50 ml", priceGrosze: 300 },
-    };
-
-    const normalizeAddonId = (raw) => {
-      const s = String(raw || "").trim().toLowerCase();
-      if (!s) return "";
-      // aliasy
-      if (s === "oat" || s === "owsiane" || s === "mleko_owsiane") return "milk_oat";
-      if (s === "coconut" || s === "kokosowe" || s === "mleko_kokosowe") return "milk_coconut";
-      if (s === "pea" || s === "grochowe" || s === "mleko_grochowe") return "milk_pea";
-      if (s === "honey" || s === "miod" || s === "miód") return "honey_50";
-      return s;
-    };
-
-    const toGroszeMaybe = (value, hint="") => {
-      // jeśli backend przysłał grosze (np. 200) albo PLN (np. 2)
-      const n = toNumber(value);
-      const h = String(hint || "").toLowerCase();
-
-      // jawny hint o groszach:
-      if (h.includes("grosz") || h.includes("unitprice") || h.includes("totalamount") || h.includes("payu")) {
-        return Math.round(n);
-      }
-
-      // jeżeli to mała liczba (0-50) zakładamy PLN i konwertujemy
-      if (n > 0 && n < 50) return Math.round(n * 100);
-
-      // jeżeli wygląda jak grosze
-      if (Number.isInteger(n) && n >= 50 && n <= 5000) return Math.round(n);
-
-      // fallback: traktuj jako PLN
-      return Math.round(n * 100);
-    };
-
-    const extractAddons = (it) => {
-      if (!it) return [];
-
-      const raw =
-        it.addons ??
-        it.addOns ??
-        it.options?.addons ??
-        it.options?.addOns ??
-        it.extras ??
-        it.extra ??
-        null;
-
-      if (!raw) return [];
-
-      const out = [];
-      const pushAddon = (a) => {
-        const id = normalizeAddonId(a?.id ?? a);
-        if (!id) return;
-
-        const cat = ADDONS_CATALOG[id];
-        const name = String(a?.name || cat?.name || id).trim();
-        const priceGrosze =
-          a && typeof a === "object" && a.price !== undefined
-            ? toGroszeMaybe(a.price, "addon_price")
-            : (cat?.priceGrosze ?? 0);
-
-        out.push({ id, name, priceGrosze: Number(priceGrosze || 0) });
-      };
-
-      if (Array.isArray(raw)) {
-        raw.forEach(pushAddon);
-      } else if (typeof raw === "object") {
-        // np. { milk_oat: true, honey_50: true }
-        Object.entries(raw).forEach(([k, v]) => {
-          if (!v) return;
-          pushAddon({ id: k });
-        });
-      } else if (typeof raw === "string") {
-        // np. "milk_oat,honey_50"
-        raw.split(",").map(s => s.trim()).filter(Boolean).forEach((id) => pushAddon({ id }));
-      }
-
-      // dedupe po id
-      const seen = new Set();
-      return out.filter((a) => (seen.has(a.id) ? false : (seen.add(a.id), true)));
-    };
-
-    const addonsPerUnitPLN = (addonsArr) => {
-      const sumG = (addonsArr || []).reduce((acc, a) => acc + Number(a?.priceGrosze || 0), 0);
-      return sumG / 100;
-    };
-
-    const itemHasAddons = (it) => extractAddons(it).length > 0;
-
-    const orderHasAnyAddons = (order) => {
-      const cart = Array.isArray(order?.cart) ? order.cart : (Array.isArray(order?.items) ? order.items : []);
-      return cart.some(itemHasAddons);
     };
 
     /* =======================
@@ -633,15 +527,6 @@
                     </span>
                     <PaymentPill order={orderPreview} />
                   </div>
-
-                  {orderHasAnyAddons(orderPreview) && (
-                    <div className="mt-3">
-                      <span className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] px-2.5 py-1 rounded-full border bg-emerald-100 text-emerald-900 border-emerald-200">
-                        <Icon name="sparkles" className="w-4 h-4" />
-                        DODATKI
-                      </span>
-                    </div>
-                  )}
                 </div>
 
                 <div className="w-14 h-14 rounded-3xl bg-brand-yellow/30 border border-black/10 grid place-items-center shrink-0">
@@ -999,6 +884,10 @@
 
     /* =======================
       Pages: Orders
+      FIX RESPONSYWNOŚCI:
+      - Na tabletach/iPad pokazujemy listę kart zamiast szerokiej tabeli
+      - Tabela zostaje tylko na desktopie (lg+)
+      - Drawer na tabletach jest pełnoekranowy (łatwo kliknąć i przewijać)
     ======================= */
     const StatusPill = ({ status }) => {
       const s = String(status || "").toLowerCase();
@@ -1030,6 +919,7 @@
         <div className="fixed inset-0 z-[160]">
           <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true"></div>
 
+          {/* Tablet/mobile: pełny ekran | Desktop (lg+): panel z prawej */}
           <div className="absolute inset-0 lg:inset-y-0 lg:right-0 lg:left-auto w-full lg:max-w-2xl bg-white border-l border-gray-200 shadow-kiosk">
             <div className="p-4 border-b border-gray-200 flex items-center justify-between gap-3 sticky top-0 bg-white z-10">
               <div className="min-w-0">
@@ -1062,32 +952,6 @@
       </div>
     );
 
-    const AddonsBadges = ({ addons }) => {
-      const list = Array.isArray(addons) ? addons : [];
-      if (list.length === 0) return null;
-
-      return (
-        <div className="mt-3">
-          <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 font-black">Dodatki</div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {list.map((a) => (
-              <span
-                key={a.id}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-900 border-emerald-200 text-xs font-extrabold"
-                title={`${a.name} (+${(Number(a.priceGrosze||0)/100).toFixed(2)} zł)`}
-              >
-                <Icon name="sparkles" className="w-3.5 h-3.5" />
-                {a.name}
-                <span className="font-black text-emerald-700">
-                  +{(Number(a.priceGrosze||0)/100).toFixed(2)} zł
-                </span>
-              </span>
-            ))}
-          </div>
-        </div>
-      );
-    };
-
     const OrderDetails = ({ order }) => {
       const c = order.customer || {};
       const cart = Array.isArray(order.cart) ? order.cart : (Array.isArray(order.items) ? order.items : []);
@@ -1104,12 +968,6 @@
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <StatusPill status={order.status || order.paymentStatus || order.payuStatus || "—"} />
                   <PaymentPill order={order} />
-                  {orderHasAnyAddons(order) && (
-                    <span className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] px-2.5 py-1 rounded-full border bg-emerald-100 text-emerald-900 border-emerald-200">
-                      <Icon name="sparkles" className="w-4 h-4" />
-                      DODATKI
-                    </span>
-                  )}
                 </div>
                 <div className="mt-2 text-sm text-gray-600">
                   <span className="font-extrabold">Płatność:</span> {pay.label}
@@ -1156,20 +1014,7 @@
                   const name = resolveProductName(it);
 
                   const unitPricePLN = getItemUnitPricePLN(it);
-
-                  const addons = extractAddons(it);
-                  const addonsUnitPLN = addonsPerUnitPLN(addons);
-                  const addonsLinePLN = addonsUnitPLN * qty;
-
-                  // Czy backend już wliczył dodatki w unitPrice?
-                  // Jeżeli backend wysyła pozycję z nazwą zawierającą "(+ ...)" albo flagą includesAddons -> nie doliczamy do wyliczeń liniowych.
-                  const unitSeemsIncludesAddons =
-                    !!it.unitPriceIncludesAddons ||
-                    !!it.includesAddons ||
-                    (typeof it.name === "string" && it.name.includes("(+"));
-
-                  const baseLinePLN = unitPricePLN * qty;
-                  const linePLN = unitSeemsIncludesAddons ? baseLinePLN : (baseLinePLN + addonsLinePLN);
+                  const linePLN = unitPricePLN * qty;
 
                   return (
                     <div key={i} className="border border-gray-200 rounded-2xl p-4 hover:ring-2 hover:ring-brand-yellow/15 transition">
@@ -1179,27 +1024,12 @@
                           <div className="text-xs text-gray-500 mt-1">
                             <span className="font-black">{qty}×</span> szt.
                           </div>
-
-                          {addons.length > 0 && <AddonsBadges addons={addons} />}
                         </div>
-
                         <div className="text-right">
                           <div className="font-black">{currency(linePLN)}</div>
                           <div className="text-xs text-gray-500 mt-1">
                             {currency(unitPricePLN)} / szt.
                           </div>
-
-                          {addons.length > 0 && !unitSeemsIncludesAddons && (
-                            <div className="text-xs text-emerald-700 mt-2 font-extrabold">
-                              + Dodatki: {currency(addonsLinePLN)}
-                            </div>
-                          )}
-
-                          {addons.length > 0 && unitSeemsIncludesAddons && (
-                            <div className="text-xs text-emerald-700 mt-2 font-extrabold">
-                              Dodatki wliczone w cenę
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -1316,15 +1146,6 @@
                 <div className="mt-1 font-mono text-xs text-gray-700 break-all">{String(id)}</div>
                 <div className="mt-3 font-extrabold text-gray-900 truncate">{name}</div>
                 <div className="text-xs text-gray-500 mt-1">{city}</div>
-
-                {orderHasAnyAddons(o) && (
-                  <div className="mt-2">
-                    <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em] px-2 py-1 rounded-full border bg-emerald-50 text-emerald-900 border-emerald-200">
-                      <Icon name="sparkles" className="w-3.5 h-3.5" />
-                      Dodatki
-                    </span>
-                  </div>
-                )}
               </div>
               <div className="text-right shrink-0">
                 <div className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">Kwota</div>
@@ -1395,6 +1216,7 @@
             </div>
           </div>
 
+          {/* Mobile/Tablet cards (poniżej lg) */}
           <div className="mt-4 lg:hidden">
             {loading ? (
               <div className="space-y-3">
@@ -1413,6 +1235,7 @@
             )}
           </div>
 
+          {/* Desktop table (lg+) */}
           <div className="mt-4 bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden hidden lg:block">
             <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
               <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">
@@ -1479,14 +1302,6 @@
                             <div className="text-xs text-gray-500 mt-1">
                               {o.customer?.miasto ? `${o.customer.miasto}` : "—"}
                             </div>
-                            {orderHasAnyAddons(o) && (
-                              <div className="mt-2">
-                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-900 border-emerald-200 text-[10px] font-black uppercase tracking-[0.14em]">
-                                  <Icon name="sparkles" className="w-3.5 h-3.5" />
-                                  dodatki
-                                </span>
-                              </div>
-                            )}
                           </td>
                           <td className="px-4 py-4 text-sm text-gray-700">
                             <div>{email}</div>
@@ -1903,6 +1718,8 @@
 
     /* =======================
       App: main
+      FIX: desktop layout dopiero od lg (>=1024)
+      Dzięki temu iPad (często 768-1024) dostaje układ "mobile/tablet" który jest 100% klikalny i czytelny.
     ======================= */
     const STORAGE_KEY = "eatmi-admin-token";
 
@@ -1991,6 +1808,7 @@
           />
 
           <div className={alertOpen ? "no-interact" : ""}>
+            {/* DESKTOP dopiero od lg */}
             <div className="hidden lg:flex">
               <aside className="fixed top-0 left-0 bottom-0 w-[var(--sidebar-w)] p-4">
                 <div className="bg-white/85 border border-white/60 shadow-glass rounded-3xl p-4 h-full flex flex-col">
@@ -2050,6 +1868,7 @@
               </main>
             </div>
 
+            {/* MOBILE + TABLET (do lg): czytelny, klikalny układ z gridem */}
             <div className="lg:hidden">
               <Topbar title={title} subtitle={subtitle} onLogout={onLogout} />
 
@@ -2131,4 +1950,3 @@
   </script>
 </body>
 </html>
-
