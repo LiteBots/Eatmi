@@ -850,9 +850,11 @@
       return (
         <section className="py-6 md:py-10">
           <div className="max-w-6xl mx-auto px-4">
-            <a href="#/" className="inline-flex items-center gap-2 text-sm text-gray-600">
-              <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do menu
+            <a href="#kategorie" className="mt-2 inline-flex items-center justify-center gap-2 text-lg font-extrabold text-gray-900 bg-brand-yellow/20 border border-brand-yellow/30 rounded-2xl px-5 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/40 transition">
+                 <i data-lucide="arrow-left" className="w-5 h-5"></i>
+                    Wróć do menu
             </a>
+
 
             <div className="mt-4 flex items-center gap-3">
               <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
@@ -873,6 +875,12 @@
                   onAdd={handleAdd}
                 />
               ))}
+            </div>
+            <div className="mt-10 flex justify-center">
+                <a href="#kategorie" className="inline-flex items-center justify-center gap-2 text-lg font-extrabold text-gray-900 bg-brand-yellow border border-black/5 rounded-2xl px-6 py-4 shadow-soft hover:scale-[1.02] active:scale-[0.98] transition hover:ring-2 hover:ring-brand-yellow/40 min-h-[56px]">
+                     <i data-lucide="arrow-left" className="w-6 h-6"></i>
+                         Wróć do menu
+             </a>
             </div>
           </div>
         </section>
