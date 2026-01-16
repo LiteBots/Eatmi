@@ -129,6 +129,15 @@
     }
     .nudge-in { animation: nudgeIn .38s cubic-bezier(.2,.9,.2,1) both; }
     .nudge-out { animation: nudgeOut .26s ease-in both; }
+
+    /* =======================
+       Add-ons modal (fade)
+    ======================= */
+    @keyframes popIn {
+      from { transform: translateY(10px) scale(.98); opacity: 0; }
+      to   { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    .pop-in { animation: popIn .18s ease-out both; }
   </style>
 
   <!-- React 18 + ReactDOM 18 -->
@@ -236,6 +245,29 @@
       'zdrowe': HEALTHY,
       'slodkie': SWEETS,
       'napoje': DRINKS,
+    };
+
+    /* =======================
+       ADD-ONS (kawa/herbata)
+    ======================= */
+
+    const DRINK_ADDONS = [
+      { id: "milk-oat", label: "Mleko owsiane", price: 2 },
+      { id: "milk-coconut", label: "Mleko kokosowe", price: 2 },
+      { id: "milk-pea", label: "Mleko grochowe", price: 2 },
+      { id: "honey-50", label: "Miód 50 ml", price: 3 },
+    ];
+
+    const isCoffeeOrTea = (name = "") => {
+      const s = String(name).toLowerCase();
+      // zgodnie z wymaganiem: kawa lub herbata
+      // (Matcha traktujemy jako napój "specjalny" - jeśli chcesz tylko kawa/herbata, usuń "matcha" poniżej)
+      return s.includes("kawa") || s.includes("herbata") || s.includes("matcha");
+    };
+
+    const shouldPromptDrinkAddons = ({ categoryId, item }) => {
+      if (categoryId !== "napoje") return false;
+      return isCoffeeOrTea(item?.name || "");
     };
 
     /* =======================
@@ -496,25 +528,46 @@
         const newItem = {
           id: (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
           qty: 1,
+          addons: [], // ✅ dodatki dla kawy/herbaty
           ...entry
         };
         setCart(prev => [...prev, newItem]);
         if (show) show(`Dodano: ${entry.name}`);
         haptics();
+        return newItem.id; // ✅ zwracamy id dodanej pozycji (do modala dodatków)
       };
 
       const remove  = (id) => setCart(prev => prev.filter(i => i.id !== id));
+
+      const updateItem = (id, patch) => {
+        setCart(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i));
+      };
+
       const setQty  = (id, qty) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: Math.max(1, qty|0)} : i));
       const incQty  = (id) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: (i.qty||1)+1} : i));
       const decQty  = (id) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: Math.max(1, (i.qty||1)-1)} : i));
       const clear   = () => setCart([]);
 
-      const lineTotal = (i) => (i.price || 0) * (i.qty || 1);
+      const addonsTotalPerUnit = (i) => {
+        const arr = Array.isArray(i?.addons) ? i.addons : [];
+        return arr.reduce((s,a)=> s + (a?.price || 0), 0);
+      };
+
+      const lineTotal = (i) => {
+        const base = (i.price || 0);
+        const addOns = addonsTotalPerUnit(i);
+        return (base + addOns) * (i.qty || 1);
+      };
+
       const total  = useMemo(() => cart.reduce((s,i)=> s + lineTotal(i), 0), [cart]);
       const count  = useMemo(() => cart.reduce((s,i)=> s + (i.qty||1), 0), [cart]);
 
       return (
-        <CartContext.Provider value={{cart, add, remove, setQty, incQty, decQty, clear, lineTotal, total, count}}>
+        <CartContext.Provider value={{
+          cart, add, remove, updateItem, setQty, incQty, decQty, clear,
+          lineTotal, total, count,
+          addonsTotalPerUnit
+        }}>
           {children}
         </CartContext.Provider>
       );
@@ -815,10 +868,182 @@
       );
     };
 
+    /* =======================
+       MODAL: dodatki do kawy/herbaty
+    ======================= */
+
+    const lockBodyScroll = (lock) => {
+      const body = document.body;
+      if (!body) return;
+      if (lock) {
+        body.dataset._scrollY = String(window.scrollY || 0);
+        body.style.position = "fixed";
+        body.style.top = `-${window.scrollY || 0}px`;
+        body.style.left = "0";
+        body.style.right = "0";
+        body.style.width = "100%";
+      } else {
+        const y = parseInt(body.dataset._scrollY || "0", 10) || 0;
+        body.style.position = "";
+        body.style.top = "";
+        body.style.left = "";
+        body.style.right = "";
+        body.style.width = "";
+        delete body.dataset._scrollY;
+        window.scrollTo(0, y);
+      }
+    };
+
+    const DrinkAddonsModal = ({ open, onClose, cartItemId, title }) => {
+      const { cart, updateItem } = useCart();
+      const toast = useToast();
+      const showToast = toast?.show;
+
+      const item = useMemo(() => cart.find(x => x.id === cartItemId) || null, [cart, cartItemId]);
+      const [selected, setSelected] = useState([]);
+
+      useEffect(() => {
+        if (!open) return;
+        setSelected([]);
+        lockBodyScroll(true);
+        return () => lockBodyScroll(false);
+      }, [open]);
+
+      useEffect(() => {
+        const onKey = (e) => {
+          if (!open) return;
+          if (e.key === "Escape") onClose?.();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+      }, [open, onClose]);
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [open]);
+
+      if (!open) return null;
+
+      const toggle = (addonId) => {
+        setSelected((prev) => prev.includes(addonId) ? prev.filter(x => x !== addonId) : [...prev, addonId]);
+      };
+
+      const skip = () => {
+        onClose?.();
+      };
+
+      const apply = () => {
+        if (!item) { onClose?.(); return; }
+        const addons = DRINK_ADDONS
+          .filter(a => selected.includes(a.id))
+          .map(a => ({ id: a.id, label: a.label, price: a.price }));
+
+        updateItem(item.id, { addons });
+        if (addons.length) {
+          const label = addons.map(a => a.label).join(", ");
+          showToast?.(`Dodano dodatki: ${label}`);
+        }
+        onClose?.();
+      };
+
+      const addonsSum = selected
+        .map(id => DRINK_ADDONS.find(a => a.id === id))
+        .filter(Boolean)
+        .reduce((s,a)=> s + a.price, 0);
+
+      return (
+        <div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center px-4" onClick={skip} role="dialog" aria-modal="true">
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-glass border border-gray-200 p-6 pop-in" onClick={(e)=>e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={skip}
+              className="absolute top-3 right-3 p-2 rounded-full bg-white border border-gray-200 shadow-soft hover:bg-gray-50 hover:ring-2 hover:ring-brand-yellow/40"
+              aria-label="Zamknij okno dodatków"
+            >
+              <i data-lucide="x" className="w-4 h-4"></i>
+            </button>
+
+            <div className="mb-4">
+              <div className="text-xs uppercase tracking-[0.16em] text-gray-500 font-semibold">Dodatki</div>
+              <h3 className="text-xl font-extrabold mt-1">Wybierz dodatki do napoju</h3>
+              <p className="text-xs text-gray-600 mt-1">
+                {title || item?.name || "Napój"} • dodatki doliczą się do ceny w koszyku
+              </p>
+            </div>
+
+            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3">
+              <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Dostępne dodatki</div>
+
+              <div className="mt-3 grid gap-2">
+                {DRINK_ADDONS.map((a) => {
+                  const checked = selected.includes(a.id);
+                  return (
+                    <label
+                      key={a.id}
+                      className={`cursor-pointer flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 shadow-soft transition ${
+                        checked ? "border-brand-yellow bg-white ring-2 ring-brand-yellow/30" : "border-gray-200 bg-white hover:ring-2 hover:ring-brand-yellow/20"
+                      }`}
+                    >
+                      <span className="flex items-center gap-3">
+                        <span className={`w-5 h-5 rounded-md border grid place-items-center ${checked ? "bg-brand-yellow border-brand-yellow" : "bg-white border-gray-300"}`}>
+                          {checked ? <span className="text-[12px] font-extrabold">✓</span> : null}
+                        </span>
+                        <span className="font-extrabold text-gray-900">{a.label}</span>
+                      </span>
+                      <span className="font-extrabold text-gray-900">{currency(a.price)}</span>
+                      <input
+                        type="checkbox"
+                        className="hidden"
+                        checked={checked}
+                        onChange={() => toggle(a.id)}
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-gray-600 font-semibold">Suma dodatków</span>
+                <span className="font-extrabold text-gray-900">{currency(addonsSum)}</span>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-2">
+              <button
+                type="button"
+                onClick={apply}
+                className="w-full bg-gray-900 text-white font-extrabold rounded-xl px-4 py-3 min-h-[44px] hover:ring-2 hover:ring-brand-yellow/30"
+              >
+                Dodaj wybrane dodatki
+              </button>
+              <button
+                type="button"
+                onClick={skip}
+                className="w-full bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 min-h-[44px] hover:ring-2 hover:ring-brand-yellow/40"
+              >
+                Pomiń
+              </button>
+            </div>
+
+            <div className="mt-3 text-[11px] text-gray-500">
+              Dodatki są liczone per sztuka (jeśli zwiększysz ilość napoju, dodatki mnożą się razem z ilością).
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    /* =======================
+       CategoryPage
+    ======================= */
+
     const CategoryPage = ({ categoryId }) => {
       const { add } = useCart();
       const category = PRODUCT_CATEGORIES.find(c => c.id === categoryId);
       const items = PRODUCTS[categoryId] || [];
+
+      // ✅ modal dodatków do kawy/herbaty
+      const [addonsOpen, setAddonsOpen] = useState(false);
+      const [addonsCartItemId, setAddonsCartItemId] = useState("");
+      const [addonsTitle, setAddonsTitle] = useState("");
 
       // ✅ ZAWSZE STARTUJ OD GÓRY PO WEJŚCIU W KATEGORIĘ
       React.useEffect(() => {
@@ -839,56 +1064,77 @@
         );
       }
 
-      const handleAdd = (item) => add({
-        type: 'product',
-        productId: item.id,
-        name: item.name,
-        price: item.price,
-        image: item.image
-      });
+      const handleAdd = (item) => {
+        const cartItemId = add({
+          type: 'product',
+          productId: item.id,
+          name: item.name,
+          price: item.price,
+          image: item.image
+        });
+
+        // ✅ po dodaniu kawy/herbaty: pokaż okienko z dodatkami
+        if (shouldPromptDrinkAddons({ categoryId, item })) {
+          setAddonsCartItemId(cartItemId);
+          setAddonsTitle(item.name);
+          setAddonsOpen(true);
+        }
+      };
 
       return (
-        <section className="py-6 md:py-10">
-          <div className="max-w-6xl mx-auto px-4">
-            <a href="#kategorie" className="mt-2 inline-flex items-center justify-center gap-2 text-lg font-extrabold text-gray-900 bg-brand-yellow/20 border border-brand-yellow/30 rounded-2xl px-5 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/40 transition">
-                 <i data-lucide="arrow-left" className="w-5 h-5"></i>
-                    Wróć do menu
-            </a>
+        <>
+          <section className="py-6 md:py-10">
+            <div className="max-w-6xl mx-auto px-4">
+              <a href="#kategorie" className="mt-2 inline-flex items-center justify-center gap-2 text-lg font-extrabold text-gray-900 bg-brand-yellow/20 border border-brand-yellow/30 rounded-2xl px-5 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/40 transition">
+                   <i data-lucide="arrow-left" className="w-5 h-5"></i>
+                      Wróć do menu
+              </a>
 
-
-            <div className="mt-4 flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
-                <i data-lucide={category.icon} className="w-6 h-6 text-gray-900"></i>
+              <div className="mt-4 flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30">
+                  <i data-lucide={category.icon} className="w-6 h-6 text-gray-900"></i>
+                </div>
+                <div>
+                  <h2 className="text-2xl md:text-3xl font-extrabold">{category.name}</h2>
+                  <p className="text-sm text-gray-600 mt-1">{category.description}</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-2xl md:text-3xl font-extrabold">{category.name}</h2>
-                <p className="text-sm text-gray-600 mt-1">{category.description}</p>
+
+              <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3 md:gap-6">
+                {items.map(item => (
+                  <ProductCard
+                    key={item.id}
+                    item={item}
+                    categoryId={categoryId}
+                    onAdd={handleAdd}
+                  />
+                ))}
+              </div>
+              <div className="mt-10 flex justify-center">
+                  <a href="#kategorie" className="inline-flex items-center justify-center gap-2 text-lg font-extrabold text-gray-900 bg-brand-yellow border border-black/5 rounded-2xl px-6 py-4 shadow-soft hover:scale-[1.02] active:scale-[0.98] transition hover:ring-2 hover:ring-brand-yellow/40 min-h-[56px]">
+                       <i data-lucide="arrow-left" className="w-6 h-6"></i>
+                           Wróć do menu
+               </a>
               </div>
             </div>
+          </section>
 
-            <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3 md:gap-6">
-              {items.map(item => (
-                <ProductCard
-                  key={item.id}
-                  item={item}
-                  categoryId={categoryId}
-                  onAdd={handleAdd}
-                />
-              ))}
-            </div>
-            <div className="mt-10 flex justify-center">
-                <a href="#kategorie" className="inline-flex items-center justify-center gap-2 text-lg font-extrabold text-gray-900 bg-brand-yellow border border-black/5 rounded-2xl px-6 py-4 shadow-soft hover:scale-[1.02] active:scale-[0.98] transition hover:ring-2 hover:ring-brand-yellow/40 min-h-[56px]">
-                     <i data-lucide="arrow-left" className="w-6 h-6"></i>
-                         Wróć do menu
-             </a>
-            </div>
-          </div>
-        </section>
+          <DrinkAddonsModal
+            open={addonsOpen}
+            onClose={() => setAddonsOpen(false)}
+            cartItemId={addonsCartItemId}
+            title={addonsTitle}
+          />
+        </>
       );
     };
 
+    /* =======================
+       Koszyk
+    ======================= */
+
     const Koszyk = () => {
-      const { cart, remove, clear, total, incQty, decQty, setQty, lineTotal, add } = useCart();
+      const { cart, remove, clear, total, incQty, decQty, setQty, lineTotal, add, addonsTotalPerUnit } = useCart();
       const goToCheckout = () => window.location.hash = '#/zamowienie';
 
       return (
@@ -911,50 +1157,73 @@
               <>
                 <div className="mt-6 grid md:grid-cols-3 gap-6 items-start">
                   <div className="md:col-span-2 space-y-4">
-                    {cart.map(item => (
-                      <div key={item.id}
-                        className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col md:flex-row gap-4 md:items-center justify-between w-full hover:ring-2 hover:ring-brand-yellow/30 transition">
+                    {cart.map(item => {
+                      const addSum = addonsTotalPerUnit(item);
+                      return (
+                        <div key={item.id}
+                          className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col md:flex-row gap-4 md:items-center justify-between w-full hover:ring-2 hover:ring-brand-yellow/30 transition">
 
-                        <div className="flex items-start gap-3 min-w-0 flex-1">
-                          <div className="w-14 h-14 rounded-2xl overflow-hidden border border-gray-200 shrink-0">
-                            <img
-                              src={item.image}
-                              alt={item.name}
-                              loading="lazy"
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
+                          <div className="flex items-start gap-3 min-w-0 flex-1">
+                            <div className="w-14 h-14 rounded-2xl overflow-hidden border border-gray-200 shrink-0">
+                              <img
+                                src={item.image}
+                                alt={item.name}
+                                loading="lazy"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
 
-                          <div className="min-w-0 flex-1">
-                            <div className="font-bold break-words">{item.name}</div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              ID produktu: <span className="font-mono">{item.productId || 'brak'}</span>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-bold break-words">{item.name}</div>
+
+                              {/* ✅ pokazujemy dodatki */}
+                              {Array.isArray(item.addons) && item.addons.length > 0 && (
+                                <div className="mt-1 flex flex-wrap gap-1.5">
+                                  {item.addons.map((a) => (
+                                    <span key={a.id} className="text-[11px] font-extrabold px-2 py-1 rounded-full bg-brand-yellow/20 border border-brand-yellow/30">
+                                      + {a.label} ({currency(a.price)})
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              <div className="text-xs text-gray-500 mt-1">
+                                ID produktu: <span className="font-mono">{item.productId || 'brak'}</span>
+                              </div>
+
+                              {addSum > 0 && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  Dodatki / szt.: <span className="font-extrabold text-gray-900">{currency(addSum)}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
-                        </div>
 
-                        <div className="flex flex-col sm:flex-row md:flex-row gap-3 md:gap-4 items-stretch md:items-center w-full md:w-auto justify-between md:justify-end">
-                          <div className="flex items-center gap-2 self-start">
-                            <button onClick={()=> decQty(item.id)} className="w-10 h-10 rounded-xl border border-gray-200 grid place-items-center hover:ring-2 hover:ring-brand-yellow/40">−</button>
-                            <input
-                              value={item.qty||1}
-                              onChange={(e)=> setQty(item.id, parseInt(e.target.value||'1',10))}
-                              className="input-focus w-16 text-center border border-gray-200 rounded-xl py-2"
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                            />
-                            <button onClick={()=> incQty(item.id)} className="w-10 h-10 rounded-xl border border-gray-200 grid place-items-center hover:ring-2 hover:ring-brand-yellow/40">+</button>
+                          <div className="flex flex-col sm:flex-row md:flex-row gap-3 md:gap-4 items-stretch md:items-center w-full md:w-auto justify-between md:justify-end">
+                            <div className="flex items-center gap-2 self-start">
+                              <button onClick={()=> decQty(item.id)} className="w-10 h-10 rounded-xl border border-gray-200 grid place-items-center hover:ring-2 hover:ring-brand-yellow/40">−</button>
+                              <input
+                                value={item.qty||1}
+                                onChange={(e)=> setQty(item.id, parseInt(e.target.value||'1',10))}
+                                className="input-focus w-16 text-center border border-gray-200 rounded-xl py-2"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                              />
+                              <button onClick={()=> incQty(item.id)} className="w-10 h-10 rounded-xl border border-gray-200 grid place-items-center hover:ring-2 hover:ring-brand-yellow/40">+</button>
+                            </div>
+
+                            <div className="text-right self-center">
+                              <div className="font-extrabold whitespace-nowrap">{currency(lineTotal(item))}</div>
+                              <div className="text-xs text-gray-500 whitespace-nowrap">
+                                ({currency(item.price + (addSum || 0))} / szt.)
+                              </div>
+                            </div>
+
+                            <button onClick={()=> remove(item.id)} className="text-red-600 hover:underline self-center text-sm">Usuń</button>
                           </div>
-
-                          <div className="text-right self-center">
-                            <div className="font-extrabold whitespace-nowrap">{currency(lineTotal(item))}</div>
-                            <div className="text-xs text-gray-500 whitespace-nowrap">({currency(item.price)} / szt.)</div>
-                          </div>
-
-                          <button onClick={()=> remove(item.id)} className="text-red-600 hover:underline self-center text-sm">Usuń</button>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <aside className="bg-white border border-gray-200 rounded-2xl p-5 sticky top-[84px]">
@@ -1018,7 +1287,7 @@
     ======================= */
 
     const Zamowienie = () => {
-      const { cart, total, lineTotal, clear } = useCart();
+      const { cart, total, lineTotal, clear, addonsTotalPerUnit } = useCart();
       const { user } = useAuth();
       const toast = useToast();
       const showToast = toast?.show;
@@ -1101,9 +1370,15 @@
         setBusyPay(true);
 
         try {
+          // ✅ ważne: do backendu wysyłamy też addons (opcjonalnie) w cart lines,
+          // ale jeśli backend jeszcze tego nie wspiera, możesz na razie ignorować po stronie serwera.
           const payload = {
             customer: form,
-            cart: cart.map(i => ({ productId: i.productId, qty: i.qty || 1 })),
+            cart: cart.map(i => ({
+              productId: i.productId,
+              qty: i.qty || 1,
+              addons: Array.isArray(i.addons) ? i.addons.map(a => ({ id: a.id, label: a.label, price: a.price })) : []
+            })),
           };
 
           if (method === "payu") {
@@ -1370,17 +1645,37 @@
               <aside className="bg-white border border-gray-200 rounded-2xl p-5 sticky top-[84px]">
                 <div className="font-semibold">Podsumowanie</div>
                 <div className="mt-3 space-y-3 max-h-64 overflow-auto pr-2">
-                  {cart.map(i => (
-                    <div key={i.id} className="text-sm">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="font-medium">{i.name} × {i.qty||1}</span>
-                        <span className="font-bold">{currency(lineTotal(i))}</span>
+                  {cart.map(i => {
+                    const addSum = addonsTotalPerUnit(i);
+                    return (
+                      <div key={i.id} className="text-sm">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-medium">{i.name} × {i.qty||1}</span>
+                          <span className="font-bold">{currency(lineTotal(i))}</span>
+                        </div>
+
+                        {Array.isArray(i.addons) && i.addons.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {i.addons.map((a) => (
+                              <span key={a.id} className="text-[10px] font-extrabold px-2 py-1 rounded-full bg-brand-yellow/15 border border-brand-yellow/30">
+                                + {a.label}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="text-[11px] text-gray-500 mt-0.5 font-mono">
+                          {i.productId}
+                        </div>
+
+                        {addSum > 0 && (
+                          <div className="text-[11px] text-gray-500 mt-0.5">
+                            Dodatki / szt.: <span className="font-extrabold text-gray-900">{currency(addSum)}</span>
+                          </div>
+                        )}
                       </div>
-                      <div className="text-[11px] text-gray-500 mt-0.5 font-mono">
-                        {i.productId}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div className="mt-4 bg-gray-50 border border-gray-200 rounded-2xl p-3">
@@ -1718,28 +2013,6 @@
        Mobile components
     ======================= */
 
-    const lockBodyScroll = (lock) => {
-      const body = document.body;
-      if (!body) return;
-      if (lock) {
-        body.dataset._scrollY = String(window.scrollY || 0);
-        body.style.position = "fixed";
-        body.style.top = `-${window.scrollY || 0}px`;
-        body.style.left = "0";
-        body.style.right = "0";
-        body.style.width = "100%";
-      } else {
-        const y = parseInt(body.dataset._scrollY || "0", 10) || 0;
-        body.style.position = "";
-        body.style.top = "";
-        body.style.left = "";
-        body.style.right = "";
-        body.style.width = "";
-        delete body.dataset._scrollY;
-        window.scrollTo(0, y);
-      }
-    };
-
     const CategorySheet = ({ open, onClose }) => {
       useEffect(() => {
         if (open) lockBodyScroll(true);
@@ -1982,21 +2255,21 @@
             <Router />
 
             {/*✅ FOOTER Z DANYMI PRZEDSIĘBIORCY */}
-                <footer className="py-12 text-sm text-gray-600 border-t border-gray-200">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="text-center">
-          <div className="font-extrabold text-gray-900 mb-2">
-            Dane przedsiębiorcy
-          </div>
-    
-          <ul className="space-y-1">
-            <li><span className="font-semibold">Imię:</span> Marcin</li>
-            <li><span className="font-semibold">Nazwisko:</span> Chojnacki</li>
-            <li><span className="font-semibold">NIP:</span> 8271982077</li>
-            <li><span className="font-semibold">REGON:</span> 100473965</li>
-            <li>
-              <span className="font-semibold">Firma przedsiębiorcy:</span>{" "}
-              MARCIN CHOJNACKI MILKSHAKE BAR
+            <footer className="py-12 text-sm text-gray-600 border-t border-gray-200">
+              <div className="max-w-6xl mx-auto px-4">
+                <div className="text-center">
+                  <div className="font-extrabold text-gray-900 mb-2">
+                    Dane przedsiębiorcy
+                  </div>
+
+                  <ul className="space-y-1">
+                    <li><span className="font-semibold">Imię:</span> Marcin</li>
+                    <li><span className="font-semibold">Nazwisko:</span> Chojnacki</li>
+                    <li><span className="font-semibold">NIP:</span> 8271982077</li>
+                    <li><span className="font-semibold">REGON:</span> 100473965</li>
+                    <li>
+                      <span className="font-semibold">Firma przedsiębiorcy:</span>{" "}
+                      MARCIN CHOJNACKI MILKSHAKE BAR
             </li>
           </ul>
     
