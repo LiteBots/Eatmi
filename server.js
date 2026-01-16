@@ -1,6 +1,3 @@
-// server.js (ESM) — bez weryfikacji mailowej (bez Resend) + mail powitalny SMTP
-// + PANEL MANAGEMENT (users/orders) z 2-step auth: password -> wait 5s -> pin
-// ✅ ADDONS do kawy/herbaty: walidacja + doliczenie do sumy + zapis i zwrot w adminie
 
 import express from "express";
 import path from "path";
@@ -148,6 +145,8 @@ console.log("Mongo connected");
 // -------------------------------
 // USERS (kolekcja: users)
 // -------------------------------
+// ✅ Rozszerzamy o pola wymagane przez panel (opcjonalne):
+// firstName, lastName, phone, address
 const UserSchema = new mongoose.Schema(
   {
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
@@ -201,7 +200,7 @@ const OrderSchema = new mongoose.Schema(
     totalPLN: { type: Number, required: true }, // zł
 
     customer: { type: Object, default: {} },
-    cart: { type: Array, default: [] }, // ✅ tu będą też addons
+    cart: { type: Array, default: [] },
 
     payuRaw: { type: Object, default: null }
   },
@@ -519,74 +518,6 @@ const NAME_LIST = {
   "extra-deser": "Deser czekoladowy (extra)"
 };
 
-// ===============================
-// ✅ ADDONS (server-side truth)
-// ===============================
-const ADDONS_CATALOG = {
-  milk_oat: { id: "milk_oat", name: "Mleko owsiane", price: 200 },
-  milk_coconut: { id: "milk_coconut", name: "Mleko kokosowe", price: 200 },
-  milk_pea: { id: "milk_pea", name: "Mleko grochowe", price: 200 },
-  honey_50: { id: "honey_50", name: "Miód 50 ml", price: 300 }
-};
-
-// produkty, do których wolno dopinać dodatki
-function isDrinkEligibleForAddons(productId) {
-  // kawy + herbaty (dodaj/zmień wg potrzeb)
-  const p = String(productId || "");
-  return (
-    p.startsWith("n-kawa") ||
-    p === "n-espresso-double" ||
-    p === "n-flat-white" ||
-    p === "n-latte" ||
-    p === "n-cappu" ||
-    p.startsWith("n-herbata") ||
-    p === "n-zimowa" ||
-    p === "n-matcha"
-  );
-}
-
-function normalizeAndValidateAddons(rawAddons, productId) {
-  // brak dodatków? ok
-  if (rawAddons == null) return [];
-  if (!Array.isArray(rawAddons)) throw new Error(`Invalid addons for ${productId}`);
-
-  // addons wolno tylko do napojów
-  if (rawAddons.length > 0 && !isDrinkEligibleForAddons(productId)) {
-    throw new Error(`Addons not allowed for productId: ${productId}`);
-  }
-
-  // max 6 dodatków na pozycję (twardy limit anty-spam)
-  if (rawAddons.length > 6) throw new Error(`Too many addons for ${productId}`);
-
-  const out = [];
-  const seen = new Set();
-
-  for (const a of rawAddons) {
-    const id = String(a?.id || "").trim();
-    if (!id) continue;
-
-    const cat = ADDONS_CATALOG[id];
-    if (!cat) throw new Error(`Unknown addon: ${id}`);
-
-    // dedupe
-    if (seen.has(id)) continue;
-    seen.add(id);
-
-    // zapisujemy kanonicznie (nie ufamy name/price z klienta)
-    out.push({ id: cat.id, name: cat.name, price: cat.price });
-  }
-
-  return out;
-}
-
-function addonsAmount(addons) {
-  const arr = Array.isArray(addons) ? addons : [];
-  return arr.reduce((sum, a) => sum + Number(a?.price || 0), 0);
-}
-
-// ===============================
-// CART VALIDATION + TOTAL (z addons)
-// ===============================
 function validateAndBuildCart(cart) {
   const arr = Array.isArray(cart) ? cart : [];
   if (!arr.length) throw new Error("Empty cart");
@@ -601,21 +532,14 @@ function validateAndBuildCart(cart) {
     if (!Number.isFinite(qty) || qty < 1 || qty > 50) {
       throw new Error(`Invalid qty for ${productId}`);
     }
-
-    const addons = normalizeAndValidateAddons(i?.addons, productId);
-
-    return { productId, qty, addons };
+    return { productId, qty };
   });
 
   return normalized;
 }
 
 function calcTotalAmount(cartNorm) {
-  return cartNorm.reduce((sum, i) => {
-    const base = PRICE_LIST[i.productId] * i.qty;
-    const add = addonsAmount(i.addons) * i.qty; // addons per sztuka napoju
-    return sum + base + add;
-  }, 0);
+  return cartNorm.reduce((sum, i) => sum + PRICE_LIST[i.productId] * i.qty, 0);
 }
 
 async function getPayuToken() {
@@ -741,22 +665,11 @@ app.post("/api/payu/order", async (req, res) => {
 
     const cartNorm = validateAndBuildCart(req.body?.cart);
 
-    // ✅ PayU products: do nazwy dopinamy addons, a unitPrice zawiera bazę + addons
-    const products = cartNorm.map((i) => {
-      const baseName = NAME_LIST[i.productId] || "Pozycja";
-      const addNames = (i.addons || []).map((a) => a.name).filter(Boolean);
-      const name = addNames.length ? `${baseName} (+ ${addNames.join(", ")})` : baseName;
-
-      const baseUnit = PRICE_LIST[i.productId]; // grosze
-      const addUnit = addonsAmount(i.addons);   // grosze
-      const unitPrice = baseUnit + addUnit;
-
-      return {
-        name,
-        unitPrice: String(unitPrice),
-        quantity: String(i.qty)
-      };
-    });
+    const products = cartNorm.map((i) => ({
+      name: NAME_LIST[i.productId] || "Pozycja",
+      unitPrice: String(PRICE_LIST[i.productId]),
+      quantity: String(i.qty)
+    }));
 
     const totalAmount = products.reduce(
       (sum, p) => sum + Number(p.unitPrice) * Number(p.quantity),
@@ -981,10 +894,6 @@ app.get("/api/admin/orders", requireStaff, async (req, res) => {
 
       or.push({ paymentMethod: { $regex: escapeRegex(q), $options: "i" } });
       or.push({ status: { $regex: escapeRegex(q), $options: "i" } });
-
-      // ✅ szybkie wyszukiwanie po nazwie dodatku
-      or.push({ "cart.addons.name": { $regex: escapeRegex(q), $options: "i" } });
-      or.push({ "cart.addons.id": { $regex: escapeRegex(q), $options: "i" } });
     }
 
     const filter = q ? { $or: or } : {};
@@ -1065,6 +974,11 @@ app.delete("/api/admin/staff/:id", requireAdminOnly, async (req, res) => {
 
 // ==========================================================
 // ✅ MANAGEMENT PANEL API (users + orders) — NEW
+// 2-step auth:
+//   POST /api/management/login-step1 {password} -> sets httpOnly cookie (ts)
+//   POST /api/management/login-step2 {pin}      -> checks cookie age>=5s, returns token
+//
+// Token is HMAC-signed and short-lived (default 2h).
 // ==========================================================
 
 const MGMT_SECRET_EFFECTIVE = MGMT_TOKEN_SECRET || ADMIN_TOKEN_SECRET;
@@ -1451,6 +1365,7 @@ app.delete("/api/management/users/:id", requireMgmt, async (req, res) => {
     await User.deleteOne({ _id: id });
 
     // Celowo NIE usuwamy orders (historia sprzedaży).
+    // Jeśli chcesz anonimizować: można tu np. usunąć customer.email w orders tego usera.
 
     res.json({ ok: true });
   } catch (e) {
