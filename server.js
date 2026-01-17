@@ -1,3 +1,14 @@
+Oto zaktualizowany i kompletny plik `server.js`.
+
+**Co zostało dodane/zmienione?**
+
+1. **Dodałem endpoint `GET /api/orders/:extOrderId**`: To pozwala Twojemu oknu na froncie ("modal po zamówieniu") sprawdzać status konkretnego zamówienia bez logowania (używając unikalnego ID).
+2. **Dodałem endpoint `PATCH /api/admin/orders/:extOrderId/status**`: To pozwala w `admin.html` zmieniać status (np. na "W przygotowaniu", "Zrealizowane").
+3. **Dodałem broadcast SSE**: Po zmianie statusu przez Admina, informacja jest wysyłana do wszystkich podłączonych klientów (np. innych paneli admina).
+
+Oto cały kod:
+
+```javascript
 import express from "express";
 import path from "path";
 import crypto from "crypto";
@@ -144,8 +155,6 @@ console.log("Mongo connected");
 // -------------------------------
 // USERS (kolekcja: users)
 // -------------------------------
-// ✅ Rozszerzamy o pola wymagane przez panel (opcjonalne):
-// firstName, lastName, phone, address
 const UserSchema = new mongoose.Schema(
   {
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
@@ -694,6 +703,37 @@ app.post("/api/order/offline", async (req, res) => {
   }
 });
 
+// ✅ ADDED: GET PUBLIC ORDER STATUS (for Client Modal / Tracker)
+app.get("/api/orders/:extOrderId", async (req, res) => {
+  try {
+    const { extOrderId } = req.params;
+    // Find by extOrderId, return limited data
+    const order = await Order.findOne({ extOrderId }).lean();
+
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    // Return safe public data
+    res.json({
+      extOrderId: order.extOrderId,
+      status: order.status,
+      totalPLN: order.totalPLN,
+      items: order.cart,
+      paymentMethod: order.paymentMethod,
+      timestamp: order.createdAt,
+      customer: {
+        imieNazwisko: order.customer?.imieNazwisko,
+        miasto: order.customer?.miasto,
+        ulica: order.customer?.ulica
+      }
+    });
+  } catch (e) {
+    console.log("GET ORDER ERROR:", e);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // ===============================
 // PayU: Create order
 // ===============================
@@ -955,6 +995,33 @@ app.get("/api/admin/orders", requireStaff, async (req, res) => {
   } catch (e) {
     console.log("ADMIN ORDERS ERROR:", e?.message, e);
     res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+// ✅ ADDED: ADMIN CHANGE STATUS (For admin.html)
+app.patch("/api/admin/orders/:extOrderId/status", requireStaff, async (req, res) => {
+  try {
+    const { extOrderId } = req.params;
+    const { status } = req.body; // e.g. "W przygotowaniu", "Zrealizowane"
+
+    if (!status) return res.status(400).json({ error: "Missing status" });
+
+    const order = await Order.findOne({ extOrderId });
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    order.status = status;
+    await order.save();
+
+    // Broadcast to Admin Panels
+    sseBroadcast("order_update", {
+      extOrderId,
+      status
+    });
+
+    res.json({ ok: true, status });
+  } catch (e) {
+    console.log("ADMIN UPDATE STATUS ERROR:", e);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
@@ -1464,3 +1531,5 @@ app.get("*", (req, res) => {
 app.listen(process.env.PORT || 3000, () => {
   console.log("Server running on port", process.env.PORT || 3000);
 });
+
+```
