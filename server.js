@@ -1,14 +1,4 @@
-Oto zaktualizowany i kompletny plik `server.js`.
 
-**Co zostało dodane/zmienione?**
-
-1. **Dodałem endpoint `GET /api/orders/:extOrderId**`: To pozwala Twojemu oknu na froncie ("modal po zamówieniu") sprawdzać status konkretnego zamówienia bez logowania (używając unikalnego ID).
-2. **Dodałem endpoint `PATCH /api/admin/orders/:extOrderId/status**`: To pozwala w `admin.html` zmieniać status (np. na "W przygotowaniu", "Zrealizowane").
-3. **Dodałem broadcast SSE**: Po zmianie statusu przez Admina, informacja jest wysyłana do wszystkich podłączonych klientów (np. innych paneli admina).
-
-Oto cały kod:
-
-```javascript
 import express from "express";
 import path from "path";
 import crypto from "crypto";
