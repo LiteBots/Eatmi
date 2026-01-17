@@ -426,19 +426,20 @@
        ACTIVE ORDER CONTEXT
        (Widget na dole)
     ======================= */
+    /* =======================
+       ACTIVE ORDER CONTEXT (Z POPRAWKĄ LIVE UPDATE)
+       ======================= */
     const ActiveOrderContext = createContext();
     const useActiveOrder = () => useContext(ActiveOrderContext);
 
     const ActiveOrderProvider = ({ children }) => {
-      // Structure: { id, timestamp, status, statusTimestamp, customer: {}, items: [], total: 0, paymentMethod }
-      // Statuses: 'W przygotowaniu', 'W drodze', 'Opóźniony', 'Zrealizowane', 'Anulowane'
       const [activeOrder, setActiveOrder] = useLocalStorage('eatmi-active-order', null);
 
       const saveOrder = (orderData) => {
         const now = Date.now();
         setActiveOrder({
           ...orderData,
-          status: 'W przygotowaniu',
+          status: 'PENDING', // Startowy status
           statusTimestamp: now,
           timestamp: now
         });
@@ -446,37 +447,68 @@
 
       const clearActiveOrder = () => setActiveOrder(null);
 
-      // Symulacja / Update statusu (frontend only)
-      // Docelowo tutaj pobieralibysmy status z API
-      const updateStatus = (newStatus) => {
-        if (!activeOrder) return;
-        setActiveOrder(prev => ({
-          ...prev,
-          status: newStatus,
-          statusTimestamp: Date.now()
-        }));
-      };
+      // ✅ NOWOŚĆ: Odpytywanie serwera o status (Polling)
+      useEffect(() => {
+        if (!activeOrder || !activeOrder.extOrderId) return;
 
-      // Auto-hide logic: po 5 minutach od 'Zrealizowane' lub 'Anulowane'
+        // Jeśli zamówienie jest już zakończone, przestajemy pytać (oszczędność baterii/danych)
+        if (['COMPLETED', 'CANCELED', 'Zrealizowane', 'Anulowane'].includes(activeOrder.status)) return;
+
+        const checkStatus = async () => {
+          try {
+            // Pytamy backend o status tego konkretnego zamówienia
+            const res = await fetch(`/api/orders/${activeOrder.extOrderId}`);
+            if (!res.ok) return;
+            
+            const data = await res.json();
+            
+            // Jeśli status na serwerze jest inny niż u nas -> aktualizujemy
+            if (data.status && data.status !== activeOrder.status) {
+              setActiveOrder(prev => ({
+                ...prev,
+                status: data.status,
+                statusTimestamp: Date.now()
+              }));
+              
+              // Opcjonalnie: wibracja przy zmianie statusu
+              try { if (navigator.vibrate) navigator.vibrate([100, 50, 100]); } catch {}
+            }
+          } catch (e) {
+            console.error("Błąd sprawdzania statusu:", e);
+          }
+        };
+
+        // Sprawdzaj co 10 sekund
+        const interval = setInterval(checkStatus, 10000);
+        
+        // Sprawdź też od razu po załadowaniu
+        checkStatus();
+
+        return () => clearInterval(interval);
+      }, [activeOrder, setActiveOrder]);
+
+      // Auto-hide logic: po 15 minutach od 'Zrealizowane' lub 'Anulowane'
       useEffect(() => {
         if (!activeOrder) return;
-        if (['Zrealizowane', 'Anulowane'].includes(activeOrder.status)) {
+        const finalStatuses = ['COMPLETED', 'CANCELED', 'Zrealizowane', 'Anulowane', 'Odbierz'];
+        
+        // Sprawdzamy czy status zawiera się w liście końcowej (również mapowanie z PayU)
+        const isFinal = finalStatuses.some(s => 
+            String(activeOrder.status).toUpperCase().includes(s.toUpperCase())
+        );
+
+        if (isFinal) {
           const now = Date.now();
           const diff = now - (activeOrder.statusTimestamp || 0);
-          // 5 min = 300000 ms
-          if (diff > 300000) {
+          // 15 min = 900000 ms (dajemy klientowi czas na dojście)
+          if (diff > 900000) {
             clearActiveOrder();
-          } else {
-            // Check again in remaining time
-            const remaining = 300000 - diff;
-            const t = setTimeout(clearActiveOrder, remaining);
-            return () => clearTimeout(t);
           }
         }
       }, [activeOrder]);
 
       return (
-        <ActiveOrderContext.Provider value={{ activeOrder, saveOrder, clearActiveOrder, updateStatus }}>
+        <ActiveOrderContext.Provider value={{ activeOrder, saveOrder, clearActiveOrder }}>
           {children}
         </ActiveOrderContext.Provider>
       );
@@ -1521,7 +1553,7 @@
         return true;
       };
 
-      const placeOrder = async (method) => {
+     const placeOrder = async (method) => {
         if (!validateBeforeOrder()) return;
 
         if (remember) {
@@ -1536,14 +1568,15 @@
             customer: form,
             cart: cart.map(i => ({
               productId: i.productId,
-              name: i.name, // save for display
-              price: i.price, // save for display
+              name: i.name,
+              price: i.price,
               qty: i.qty || 1,
               addons: Array.isArray(i.addons) ? i.addons.map(a => ({ id: a.id, label: a.label, price: a.price })) : []
             })),
             total: total
           };
 
+          // --- PŁATNOŚĆ ONLINE (PAYU) ---
           if (method === "payu") {
             const r = await fetch("/api/payu/order", {
               method: "POST",
@@ -1552,23 +1585,26 @@
             });
 
             const data = await r.json().catch(() => ({}));
-
             if (!r.ok) {
               alert("Błąd serwera: " + (data.error || r.status));
               return;
             }
 
-            if (!data.redirectUri) {
-              alert("Brak redirectUri. Zobacz konsolę.");
-              return;
+            // ✅ WAŻNE: Zapisujemy extOrderId z serwera przed przekierowaniem
+            // (choć przy redirect to może być trudne, bo strona się przeładuje,
+            //  ale PayU po powrocie powinno obsłużyć status - to temat na osobny wątek "powrót z PayU").
+            //  W prostym scenariuszu PayU: status sprawdzimy po powrocie na stronę Success (jeśli taką zrobisz).
+            //  Tutaj skupiamy się na redirect.
+            
+            if (data.redirectUri) {
+               window.location.href = data.redirectUri;
+            } else {
+               alert("Błąd: Brak linku do płatności");
             }
-
-            // PayU redirect
-            window.location.href = data.redirectUri;
             return;
           }
 
-          // Offline: karta/gotówka przy odbiorze
+          // --- PŁATNOŚĆ OFFLINE (PRZY ODBIORZE) ---
           const offlinePayload = { ...payload, paymentMethod: method };
 
           const r2 = await fetch("/api/order/offline", {
@@ -1577,34 +1613,27 @@
             body: JSON.stringify(offlinePayload),
           });
 
-          // Even if offline API fails (mock), we proceed for UI demo
-          // const data2 = await r2.json().catch(() => ({}));
+          const data2 = await r2.json();
 
-          // 1. Zapisujemy jako aktywne zamówienie (pokazuje się widget)
+          if (!r2.ok) {
+             throw new Error(data2.error || "Błąd zamówienia");
+          }
+
+          // ✅ KLUCZOWA ZMIANA: Używamy extOrderId zwróconego przez serwer
           saveOrder({
-             id: `ORDER-${Date.now()}`,
+             extOrderId: data2.extOrderId, // <--- TO JEST KLUCZ DO ŚLEDZENIA
              customer: form,
              items: cart,
              total: total,
              paymentMethod: method
           });
 
-          // 2. Czyścimy koszyk
-          showToast?.("Twoje zamówienie zostało złożone ✅");
+          showToast?.("Twoje zamówienie zostało przyjęte! 👨‍🍳");
           clear();
           window.location.hash = "#/";
+          
         } catch (e) {
-          // Fallback demo mode if no API
-          saveOrder({
-             id: `ORDER-${Date.now()}`,
-             customer: form,
-             items: cart,
-             total: total,
-             paymentMethod: method
-          });
-          showToast?.("Twoje zamówienie zostało złożone (Demo) ✅");
-          clear();
-          window.location.hash = "#/";
+          alert("Nie udało się złożyć zamówienia: " + e.message);
         } finally {
           setBusyPay(false);
         }
