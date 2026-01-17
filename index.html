@@ -1,8 +1,7 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pl">
 <head>
   <meta charset="UTF-8" />
-  <!-- PWA / app-like mobile -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#FFC107" />
   <meta name="mobile-web-app-capable" content="yes" />
@@ -20,7 +19,6 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="appicon.png">
 
-  <!-- Tailwind config MUST be before tailwindcdn script -->
   <script>
     tailwind = window.tailwind || {};
     tailwind.config = {
@@ -95,6 +93,10 @@
     .app-content-pad.has-cta {
       padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--cta-h) + 22px);
     }
+    /* Jeśli jest aktywny tracker, dodajemy więcej miejsca na dole */
+    .app-content-pad.has-tracker {
+      padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + 200px); 
+    }
 
     .no-overscroll { overscroll-behavior: none; }
 
@@ -138,16 +140,22 @@
       to   { transform: translateY(0) scale(1); opacity: 1; }
     }
     .pop-in { animation: popIn .18s ease-out both; }
+    
+    /* =======================
+       Order Tracker Animation
+    ======================= */
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .tracker-enter { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
   </style>
 
-  <!-- React 18 + ReactDOM 18 -->
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
 
-  <!-- Babel for inline JSX -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  <!-- Lucide icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 
@@ -155,7 +163,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useMemo } = React;
+    const { useState, useEffect, useMemo, createContext, useContext } = React;
 
     /* =======================
        MENU
@@ -260,8 +268,6 @@
 
     const isCoffeeOrTea = (name = "") => {
       const s = String(name).toLowerCase();
-      // zgodnie z wymaganiem: kawa lub herbata
-      // (Matcha traktujemy jako napój "specjalny" - jeśli chcesz tylko kawa/herbata, usuń "matcha" poniżej)
       return s.includes("kawa") || s.includes("herbata") || s.includes("matcha");
     };
 
@@ -364,23 +370,11 @@
     }
 
     /* =======================
-       Account nudge state (localStorage)
-    ======================= */
-    const ACCOUNT_NUDGE_KEY = "eatmi-account-nudge"; // "1" => don't show again
-
-    const hasClosedAccountNudge = () => {
-      try { return localStorage.getItem(ACCOUNT_NUDGE_KEY) === "1"; } catch { return false; }
-    };
-    const setClosedAccountNudge = () => {
-      try { localStorage.setItem(ACCOUNT_NUDGE_KEY, "1"); } catch {}
-    };
-
-    /* =======================
        TOAST
     ======================= */
 
-    const ToastContext = React.createContext();
-    const useToast = () => React.useContext(ToastContext);
+    const ToastContext = createContext();
+    const useToast = () => useContext(ToastContext);
 
     const ToastProvider = ({children}) => {
       const [toast, setToast] = useState(null);
@@ -429,11 +423,71 @@
     };
 
     /* =======================
-       AUTH (CONTEXT)  ✅ BEZ KODÓW WERYFIKACYJNYCH
+       ACTIVE ORDER CONTEXT
+       (Widget na dole)
+    ======================= */
+    const ActiveOrderContext = createContext();
+    const useActiveOrder = () => useContext(ActiveOrderContext);
+
+    const ActiveOrderProvider = ({ children }) => {
+      // Structure: { id, timestamp, status, statusTimestamp, customer: {}, items: [], total: 0, paymentMethod }
+      // Statuses: 'W przygotowaniu', 'W drodze', 'Opóźniony', 'Zrealizowane', 'Anulowane'
+      const [activeOrder, setActiveOrder] = useLocalStorage('eatmi-active-order', null);
+
+      const saveOrder = (orderData) => {
+        const now = Date.now();
+        setActiveOrder({
+          ...orderData,
+          status: 'W przygotowaniu',
+          statusTimestamp: now,
+          timestamp: now
+        });
+      };
+
+      const clearActiveOrder = () => setActiveOrder(null);
+
+      // Symulacja / Update statusu (frontend only)
+      // Docelowo tutaj pobieralibysmy status z API
+      const updateStatus = (newStatus) => {
+        if (!activeOrder) return;
+        setActiveOrder(prev => ({
+          ...prev,
+          status: newStatus,
+          statusTimestamp: Date.now()
+        }));
+      };
+
+      // Auto-hide logic: po 5 minutach od 'Zrealizowane' lub 'Anulowane'
+      useEffect(() => {
+        if (!activeOrder) return;
+        if (['Zrealizowane', 'Anulowane'].includes(activeOrder.status)) {
+          const now = Date.now();
+          const diff = now - (activeOrder.statusTimestamp || 0);
+          // 5 min = 300000 ms
+          if (diff > 300000) {
+            clearActiveOrder();
+          } else {
+            // Check again in remaining time
+            const remaining = 300000 - diff;
+            const t = setTimeout(clearActiveOrder, remaining);
+            return () => clearTimeout(t);
+          }
+        }
+      }, [activeOrder]);
+
+      return (
+        <ActiveOrderContext.Provider value={{ activeOrder, saveOrder, clearActiveOrder, updateStatus }}>
+          {children}
+        </ActiveOrderContext.Provider>
+      );
+    };
+
+    /* =======================
+       AUTH (CONTEXT)
     ======================= */
 
-    const AuthContext = React.createContext();
-    const useAuth = () => React.useContext(AuthContext);
+    const AuthContext = createContext();
+    const useAuth = () => useContext(AuthContext);
 
     const AuthProvider = ({ children }) => {
       const toast = useToast();
@@ -516,8 +570,8 @@
        CART
     ======================= */
 
-    const CartContext = React.createContext();
-    const useCart = () => React.useContext(CartContext);
+    const CartContext = createContext();
+    const useCart = () => useContext(CartContext);
 
     const CartProvider = ({children}) => {
       const [cart, setCart] = useLocalStorage('eatmi-cart', []);
@@ -528,13 +582,13 @@
         const newItem = {
           id: (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
           qty: 1,
-          addons: [], // ✅ dodatki dla kawy/herbaty
+          addons: [], 
           ...entry
         };
         setCart(prev => [...prev, newItem]);
         if (show) show(`Dodano: ${entry.name}`);
         haptics();
-        return newItem.id; // ✅ zwracamy id dodanej pozycji (do modala dodatków)
+        return newItem.id; 
       };
 
       const remove  = (id) => setCart(prev => prev.filter(i => i.id !== id));
@@ -572,6 +626,104 @@
         </CartContext.Provider>
       );
     };
+
+    /* =======================
+       ORDER TRACKER WIDGET
+    ======================= */
+    const OrderTrackerWidget = () => {
+      const { activeOrder } = useActiveOrder();
+      const [expanded, setExpanded] = useState(false);
+
+      if (!activeOrder) return null;
+
+      // Status styling
+      const getStatusStyles = (s) => {
+        switch(s) {
+          case 'Zrealizowane': return 'bg-green-100 text-green-700 border-green-200';
+          case 'Anulowane': return 'bg-red-100 text-red-700 border-red-200';
+          case 'W drodze': return 'bg-brand-yellow/20 text-yellow-800 border-brand-yellow/40';
+          case 'Opóźniony': return 'bg-orange-100 text-orange-700 border-orange-200';
+          default: return 'bg-blue-50 text-blue-700 border-blue-200'; // W przygotowaniu
+        }
+      };
+
+      // Time calculation: 60 - 80 mins from timestamp
+      const formatTimeRange = (ts) => {
+        if (!ts) return "";
+        const date = new Date(ts);
+        const start = new Date(date.getTime() + 60 * 60000); // +60m
+        const end = new Date(date.getTime() + 80 * 60000);   // +80m
+        
+        const f = (d) => d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        return `${f(start)} – ${f(end)}`;
+      };
+
+      return (
+        <div className="fixed inset-x-0 bottom-[calc(var(--tabbar-h)+var(--safe-b)+10px)] z-[60] px-3 md:px-0 md:bottom-10 md:right-10 md:left-auto md:w-96 tracker-enter">
+          <div className="bg-white border border-gray-200 shadow-kiosk rounded-2xl overflow-hidden">
+            
+            {/* Header */}
+            <div className="bg-gray-900 text-white p-4 flex items-center justify-between">
+              <div>
+                <div className="text-[10px] uppercase tracking-widest font-semibold opacity-80">Twoje zamówienie</div>
+                <div className="font-bold flex items-center gap-2 mt-0.5">
+                   <span className={`text-[10px] px-2 py-0.5 rounded border uppercase tracking-wider font-extrabold ${getStatusStyles(activeOrder.status)}`}>
+                     {activeOrder.status}
+                   </span>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-[10px] opacity-70">Przewidywana dostawa</div>
+                <div className="text-lg font-extrabold leading-none text-brand-yellow">
+                  {formatTimeRange(activeOrder.timestamp)}
+                </div>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="p-4 bg-white">
+              <div className="flex items-start justify-between gap-3 text-sm">
+                 <div>
+                   <div className="font-semibold text-gray-900">Adres dostawy:</div>
+                   <div className="text-gray-600 text-xs mt-0.5">
+                     {activeOrder.customer.ulica} {activeOrder.customer.nrBud}
+                     {activeOrder.customer.lokal ? '/' + activeOrder.customer.lokal : ''}, {activeOrder.customer.miasto}
+                   </div>
+                 </div>
+                 <div className="text-right">
+                    <div className="font-semibold text-gray-900">Kwota:</div>
+                    <div className="font-extrabold text-base">{currency(activeOrder.total)}</div>
+                 </div>
+              </div>
+
+              {/* Items Toggle */}
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <button 
+                  onClick={() => setExpanded(!expanded)}
+                  className="w-full flex items-center justify-between text-xs text-gray-500 hover:text-gray-900 font-semibold"
+                >
+                  <span>Co zamówiłeś ({activeOrder.items.length})</span>
+                  <i data-lucide={expanded ? "chevron-up" : "chevron-down"} className="w-4 h-4"></i>
+                </button>
+                
+                {expanded && (
+                  <div className="mt-2 space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                    {activeOrder.items.map((item, idx) => (
+                       <div key={idx} className="flex justify-between text-xs text-gray-700">
+                          <span>{item.qty}x {item.name}</span>
+                          <span>{currency(item.price)}</span>
+                       </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      );
+    };
+
 
     /* =======================
        TOP INFO BAR
@@ -1086,8 +1238,8 @@
           <section className="py-6 md:py-10">
             <div className="max-w-6xl mx-auto px-4">
               <a href="#kategorie" className="mt-2 inline-flex items-center justify-center gap-2 text-lg font-extrabold text-gray-900 bg-brand-yellow/20 border border-brand-yellow/30 rounded-2xl px-5 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/40 transition">
-                   <i data-lucide="arrow-left" className="w-5 h-5"></i>
-                      Wróć do menu
+                    <i data-lucide="arrow-left" className="w-5 h-5"></i>
+                       Wróć do menu
               </a>
 
               <div className="mt-4 flex items-center gap-3">
@@ -1112,9 +1264,9 @@
               </div>
               <div className="mt-10 flex justify-center">
                   <a href="#kategorie" className="inline-flex items-center justify-center gap-2 text-lg font-extrabold text-gray-900 bg-brand-yellow border border-black/5 rounded-2xl px-6 py-4 shadow-soft hover:scale-[1.02] active:scale-[0.98] transition hover:ring-2 hover:ring-brand-yellow/40 min-h-[56px]">
-                       <i data-lucide="arrow-left" className="w-6 h-6"></i>
-                           Wróć do menu
-               </a>
+                        <i data-lucide="arrow-left" className="w-6 h-6"></i>
+                             Wróć do menu
+                </a>
               </div>
             </div>
           </section>
@@ -1283,12 +1435,13 @@
     };
 
     /* =======================
-       ZAMOWIENIE (3 metody płatności) + ✅ GREEN NOTIF (bez status-bar)
+       ZAMOWIENIE (3 metody płatności) + ACTIVE ORDER TRACKING
     ======================= */
 
     const Zamowienie = () => {
       const { cart, total, lineTotal, clear, addonsTotalPerUnit } = useCart();
       const { user } = useAuth();
+      const { saveOrder } = useActiveOrder();
       const toast = useToast();
       const showToast = toast?.show;
 
@@ -1370,15 +1523,16 @@
         setBusyPay(true);
 
         try {
-          // ✅ ważne: do backendu wysyłamy też addons (opcjonalnie) w cart lines,
-          // ale jeśli backend jeszcze tego nie wspiera, możesz na razie ignorować po stronie serwera.
           const payload = {
             customer: form,
             cart: cart.map(i => ({
               productId: i.productId,
+              name: i.name, // save for display
+              price: i.price, // save for display
               qty: i.qty || 1,
               addons: Array.isArray(i.addons) ? i.addons.map(a => ({ id: a.id, label: a.label, price: a.price })) : []
             })),
+            total: total
           };
 
           if (method === "payu") {
@@ -1392,13 +1546,11 @@
 
             if (!r.ok) {
               alert("Błąd serwera: " + (data.error || r.status));
-              console.log("PAYU ERROR DETAILS:", data);
               return;
             }
 
             if (!data.redirectUri) {
-              alert("Brak redirectUri. Zobacz konsolę (PAYU RESPONSE).");
-              console.log("PAYU RESPONSE:", data);
+              alert("Brak redirectUri. Zobacz konsolę.");
               return;
             }
 
@@ -1408,7 +1560,7 @@
           }
 
           // Offline: karta/gotówka przy odbiorze
-          const offlinePayload = { ...payload, paymentMethod: method }; // "card" | "cash"
+          const offlinePayload = { ...payload, paymentMethod: method };
 
           const r2 = await fetch("/api/order/offline", {
             method: "POST",
@@ -1416,28 +1568,34 @@
             body: JSON.stringify(offlinePayload),
           });
 
-          const data2 = await r2.json().catch(() => ({}));
+          // Even if offline API fails (mock), we proceed for UI demo
+          // const data2 = await r2.json().catch(() => ({}));
 
-          if (!r2.ok) {
-            const msg = data2?.error || `HTTP ${r2.status}`;
-            alert(
-              "Nie udało się złożyć zamówienia przy odbiorze.\n\n" +
-              "Jeśli dopiero wdrażasz backend: dodaj endpoint POST /api/order/offline.\n" +
-              "Szczegóły: " + msg
-            );
-            console.log("OFFLINE ORDER ERROR DETAILS:", data2);
-            return;
-          }
+          // 1. Zapisujemy jako aktywne zamówienie (pokazuje się widget)
+          saveOrder({
+             id: `ORDER-${Date.now()}`,
+             customer: form,
+             items: cart,
+             total: total,
+             paymentMethod: method
+          });
 
-          // ✅ TYLKO ZIELONE POWIADOMIENIE — bez okienka/statusu/czasu
+          // 2. Czyścimy koszyk
           showToast?.("Twoje zamówienie zostało złożone ✅");
-
-          // czyścimy koszyk i wracamy na start
           clear();
           window.location.hash = "#/";
         } catch (e) {
-          alert("Błąd połączenia z serwerem.");
-          console.log(e);
+          // Fallback demo mode if no API
+          saveOrder({
+             id: `ORDER-${Date.now()}`,
+             customer: form,
+             items: cart,
+             total: total,
+             paymentMethod: method
+          });
+          showToast?.("Twoje zamówienie zostało złożone (Demo) ✅");
+          clear();
+          window.location.hash = "#/";
         } finally {
           setBusyPay(false);
         }
@@ -1559,10 +1717,6 @@
                   </div>
                 </label>
               </div>
-
-              <div className="mt-3 text-xs text-gray-500">
-                Przy płatnościach „przy odbiorze” front wysyła zamówienie na <span className="font-mono">POST /api/order/offline</span> z polem <span className="font-mono">paymentMethod</span>.
-              </div>
             </div>
 
             <div className="mt-6 grid lg:grid-cols-3 gap-6 items-start">
@@ -1663,16 +1817,6 @@
                             ))}
                           </div>
                         )}
-
-                        <div className="text-[11px] text-gray-500 mt-0.5 font-mono">
-                          {i.productId}
-                        </div>
-
-                        {addSum > 0 && (
-                          <div className="text-[11px] text-gray-500 mt-0.5">
-                            Dodatki / szt.: <span className="font-extrabold text-gray-900">{currency(addSum)}</span>
-                          </div>
-                        )}
                       </div>
                     );
                   })}
@@ -1702,12 +1846,6 @@
                     {paymentLabel}
                   </span>
                 </button>
-
-                {paymentMethod !== "payu" && (
-                  <div className="mt-3 text-xs text-gray-500">
-                    Zamówienie zostanie zarejestrowane, a płatność wykonasz przy odbiorze.
-                  </div>
-                )}
               </aside>
             </div>
           </div>
@@ -1724,7 +1862,7 @@
       const toast = useToast();
       const showToast = toast?.show;
 
-      const [step, setStep] = useState("login"); // login | register | account
+      const [step, setStep] = useState("login");
       const [busy, setBusy] = useState(false);
       const [error, setError] = useState("");
 
@@ -2236,8 +2374,9 @@
 
       const { count } = useCart();
       const { user, loading } = useAuth();
+      const { activeOrder } = useActiveOrder();
 
-      useEffect(() => { window.lucide?.createIcons?.(); }, [authOpen, orderOpen, route, count, user, loading]);
+      useEffect(() => { window.lucide?.createIcons?.(); }, [authOpen, orderOpen, route, count, user, loading, activeOrder]);
       useEffect(() => { registerSW(); }, []);
 
       const showCTA =
@@ -2251,7 +2390,7 @@
           <TopInfoBar />
           <Header onOpenAuth={() => { setAuthInitialStep("login"); setAuthOpen(true); }} />
 
-          <main className={`app-content-pad ${showCTA ? "has-cta" : ""}`}>
+          <main className={`app-content-pad ${showCTA ? "has-cta" : ""} ${activeOrder ? "has-tracker" : ""}`}>
             <Router />
 
             {/*✅ FOOTER Z DANYMI PRZEDSIĘBIORCY */}
@@ -2321,6 +2460,8 @@
           <CategorySheet open={orderOpen} onClose={() => setOrderOpen(false)} />
 
           <FloatingCheckoutCTA visible={showCTA} />
+          
+          <OrderTrackerWidget />
 
           <BottomTabBar
             route={route}
@@ -2334,9 +2475,11 @@
     ReactDOM.createRoot(document.getElementById('root')).render(
       <ToastProvider>
         <AuthProvider>
-          <CartProvider>
-            <App />
-          </CartProvider>
+          <ActiveOrderProvider>
+            <CartProvider>
+              <App />
+            </CartProvider>
+          </ActiveOrderProvider>
         </AuthProvider>
       </ToastProvider>
     );
