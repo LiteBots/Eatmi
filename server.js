@@ -1,4 +1,3 @@
-
 import express from "express";
 import path from "path";
 import crypto from "crypto";
@@ -472,6 +471,22 @@ const PRICE_LIST = {
   "extra-deser": 2000
 };
 
+// ✅ ADD-ONS PRICE LIST (server-side truth)
+const ADDONS_PRICE_LIST = {
+  "milk-oat": 200,
+  "milk-coconut": 200,
+  "milk-pea": 200,
+  "honey-50": 300
+};
+
+// ✅ ADD-ONS NAME LIST (for PayU display)
+const ADDONS_NAME_LIST = {
+  "milk-oat": "Mleko owsiane",
+  "milk-coconut": "Mleko kokosowe",
+  "milk-pea": "Mleko grochowe",
+  "honey-50": "Miód 50 ml"
+};
+
 const NAME_LIST = {
   "bs-small-1": "Box śniadaniowy mały nr 1",
   "bs-small-2": "Box śniadaniowy mały nr 2",
@@ -518,6 +533,7 @@ const NAME_LIST = {
   "extra-deser": "Deser czekoladowy (extra)"
 };
 
+// ✅ UPDATED: validateAndBuildCart includes addon validation and calculation
 function validateAndBuildCart(cart) {
   const arr = Array.isArray(cart) ? cart : [];
   if (!arr.length) throw new Error("Empty cart");
@@ -532,14 +548,38 @@ function validateAndBuildCart(cart) {
     if (!Number.isFinite(qty) || qty < 1 || qty > 50) {
       throw new Error(`Invalid qty for ${productId}`);
     }
-    return { productId, qty };
+
+    // ✅ ADD-ONS Logic
+    let rawAddons = [];
+    if (Array.isArray(i.addons)) {
+      rawAddons = i.addons;
+    }
+
+    // Filter valid add-ons from server list
+    const validAddons = rawAddons.filter((a) => a && ADDONS_PRICE_LIST[a.id]);
+
+    // Calculate sum of add-ons for one unit
+    const addonsCost = validAddons.reduce((sum, a) => sum + ADDONS_PRICE_LIST[a.id], 0);
+
+    const basePrice = PRICE_LIST[productId];
+    const unitEffectivePrice = basePrice + addonsCost;
+
+    return {
+      productId,
+      qty,
+      addons: validAddons, // Store sanitized list
+      unitBasePrice: basePrice,
+      unitAddonsPrice: addonsCost,
+      unitEffectivePrice // Total price per unit
+    };
   });
 
   return normalized;
 }
 
+// ✅ UPDATED: calcTotalAmount uses unitEffectivePrice
 function calcTotalAmount(cartNorm) {
-  return cartNorm.reduce((sum, i) => sum + PRICE_LIST[i.productId] * i.qty, 0);
+  return cartNorm.reduce((sum, i) => sum + i.unitEffectivePrice * i.qty, 0);
 }
 
 async function getPayuToken() {
@@ -665,11 +705,22 @@ app.post("/api/payu/order", async (req, res) => {
 
     const cartNorm = validateAndBuildCart(req.body?.cart);
 
-    const products = cartNorm.map((i) => ({
-      name: NAME_LIST[i.productId] || "Pozycja",
-      unitPrice: String(PRICE_LIST[i.productId]),
-      quantity: String(i.qty)
-    }));
+    // ✅ UPDATED: Include add-ons in name and use calculated price
+    const products = cartNorm.map((i) => {
+      let name = NAME_LIST[i.productId] || "Pozycja";
+
+      // Append add-ons labels to name
+      if (i.addons && i.addons.length > 0) {
+        const addonNames = i.addons.map((a) => ADDONS_NAME_LIST[a.id] || a.label).join(", ");
+        name += ` (+ ${addonNames})`;
+      }
+
+      return {
+        name: name,
+        unitPrice: String(i.unitEffectivePrice),
+        quantity: String(i.qty)
+      };
+    });
 
     const totalAmount = products.reduce(
       (sum, p) => sum + Number(p.unitPrice) * Number(p.quantity),
@@ -696,7 +747,7 @@ app.post("/api/payu/order", async (req, res) => {
       totalAmount,
       totalPLN: totalAmount / 100,
       customer,
-      cart: cartNorm
+      cart: cartNorm // Saves cart with addons
     });
 
     const orderBody = {
