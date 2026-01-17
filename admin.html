@@ -156,6 +156,7 @@
         h.includes("unitprice") ||
         h.includes("unit_amount") ||
         h.includes("unitamount") ||
+        h.includes("uniteffectiveprice") || // ✅ ADDED
         h.includes("payu");
 
       if (looksLikePayUGrosze) return n / 100;
@@ -190,6 +191,8 @@
 
     const getItemUnitPricePLN = (it) => {
       if (!it) return 0;
+      // ✅ Zmiana: Najpierw sprawdzamy cenę efektywną (z dodatkami) z nowego backendu
+      if (it.unitEffectivePrice !== undefined) return toPLNFromMaybeGrosze(it.unitEffectivePrice, "unitEffectivePrice");
       if (it.unitPrice !== undefined) return toPLNFromMaybeGrosze(it.unitPrice, "unitPrice");
       if (it.unit_amount !== undefined) return toPLNFromMaybeGrosze(it.unit_amount, "unit_amount");
       if (it.price !== undefined) return toPLNFromMaybeGrosze(it.price, "price");
@@ -872,10 +875,23 @@
                 const name = resolveProductName(it);
                 const unitPricePLN = getItemUnitPricePLN(it);
                 const linePLN = unitPricePLN * qty;
+                
                 return (
                   <div key={i} className="border border-gray-200 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="font-bold text-gray-900 text-sm leading-tight">{name}</div>
+                      
+                      {/* ✅ POKAŻ DODATKI JEŚLI ISTNIEJĄ */}
+                      {Array.isArray(it.addons) && it.addons.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {it.addons.map((a, idx) => (
+                            <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-brand-yellow/20 text-yellow-900 border border-brand-yellow/30">
+                              + {a.label}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
                       <div className="text-xs text-gray-500 mt-1 font-mono"><span className="font-black text-gray-900">{qty}x</span> @ {currency(unitPricePLN)}</div>
                     </div>
                     <div className="font-black text-sm text-right shrink-0 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
