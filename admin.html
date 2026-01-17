@@ -156,7 +156,7 @@
         h.includes("unitprice") ||
         h.includes("unit_amount") ||
         h.includes("unitamount") ||
-        h.includes("uniteffectiveprice") || // ✅ ADDED
+        h.includes("uniteffectiveprice") ||
         h.includes("payu");
 
       if (looksLikePayUGrosze) return n / 100;
@@ -191,7 +191,6 @@
 
     const getItemUnitPricePLN = (it) => {
       if (!it) return 0;
-      // ✅ Zmiana: Najpierw sprawdzamy cenę efektywną (z dodatkami) z nowego backendu
       if (it.unitEffectivePrice !== undefined) return toPLNFromMaybeGrosze(it.unitEffectivePrice, "unitEffectivePrice");
       if (it.unitPrice !== undefined) return toPLNFromMaybeGrosze(it.unitPrice, "unitPrice");
       if (it.unit_amount !== undefined) return toPLNFromMaybeGrosze(it.unit_amount, "unit_amount");
@@ -773,9 +772,10 @@
     const StatusPill = ({ status }) => {
       const s = String(status || "").toLowerCase();
       const cls =
-        s.includes("paid") || s.includes("completed") || s.includes("opłac") ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
-        s.includes("pending") || s.includes("oczek") ? "bg-amber-100 text-amber-800 border-amber-200" :
+        s.includes("paid") || s.includes("completed") || s.includes("opłac") || s.includes("zrealiz") ? "bg-emerald-100 text-emerald-800 border-emerald-200" :
+        s.includes("pending") || s.includes("oczek") || s.includes("w przygotowaniu") ? "bg-amber-100 text-amber-800 border-amber-200" :
         s.includes("cancel") || s.includes("anul") ? "bg-red-100 text-red-800 border-red-200" :
+        s.includes("w drodze") ? "bg-brand-yellow/20 text-yellow-900 border-brand-yellow/30" :
         "bg-gray-100 text-gray-800 border-gray-200";
       return (
         <span className={`inline-flex items-center gap-2 text-[10px] sm:text-[11px] font-black uppercase tracking-[0.14em] px-2.5 py-1 rounded-full border ${cls}`}>
@@ -828,14 +828,59 @@
       </div>
     );
 
-    const OrderDetails = ({ order }) => {
+    // ✅ UPDATED: Added status changing logic
+    const OrderDetails = ({ order, token, onRefresh }) => {
+      const toast = useToast();
+      const [updating, setUpdating] = useState(false);
+
       const c = order.customer || {};
       const cart = Array.isArray(order.cart) ? order.cart : (Array.isArray(order.items) ? order.items : []);
       const totalPLN = getOrderTotalPLN(order);
       const pay = resolvePayment(order);
 
+      const changeStatus = async (newStatus) => {
+        if(updating) return;
+        setUpdating(true);
+        try {
+          const r = await fetch(`/api/admin/orders/${order.extOrderId}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...authHeader(token) },
+            body: JSON.stringify({ status: newStatus })
+          });
+          const d = await safeJson(r);
+          if(!r.ok) throw new Error(d.error || "Błąd");
+          toast.show("ok", "Status", `Zmieniono na: ${newStatus}`);
+          onRefresh?.();
+        } catch (e) {
+          console.error(e);
+          toast.show("error", "Błąd", "Nie udało się zmienić statusu");
+        } finally {
+          setUpdating(false);
+        }
+      };
+
       return (
         <div className="space-y-5 pb-10">
+          
+          {/* ✅ AKCJE - ZMIANA STATUSU */}
+          <div className="bg-white border border-gray-200 rounded-3xl p-5 shadow-sm">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold mb-3">Akcje (Zmień status)</div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+               <button onClick={() => changeStatus("W przygotowaniu")} disabled={updating} className="flex flex-col items-center justify-center p-3 rounded-xl border border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100 transition font-bold text-xs gap-1">
+                 <Icon name="chef-hat" className="w-5 h-5"/> W kuchni
+               </button>
+               <button onClick={() => changeStatus("W drodze")} disabled={updating} className="flex flex-col items-center justify-center p-3 rounded-xl border border-brand-yellow/30 bg-brand-yellow/10 text-yellow-900 hover:bg-brand-yellow/20 transition font-bold text-xs gap-1">
+                 <Icon name="car" className="w-5 h-5"/> W drodze
+               </button>
+               <button onClick={() => changeStatus("Zrealizowane")} disabled={updating} className="flex flex-col items-center justify-center p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition font-bold text-xs gap-1">
+                 <Icon name="check-circle" className="w-5 h-5"/> Zrealizowane
+               </button>
+               <button onClick={() => changeStatus("Anulowane")} disabled={updating} className="flex flex-col items-center justify-center p-3 rounded-xl border border-red-200 bg-red-50 text-red-800 hover:bg-red-100 transition font-bold text-xs gap-1">
+                 <Icon name="x-circle" className="w-5 h-5"/> Anulowane
+               </button>
+            </div>
+          </div>
+
           <div className="bg-gray-50 border border-gray-200 rounded-3xl p-5">
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
               <div>
@@ -881,7 +926,6 @@
                     <div className="min-w-0">
                       <div className="font-bold text-gray-900 text-sm leading-tight">{name}</div>
                       
-                      {/* ✅ POKAŻ DODATKI JEŚLI ISTNIEJĄ */}
                       {Array.isArray(it.addons) && it.addons.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">
                           {it.addons.map((a, idx) => (
@@ -977,6 +1021,12 @@
           const list = Array.isArray(data.orders) ? data.orders : [];
           setOrders(list);
           setOrdersCount?.(list.length);
+
+          // Update selected if open (for live updates)
+          if(selected) {
+             const updatedSelected = list.find(o => o.extOrderId === selected.extOrderId);
+             if(updatedSelected) setSelected(updatedSelected);
+          }
 
           const newest = list[0];
           if (newest) {
@@ -1085,7 +1135,7 @@
           </div>
 
           <Drawer open={!!selected} onClose={() => setSelected(null)} title={selected ? `Zamówienie` : ""}>
-             {selected && <OrderDetails order={selected} />}
+             {selected && <OrderDetails order={selected} token={token} onRefresh={() => load({ silent: true })} />}
           </Drawer>
         </div>
       );
