@@ -8,7 +8,6 @@
   <meta name="description" content="Panel administratora eatmi.pl" />
   <link rel="icon" type="image/png" href="favicon.png">
 
-  <!-- Tailwind config MUST be before tailwindcdn script -->
   <script>
     tailwind = window.tailwind || {};
     tailwind.config = {
@@ -85,14 +84,11 @@
     }
   </style>
 
-  <!-- React 18 + ReactDOM 18 -->
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
 
-  <!-- Babel for inline JSX -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  <!-- Lucide icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 
@@ -103,23 +99,8 @@
     const { useEffect, useMemo, useRef, useState } = React;
 
     /* =========================================================
-      WYMAGANE ENDPOINTY (backend / Twój server.js po aktualizacji):
-
-      Auth:
-        POST /api/admin/login  { pin: "1234" } -> { token }
-
-      Stats:
-        GET  /api/admin/stats
-
-      Orders:
-        GET  /api/admin/orders?query=&from=&to=
-        -> { orders: [...] } (posortowane: najnowsze na górze zalecane)
-
-      Realtime (zalecane, ale kod ma fallback do pollingu):
-        GET /api/admin/events  (SSE)
-        -> event: message
-           data: {"type":"new_order","orderId":"...","createdAt":"..."}  (JSON)
-      ========================================================= */
+       API CONFIG
+       ========================================================= */
 
     const API = {
       login: "/api/admin/login",
@@ -127,12 +108,12 @@
       orders: "/api/admin/orders",
       push: "/api/admin/push",
       staff: "/api/admin/staff",
-      events: "/api/admin/events", // SSE (opcjonalne, ale wspierane w tym admin.html)
+      events: "/api/admin/events",
     };
 
     /* =======================
-      Utils
-    ======================= */
+       Utils
+       ======================= */
 
     const toNumber = (v) => {
       if (v === null || v === undefined) return 0;
@@ -147,7 +128,6 @@
 
     const toPLNFromMaybeGrosze = (value, hint = "") => {
       const n = toNumber(value);
-
       const h = String(hint || "").toLowerCase();
       const looksLikePayUGrosze =
         h.includes("totalamount") ||
@@ -157,9 +137,7 @@
         h.includes("payu");
 
       if (looksLikePayUGrosze) return n / 100;
-
       if (Number.isInteger(n) && n >= 1000 && n <= 200000) return n / 100;
-
       return n;
     };
 
@@ -179,14 +157,12 @@
 
     const getOrderTotalPLN = (order) => {
       if (!order) return 0;
-
       if (order.totalPLN !== undefined) return toPLNFromMaybeGrosze(order.totalPLN, "pln");
       if (order.total !== undefined) return toPLNFromMaybeGrosze(order.total, "total");
       if (order.totalAmount !== undefined) return toPLNFromMaybeGrosze(order.totalAmount, "totalAmount");
       if (order.amount !== undefined) return toPLNFromMaybeGrosze(order.amount, "amount");
       if (order.price !== undefined) return toPLNFromMaybeGrosze(order.price, "price");
       if (order.sum !== undefined) return toPLNFromMaybeGrosze(order.sum, "sum");
-
       return 0;
     };
 
@@ -198,9 +174,6 @@
       return 0;
     };
 
-    /* =======================
-      ✅ PŁATNOŚĆ: wykrywanie offline/online
-    ======================= */
     const resolvePayment = (order) => {
       const o = order || {};
       const pmRaw =
@@ -215,7 +188,6 @@
         null;
 
       const pm = String(pmRaw || "").trim().toLowerCase();
-
       const offlineFlag =
         !!o.isOffline ||
         !!o.cashOnDelivery ||
@@ -234,38 +206,28 @@
       if (pm.includes("card") || pm.includes("karta") || pm.includes("terminal")) {
         return { kind: "offline_card", label: "Karta przy odbiorze", badge: "KARTA" };
       }
-
       if (offlineFlag) {
         return { kind: "offline", label: "Płatność przy odbiorze", badge: "ODBIÓR" };
       }
-
       if (pm.includes("payu") || pm.includes("online") || pm.includes("przelew")) {
         return { kind: "online", label: "PayU (online)", badge: "PAYU" };
       }
-
       if (o.payuOrderId || o.payu?.orderId) {
         return { kind: "online", label: "PayU (online)", badge: "PAYU" };
       }
-
       return { kind: "online", label: "PayU (online)", badge: "PAYU" };
     };
 
-    /* =======================
-      Mapowanie productId -> pełna nazwa (EDYTUJ wg swoich ID)
-    ======================= */
     const PRODUCT_NAME_MAP = {
       "bs-small-1": "Box śniadaniowy mały nr 1",
       "bs-small-2": "Box śniadaniowy mały nr 2",
       "bs-small-3": "Box śniadaniowy mały nr 3",
-
       "bs-medium-1": "Box śniadaniowy średni nr 1",
       "bs-medium-2": "Box śniadaniowy średni nr 2",
       "bs-medium-3": "Box śniadaniowy średni nr 3",
-
       "bs-big-1": "Box śniadaniowy duży nr 1",
       "bs-big-2": "Box śniadaniowy duży nr 2",
       "bs-big-3": "Box śniadaniowy duży nr 3",
-
       "extra-granola": "Granola",
       "extra-lemoniada": "Lemoniada",
       "extra-deser": "Deser",
@@ -274,16 +236,27 @@
     const resolveProductName = (it) => {
       const fromBackend = it?.name || it?.productName || it?.title;
       if (fromBackend && String(fromBackend).trim()) return String(fromBackend);
-
       const pid = it?.productId || it?.sku || "";
       if (pid && PRODUCT_NAME_MAP[pid]) return PRODUCT_NAME_MAP[pid];
-
       return pid || "Pozycja";
     };
 
     /* =======================
-      Toast
-    ======================= */
+       Global Helpers for Components
+       ======================= */
+    const fmtDate = (iso) => {
+      if (!iso) return "—";
+      try {
+        const d = new Date(iso);
+        return d.toLocaleString("pl-PL");
+      } catch { return String(iso); }
+    };
+
+    const sumOrder = (o) => currency(getOrderTotalPLN(o));
+
+    /* =======================
+       Toast
+       ======================= */
     const ToastContext = React.createContext();
     const useToast = () => React.useContext(ToastContext);
 
@@ -337,8 +310,8 @@
     };
 
     /* =======================
-      Components: Shell
-    ======================= */
+       Components: Shell
+       ======================= */
     const Logo = () => (
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-2xl bg-white border border-gray-200 shadow-soft grid place-items-center overflow-hidden">
@@ -375,15 +348,11 @@
     const PaymentPill = ({ order }) => {
       const p = resolvePayment(order);
       const kind = p.kind;
-
       const cls =
-        kind === "offline_cash"
-          ? "bg-amber-100 text-amber-900 border-amber-200"
-          : kind === "offline_card"
-          ? "bg-violet-100 text-violet-900 border-violet-200"
-          : kind === "offline"
-          ? "bg-orange-100 text-orange-900 border-orange-200"
-          : "bg-sky-100 text-sky-900 border-sky-200";
+        kind === "offline_cash" ? "bg-amber-100 text-amber-900 border-amber-200" :
+        kind === "offline_card" ? "bg-violet-100 text-violet-900 border-violet-200" :
+        kind === "offline" ? "bg-orange-100 text-orange-900 border-orange-200" :
+        "bg-sky-100 text-sky-900 border-sky-200";
 
       return (
         <span
@@ -397,9 +366,8 @@
     };
 
     /* =======================
-      New Order ALERT (full-screen, flashing + loud beep)
-      FIX dla iPad/tablet: overlay zawsze 100vw/100vh, centrowanie działa na iOS Safari
-    ======================= */
+       New Order ALERT
+       ======================= */
     const useBeep = () => {
       const audioRef = useRef({ ctx: null, master: null, timer: null, running: false });
 
@@ -423,31 +391,24 @@
         if (st.running) return;
         await ensure();
         if (!st.ctx || !st.master) return;
-
         st.running = true;
 
         const tick = () => {
           const s = audioRef.current;
           if (!s.running || !s.ctx || !s.master) return;
-
           const osc = s.ctx.createOscillator();
           const g = s.ctx.createGain();
-
           osc.type = "square";
           osc.frequency.value = 1400;
-
           const now = s.ctx.currentTime;
           g.gain.setValueAtTime(0.0001, now);
           g.gain.exponentialRampToValueAtTime(0.9, now + 0.01);
           g.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
-
           osc.connect(g);
           g.connect(s.master);
-
           osc.start(now);
           osc.stop(now + 0.10);
         };
-
         tick();
         st.timer = setInterval(tick, 180);
       };
@@ -476,13 +437,10 @@
           stop();
           return;
         }
-
         setFlash(false);
         if (flashRef.current) clearInterval(flashRef.current);
         flashRef.current = setInterval(() => setFlash(f => !f), 100);
-
         start();
-
         return () => {
           if (flashRef.current) clearInterval(flashRef.current);
           flashRef.current = null;
@@ -495,7 +453,6 @@
       if (!open) return null;
 
       const bgClass = flash ? "flash-yellow" : "flash-white";
-
       const id = orderPreview?.id || orderPreview?.orderId || orderPreview?.extOrderId || orderPreview?._id || "—";
       const name = orderPreview?.customer?.imieNazwisko || orderPreview?.customer?.name || orderPreview?.name || "—";
       const phone = orderPreview?.customer?.telefon || orderPreview?.customer?.phone || orderPreview?.telefon || "—";
@@ -505,30 +462,19 @@
       return (
         <div className={`ios-fixed z-[999] ${bgClass}`}>
           <div className="absolute inset-0"></div>
-
           <div className="relative h-full w-full flex items-center justify-center px-4 py-6">
             <div className="w-full max-w-2xl bg-white/90 border border-black/10 shadow-kiosk rounded-3xl p-6 md:p-8">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <div className="text-xs uppercase tracking-[0.18em] font-black text-gray-700">
-                    NOWE ZAMÓWIENIE
-                  </div>
-                  <div className="text-3xl md:text-4xl font-black mt-2 leading-tight">
-                    Wpadło nowe zamówienie!
-                  </div>
-                  <div className="text-sm text-gray-700 mt-3">
-                    Dopóki nie klikniesz <span className="font-black">OK</span>, nie da się zamknąć tego ekranu.
-                  </div>
-
+                  <div className="text-xs uppercase tracking-[0.18em] font-black text-gray-700">NOWE ZAMÓWIENIE</div>
+                  <div className="text-3xl md:text-4xl font-black mt-2 leading-tight">Wpadło nowe zamówienie!</div>
+                  <div className="text-sm text-gray-700 mt-3">Dopóki nie klikniesz <span className="font-black">OK</span>, nie da się zamknąć tego ekranu.</div>
                   <div className="mt-3 flex items-center gap-2 flex-wrap">
                     <span className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Płatność:</span>
-                    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 shadow-soft text-xs font-black">
-                      {pay.label}
-                    </span>
+                    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 shadow-soft text-xs font-black">{pay.label}</span>
                     <PaymentPill order={orderPreview} />
                   </div>
                 </div>
-
                 <div className="w-14 h-14 rounded-3xl bg-brand-yellow/30 border border-black/10 grid place-items-center shrink-0">
                   <Icon name="bell-ring" className="w-8 h-8 text-gray-900" />
                 </div>
@@ -556,18 +502,11 @@
                   onClick={async () => { await ensure(); onAcknowledge?.(); }}
                   className="w-full md:w-auto inline-flex items-center justify-center gap-2 bg-gray-900 text-white font-black rounded-2xl px-7 py-5 shadow-glass hover:ring-2 hover:ring-black/20 transition text-lg"
                 >
-                  <Icon name="check" className="w-6 h-6" />
-                  OK
+                  <Icon name="check" className="w-6 h-6" /> OK
                 </button>
-
-                <div className="text-xs text-gray-700">
-                  Tip: po kliknięciu OK przejdź do zakładki <span className="font-black">Zamówienia</span>.
-                </div>
+                <div className="text-xs text-gray-700">Tip: po kliknięciu OK przejdź do zakładki <span className="font-black">Zamówienia</span>.</div>
               </div>
-
-              <div className="mt-5 text-[11px] text-gray-600">
-                Uwaga: jeśli przeglądarka blokuje auto-dźwięk, kliknij OK — i tak musisz potwierdzić.
-              </div>
+              <div className="mt-5 text-[11px] text-gray-600">Uwaga: jeśli przeglądarka blokuje auto-dźwięk, kliknij OK — i tak musisz potwierdzić.</div>
             </div>
           </div>
         </div>
@@ -575,22 +514,15 @@
     };
 
     /* =======================
-      Login: ekranowa klawiatura + PIN 4 cyfry
-    ======================= */
+       Login
+       ======================= */
     const Key = ({ label, onClick, variant="default" }) => {
-      const base =
-        "w-full h-14 rounded-2xl border shadow-soft font-extrabold text-lg active:scale-[0.99] transition";
+      const base = "w-full h-14 rounded-2xl border shadow-soft font-extrabold text-lg active:scale-[0.99] transition";
       const styles =
-        variant === "primary"
-          ? "bg-brand-yellow text-gray-900 border-black/5 hover:ring-2 hover:ring-brand-yellow/40"
-          : variant === "ghost"
-          ? "bg-white text-gray-800 border-gray-200 hover:ring-2 hover:ring-brand-yellow/25"
-          : "bg-white text-gray-900 border-gray-200 hover:ring-2 hover:ring-brand-yellow/25";
-      return (
-        <button type="button" onClick={onClick} className={`${base} ${styles}`}>
-          {label}
-        </button>
-      );
+        variant === "primary" ? "bg-brand-yellow text-gray-900 border-black/5 hover:ring-2 hover:ring-brand-yellow/40" :
+        variant === "ghost" ? "bg-white text-gray-800 border-gray-200 hover:ring-2 hover:ring-brand-yellow/25" :
+        "bg-white text-gray-900 border-gray-200 hover:ring-2 hover:ring-brand-yellow/25";
+      return <button type="button" onClick={onClick} className={`${base} ${styles}`}>{label}</button>;
     };
 
     const PinDots = ({ value, max=4 }) => {
@@ -598,12 +530,7 @@
       return (
         <div className="flex items-center justify-center gap-2">
           {Array.from({ length: max }).map((_, i) => (
-            <div
-              key={i}
-              className={`w-3.5 h-3.5 rounded-full border ${
-                i < filled ? "bg-gray-900 border-gray-900" : "bg-white border-gray-300"
-              }`}
-            />
+            <div key={i} className={`w-3.5 h-3.5 rounded-full border ${i < filled ? "bg-gray-900 border-gray-900" : "bg-white border-gray-300"}`} />
           ))}
         </div>
       );
@@ -633,7 +560,6 @@
       const submit = async (currentPin) => {
         const v = (currentPin ?? pin).trim();
         if (v.length !== 4) return;
-
         setLoading(true);
         try {
           const r = await fetch(API.login, {
@@ -642,14 +568,12 @@
             body: JSON.stringify({ pin: v }),
           });
           const data = await safeJson(r);
-
           if (!r.ok || !data.token) {
             toast.show("error", "Logowanie", data.error || "Nieprawidłowy kod.");
             setPin("");
             setLoading(false);
             return;
           }
-
           toast.show("ok", "Logowanie", "Zalogowano.");
           onAuth(data.token);
         } catch (e) {
@@ -660,8 +584,6 @@
           setLoading(false);
         }
       };
-
-      const disabled = loading;
 
       return (
         <div className="min-h-screen flex items-center justify-center px-4 py-10">
@@ -674,21 +596,12 @@
                   <span className="font-black text-gray-900">4 cyfry</span>
                 </Pill>
               </div>
-
               <div className="mt-6 text-center">
-                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">
-                  Dostęp do panelu
-                </div>
+                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Dostęp do panelu</div>
                 <div className="text-2xl font-extrabold mt-1">Wpisz kod</div>
-                <div className="text-sm text-gray-600 mt-2">
-                  Użyj klawiatury ekranowej lub klawiatury fizycznej.
-                </div>
-
-                <div className="mt-5">
-                  <PinDots value={pin} />
-                </div>
+                <div className="text-sm text-gray-600 mt-2">Użyj klawiatury ekranowej lub klawiatury fizycznej.</div>
+                <div className="mt-5"><PinDots value={pin} /></div>
               </div>
-
               <div className="mt-6 grid grid-cols-3 gap-3">
                 {["1","2","3","4","5","6","7","8","9"].map((d) => (
                   <Key key={d} label={d} onClick={() => addDigit(d)} />
@@ -697,25 +610,14 @@
                 <Key label="0" onClick={() => addDigit("0")} />
                 <Key label="⌫" variant="ghost" onClick={back} />
               </div>
-
               <button
                 type="button"
                 onClick={() => submit()}
-                disabled={disabled || pin.length !== 4}
+                disabled={loading || pin.length !== 4}
                 className="mt-4 w-full bg-gray-900 text-white font-extrabold rounded-2xl px-5 py-4 shadow-glass hover:ring-2 hover:ring-brand-yellow/35 disabled:opacity-60 disabled:cursor-not-allowed transition"
               >
                 {loading ? "Logowanie..." : "Zaloguj"}
               </button>
-
-              <div className="mt-4 text-xs text-gray-500 text-center">
-                Jeśli kod jest błędny — wpisz ponownie.
-              </div>
-            </div>
-
-            <div className="mt-4 text-center text-xs text-gray-500">
-              <span className="inline-flex items-center gap-2">
-                <Icon name="shield" className="w-4 h-4" /> Bezpieczny dostęp
-              </span>
             </div>
           </div>
         </div>
@@ -723,35 +625,27 @@
     };
 
     /* =======================
-      Layout: Sidebar + Topbar
-    ======================= */
+       Layout
+       ======================= */
     const NavItem = ({ active, icon, label, onClick, badge }) => (
       <button
         type="button"
         onClick={onClick}
         className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border transition text-left ${
-          active
-            ? "bg-brand-yellow/20 border-brand-yellow/30 ring-1 ring-brand-yellow/30"
-            : "bg-white border-gray-200 hover:ring-2 hover:ring-brand-yellow/20"
+          active ? "bg-brand-yellow/20 border-brand-yellow/30 ring-1 ring-brand-yellow/30" : "bg-white border-gray-200 hover:ring-2 hover:ring-brand-yellow/20"
         }`}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <span className={`w-10 h-10 rounded-2xl grid place-items-center border ${
-            active ? "bg-brand-yellow/25 border-brand-yellow/30" : "bg-gray-50 border-gray-200"
-          }`}>
+          <span className={`w-10 h-10 rounded-2xl grid place-items-center border ${active ? "bg-brand-yellow/25 border-brand-yellow/30" : "bg-gray-50 border-gray-200"}`}>
             <Icon name={icon} className="w-5 h-5" />
           </span>
           <div className="min-w-0">
             <div className="font-extrabold text-sm text-gray-900">{label}</div>
-            <div className="text-xs text-gray-500 truncate">
-              {active ? "Aktywne" : "Otwórz"}
-            </div>
+            <div className="text-xs text-gray-500 truncate">{active ? "Aktywne" : "Otwórz"}</div>
           </div>
         </div>
         {typeof badge === "number" && badge > 0 && (
-          <span className="shrink-0 text-[11px] font-black px-2.5 py-1 rounded-full bg-gray-900 text-white">
-            {badge > 99 ? "99+" : badge}
-          </span>
+          <span className="shrink-0 text-[11px] font-black px-2.5 py-1 rounded-full bg-gray-900 text-white">{badge > 99 ? "99+" : badge}</span>
         )}
       </button>
     );
@@ -762,20 +656,16 @@
           <div className="liquid border-b border-white/60">
             <div className="px-4 md:px-6 py-4 flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">
-                  Panel
-                </div>
+                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Panel</div>
                 <div className="text-xl md:text-2xl font-extrabold mt-1 truncate">{title}</div>
                 {subtitle && <div className="text-sm text-gray-600 mt-1">{subtitle}</div>}
               </div>
-
               <button
                 type="button"
                 onClick={onLogout}
                 className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
               >
-                <Icon name="log-out" className="w-4 h-4" />
-                Wyloguj
+                <Icon name="log-out" className="w-4 h-4" /> Wyloguj
               </button>
             </div>
           </div>
@@ -787,12 +677,8 @@
       <div className="bg-white border border-gray-200 rounded-3xl p-5 shadow-soft hover:shadow-md transition">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">
-              {title}
-            </div>
-            <div className="mt-2 text-3xl font-black tracking-tight">
-              {loading ? <Skeleton className="h-9 w-40" /> : value}
-            </div>
+            <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">{title}</div>
+            <div className="mt-2 text-3xl font-black tracking-tight">{loading ? <Skeleton className="h-9 w-40" /> : value}</div>
             {hint && <div className="text-xs text-gray-500 mt-2">{hint}</div>}
           </div>
           <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 border border-brand-yellow/30 grid place-items-center">
@@ -803,8 +689,8 @@
     );
 
     /* =======================
-      Pages: Dashboard
-    ======================= */
+       Dashboard
+       ======================= */
     const Dashboard = ({ token }) => {
       const toast = useToast();
       const [loading, setLoading] = useState(true);
@@ -820,9 +706,7 @@
             setLoading(false);
             return;
           }
-
           const revenuePLN = toPLNFromMaybeGrosze(data.revenueTotal || 0, "revenueTotal");
-
           setStats({
             ordersTotal: Number(data.ordersTotal || 0),
             ordersToday: Number(data.ordersToday || 0),
@@ -842,53 +726,27 @@
       return (
         <div className="p-4 md:p-6">
           <div className="flex items-center justify-between gap-3">
-            <div className="text-sm text-gray-600">
-              Podgląd kluczowych danych — bez zbędnych elementów.
-            </div>
+            <div className="text-sm text-gray-600">Podgląd kluczowych danych — bez zbędnych elementów.</div>
             <button
               type="button"
               onClick={load}
               className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
             >
-              <Icon name="refresh-cw" className="w-4 h-4" />
-              Odśwież
+              <Icon name="refresh-cw" className="w-4 h-4" /> Odśwież
             </button>
           </div>
-
           <div className="mt-5 grid gap-4 md:grid-cols-3">
-            <Card
-              title="Zamówienia łącznie"
-              value={stats.ordersTotal.toLocaleString("pl-PL")}
-              icon="shopping-bag"
-              loading={loading}
-              hint="Suma wszystkich zamówień w systemie."
-            />
-            <Card
-              title="Zamówienia dziś"
-              value={stats.ordersToday.toLocaleString("pl-PL")}
-              icon="calendar"
-              loading={loading}
-              hint="Zamówienia z bieżącego dnia (per day)."
-            />
-            <Card
-              title="Zarobek"
-              value={currency(stats.revenueTotal)}
-              icon="wallet"
-              loading={loading}
-              hint="Łączny przychód (per start)."
-            />
+            <Card title="Zamówienia łącznie" value={stats.ordersTotal.toLocaleString("pl-PL")} icon="shopping-bag" loading={loading} hint="Suma wszystkich zamówień w systemie." />
+            <Card title="Zamówienia dziś" value={stats.ordersToday.toLocaleString("pl-PL")} icon="calendar" loading={loading} hint="Zamówienia z bieżącego dnia (per day)." />
+            <Card title="Zarobek" value={currency(stats.revenueTotal)} icon="wallet" loading={loading} hint="Łączny przychód (per start)." />
           </div>
         </div>
       );
     };
 
     /* =======================
-      Pages: Orders
-      FIX RESPONSYWNOŚCI:
-      - Na tabletach/iPad pokazujemy listę kart zamiast szerokiej tabeli
-      - Tabela zostaje tylko na desktopie (lg+)
-      - Drawer na tabletach jest pełnoekranowy (łatwo kliknąć i przewijać)
-    ======================= */
+       Orders & Details
+       ======================= */
     const StatusPill = ({ status }) => {
       const s = String(status || "").toLowerCase();
       const cls =
@@ -910,16 +768,11 @@
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
       }, [open, onClose]);
-
       useEffect(() => { window.lucide?.createIcons?.(); }, [open]);
-
       if (!open) return null;
-
       return (
         <div className="fixed inset-0 z-[160]">
           <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true"></div>
-
-          {/* Tablet/mobile: pełny ekran | Desktop (lg+): panel z prawej */}
           <div className="absolute inset-0 lg:inset-y-0 lg:right-0 lg:left-auto w-full lg:max-w-2xl bg-white border-l border-gray-200 shadow-kiosk">
             <div className="p-4 border-b border-gray-200 flex items-center justify-between gap-3 sticky top-0 bg-white z-10">
               <div className="min-w-0">
@@ -946,16 +799,13 @@
     const KV = ({ k, v, mono=false }) => (
       <div className="flex items-start justify-between gap-4 border-b border-gray-100 py-3">
         <div className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">{k}</div>
-        <div className={`text-sm text-gray-900 text-right ${mono ? "font-mono" : "font-semibold"} break-words max-w-[65%]`}>
-          {v ?? "—"}
-        </div>
+        <div className={`text-sm text-gray-900 text-right ${mono ? "font-mono" : "font-semibold"} break-words max-w-[65%]`}>{v ?? "—"}</div>
       </div>
     );
 
     const OrderDetails = ({ order }) => {
       const c = order.customer || {};
       const cart = Array.isArray(order.cart) ? order.cart : (Array.isArray(order.items) ? order.items : []);
-
       const totalPLN = getOrderTotalPLN(order);
       const pay = resolvePayment(order);
 
@@ -969,9 +819,7 @@
                   <StatusPill status={order.status || order.paymentStatus || order.payuStatus || "—"} />
                   <PaymentPill order={order} />
                 </div>
-                <div className="mt-2 text-sm text-gray-600">
-                  <span className="font-extrabold">Płatność:</span> {pay.label}
-                </div>
+                <div className="mt-2 text-sm text-gray-600"><span className="font-extrabold">Płatność:</span> {pay.label}</div>
               </div>
               <div className="text-right">
                 <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Kwota</div>
@@ -994,48 +842,33 @@
               <KV k="Nr lokalu" v={c.lokal} mono />
               <KV k="Uwagi" v={c.uwagi} />
               <KV k="Faktura" v={c.faktura ? "Tak" : "Nie"} />
-              {c.faktura && (
-                <>
-                  <KV k="NIP" v={c.nip} mono />
-                  <KV k="Firma" v={c.firma} />
-                </>
-              )}
+              {c.faktura && <><KV k="NIP" v={c.nip} mono /><KV k="Firma" v={c.firma} /></>}
             </div>
           </div>
 
           <div className="bg-white border border-gray-200 rounded-3xl p-4">
             <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Pozycje</div>
             <div className="mt-3 space-y-3">
-              {cart.length === 0 ? (
-                <div className="text-sm text-gray-600">Brak danych koszyka w obiekcie zamówienia.</div>
-              ) : (
-                cart.map((it, i) => {
-                  const qty = Number(it.qty || it.quantity || 1) || 1;
-                  const name = resolveProductName(it);
-
-                  const unitPricePLN = getItemUnitPricePLN(it);
-                  const linePLN = unitPricePLN * qty;
-
-                  return (
-                    <div key={i} className="border border-gray-200 rounded-2xl p-4 hover:ring-2 hover:ring-brand-yellow/15 transition">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="font-extrabold text-gray-900">{name}</div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            <span className="font-black">{qty}×</span> szt.
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-black">{currency(linePLN)}</div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {currency(unitPricePLN)} / szt.
-                          </div>
-                        </div>
+              {cart.length === 0 ? <div className="text-sm text-gray-600">Brak danych koszyka w obiekcie zamówienia.</div> : cart.map((it, i) => {
+                const qty = Number(it.qty || it.quantity || 1) || 1;
+                const name = resolveProductName(it);
+                const unitPricePLN = getItemUnitPricePLN(it);
+                const linePLN = unitPricePLN * qty;
+                return (
+                  <div key={i} className="border border-gray-200 rounded-2xl p-4 hover:ring-2 hover:ring-brand-yellow/15 transition">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-extrabold text-gray-900">{name}</div>
+                        <div className="text-xs text-gray-500 mt-1"><span className="font-black">{qty}×</span> szt.</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-black">{currency(linePLN)}</div>
+                        <div className="text-xs text-gray-500 mt-1">{currency(unitPricePLN)} / szt.</div>
                       </div>
                     </div>
-                  );
-                })
-              )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -1050,6 +883,68 @@
               <KV k="payuOrderId" v={order.payuOrderId || order.payu?.orderId} mono />
               <KV k="createdAt" v={order.createdAt || order.created_at || order.date || order.timestamp} mono />
             </div>
+          </div>
+        </div>
+      );
+    };
+
+    /* =======================
+       Orders Component (FIXED for iPad/Touch)
+       OrderCard is defined OUTSIDE to prevent re-creation on render
+       ======================= */
+
+    const OrderCard = ({ o, idx, onSelect }) => {
+      const id = pickOrderId(o, idx);
+      const name = o.customer?.imieNazwisko || o.customer?.name || o.name || "—";
+      const email = o.customer?.email || o.email || "—";
+      const phone = o.customer?.telefon || o.customer?.phone || o.telefon || "—";
+      const status = o.status || o.paymentStatus || o.payuStatus || "—";
+      const created = pickCreatedAt(o);
+      const city = o.customer?.miasto ? `${o.customer.miasto}` : "—";
+
+      // Handlers
+      const handleSelect = () => onSelect(o);
+
+      return (
+        <div className="bg-white border border-gray-200 rounded-3xl shadow-soft p-4 transform transition-transform duration-200">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">ID</div>
+              <div className="mt-1 font-mono text-xs text-gray-700 break-all">{String(id)}</div>
+              <div className="mt-3 font-extrabold text-gray-900 truncate">{name}</div>
+              <div className="text-xs text-gray-500 mt-1">{city}</div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">Kwota</div>
+              <div className="mt-1 text-lg font-black">{sumOrder(o)}</div>
+              <div className="mt-2 flex items-center justify-end gap-2">
+                <StatusPill status={status} />
+                <PaymentPill order={o} />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 grid sm:grid-cols-2 gap-2 text-sm text-gray-700">
+            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 font-black">Data</div>
+              <div className="mt-1 font-semibold">{fmtDate(created)}</div>
+            </div>
+            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 font-black">Kontakt</div>
+              <div className="mt-1 truncate">{email}</div>
+              <div className="text-xs text-gray-500 mt-1">{phone}</div>
+            </div>
+          </div>
+
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={handleSelect}
+              className="w-full inline-flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 active:bg-gray-50 active:scale-[0.98] transition font-extrabold text-sm cursor-pointer"
+            >
+              <Icon name="eye" className="w-4 h-4" />
+              Szczegóły zamówienia
+            </button>
           </div>
         </div>
       );
@@ -1119,70 +1014,6 @@
         });
       }, [orders, query]);
 
-      const fmtDate = (iso) => {
-        if (!iso) return "—";
-        try {
-          const d = new Date(iso);
-          return d.toLocaleString("pl-PL");
-        } catch { return String(iso); }
-      };
-
-      const sumOrder = (o) => currency(getOrderTotalPLN(o));
-
-      const OrderCard = ({ o, idx }) => {
-        const id = pickOrderId(o, idx);
-        const name = o.customer?.imieNazwisko || o.customer?.name || o.name || "—";
-        const email = o.customer?.email || o.email || "—";
-        const phone = o.customer?.telefon || o.customer?.phone || o.telefon || "—";
-        const status = o.status || o.paymentStatus || o.payuStatus || "—";
-        const created = pickCreatedAt(o);
-        const city = o.customer?.miasto ? `${o.customer.miasto}` : "—";
-
-        return (
-          <div className="bg-white border border-gray-200 rounded-3xl shadow-soft p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">ID</div>
-                <div className="mt-1 font-mono text-xs text-gray-700 break-all">{String(id)}</div>
-                <div className="mt-3 font-extrabold text-gray-900 truncate">{name}</div>
-                <div className="text-xs text-gray-500 mt-1">{city}</div>
-              </div>
-              <div className="text-right shrink-0">
-                <div className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">Kwota</div>
-                <div className="mt-1 text-lg font-black">{sumOrder(o)}</div>
-                <div className="mt-2 flex items-center justify-end gap-2">
-                  <StatusPill status={status} />
-                  <PaymentPill order={o} />
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-3 grid sm:grid-cols-2 gap-2 text-sm text-gray-700">
-              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3">
-                <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 font-black">Data</div>
-                <div className="mt-1 font-semibold">{fmtDate(created)}</div>
-              </div>
-              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3">
-                <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 font-black">Kontakt</div>
-                <div className="mt-1 truncate">{email}</div>
-                <div className="text-xs text-gray-500 mt-1">{phone}</div>
-              </div>
-            </div>
-
-            <div className="mt-3">
-              <button
-                type="button"
-                onClick={() => setSelected(o)}
-                className="w-full inline-flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
-              >
-                <Icon name="eye" className="w-4 h-4" />
-                Szczegóły zamówienia
-              </button>
-            </div>
-          </div>
-        );
-      };
-
       return (
         <div className="p-4 md:p-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
@@ -1191,7 +1022,6 @@
                 Lista zamówień z pełnymi danymi klienta (per priority).
               </div>
             </div>
-
             <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -1199,12 +1029,11 @@
                 </span>
                 <input
                   className="input-focus w-full sm:w-[360px] bg-white border border-gray-200 rounded-2xl pl-9 pr-4 py-3 shadow-soft"
-                  placeholder="Szukaj (ID, email, telefon, produkt, payu, gotówka...)"
+                  placeholder="Szukaj (ID, email, telefon, produkt, payu...)"
                   value={query}
                   onChange={(e)=>setQuery(e.target.value)}
                 />
               </div>
-
               <button
                 type="button"
                 onClick={() => load({ silent: false })}
@@ -1230,7 +1059,9 @@
               </div>
             ) : (
               <div className="space-y-3">
-                {rows.map((o, idx) => <OrderCard key={pickOrderId(o, idx)} o={o} idx={idx} />)}
+                {rows.map((o, idx) => (
+                  <OrderCard key={pickOrderId(o, idx)} o={o} idx={idx} onSelect={setSelected} />
+                ))}
               </div>
             )}
           </div>
@@ -1238,12 +1069,8 @@
           {/* Desktop table (lg+) */}
           <div className="mt-4 bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden hidden lg:block">
             <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-              <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">
-                Zamówienia
-              </div>
-              <div className="text-xs text-gray-500 font-semibold">
-                {loading ? "Ładowanie..." : `${rows.length} pozycji`}
-              </div>
+              <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Zamówienia</div>
+              <div className="text-xs text-gray-500 font-semibold">{loading ? "Ładowanie..." : `${rows.length} pozycji`}</div>
             </div>
 
             <div className="overflow-auto">
@@ -1276,9 +1103,7 @@
                     ))
                   ) : rows.length === 0 ? (
                     <tr>
-                      <td colSpan="8" className="px-4 py-10 text-center text-gray-600">
-                        Brak zamówień do wyświetlenia.
-                      </td>
+                      <td colSpan="8" className="px-4 py-10 text-center text-gray-600">Brak zamówień do wyświetlenia.</td>
                     </tr>
                   ) : (
                     rows.map((o, idx) => {
@@ -1290,7 +1115,7 @@
                       const created = pickCreatedAt(o);
 
                       return (
-                        <tr key={id} className="border-t border-gray-100 hover:bg-gray-50/60">
+                        <tr key={id} className="border-t border-gray-100 hover:bg-gray-50/60 transition">
                           <td className="px-4 py-4">
                             <div className="font-mono text-xs text-gray-700">{String(id)}</div>
                           </td>
@@ -1299,31 +1124,22 @@
                           </td>
                           <td className="px-4 py-4">
                             <div className="font-extrabold text-sm text-gray-900">{name}</div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              {o.customer?.miasto ? `${o.customer.miasto}` : "—"}
-                            </div>
+                            <div className="text-xs text-gray-500 mt-1">{o.customer?.miasto ? `${o.customer.miasto}` : "—"}</div>
                           </td>
                           <td className="px-4 py-4 text-sm text-gray-700">
                             <div>{email}</div>
                             <div className="text-xs text-gray-500 mt-1">{phone}</div>
                           </td>
-                          <td className="px-4 py-4">
-                            <StatusPill status={status} />
-                          </td>
-                          <td className="px-4 py-4">
-                            <PaymentPill order={o} />
-                          </td>
-                          <td className="px-4 py-4 text-right font-extrabold whitespace-nowrap">
-                            {sumOrder(o)}
-                          </td>
+                          <td className="px-4 py-4"><StatusPill status={status} /></td>
+                          <td className="px-4 py-4"><PaymentPill order={o} /></td>
+                          <td className="px-4 py-4 text-right font-extrabold whitespace-nowrap">{sumOrder(o)}</td>
                           <td className="px-4 py-4">
                             <button
                               type="button"
                               onClick={() => setSelected(o)}
-                              className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2.5 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
+                              className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2.5 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 active:bg-gray-50 active:scale-[0.98] transition font-extrabold text-sm cursor-pointer"
                             >
-                              <Icon name="eye" className="w-4 h-4" />
-                              Szczegóły
+                              <Icon name="eye" className="w-4 h-4" /> Szczegóły
                             </button>
                           </td>
                         </tr>
@@ -1347,8 +1163,8 @@
     };
 
     /* =======================
-      Pages: Push notifications
-    ======================= */
+       Push
+       ======================= */
     const Push = ({ token }) => {
       const toast = useToast();
       const [title, setTitle] = useState("");
@@ -1367,10 +1183,7 @@
         try {
           const r = await fetch(API.push, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...authHeader(token)
-            },
+            headers: { "Content-Type": "application/json", ...authHeader(token) },
             body: JSON.stringify({ title: title.trim() || undefined, body: msg }),
           });
           const data = await safeJson(r);
@@ -1397,15 +1210,12 @@
               <div>
                 <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Wysyłka push</div>
                 <div className="text-xl font-extrabold mt-1">Powiadomienia push</div>
-                <div className="text-sm text-gray-600 mt-2">
-                  Wpisz treść i wyślij — każdy użytkownik aplikacji otrzyma powiadomienie (beta).
-                </div>
+                <div className="text-sm text-gray-600 mt-2">Wpisz treść i wyślij — każdy użytkownik aplikacji otrzyma powiadomienie (beta).</div>
               </div>
               <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 border border-brand-yellow/30 grid place-items-center">
                 <Icon name="bell" className="w-6 h-6" />
               </div>
             </div>
-
             <div className="mt-5 grid gap-4">
               <div>
                 <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">Tytuł (opcjonalnie)</label>
@@ -1425,7 +1235,6 @@
                   onChange={(e)=>setBody(e.target.value)}
                 />
               </div>
-
               <button
                 type="button"
                 onClick={send}
@@ -1442,8 +1251,8 @@
     };
 
     /* =======================
-      Pages: Staff
-    ======================= */
+       Staff
+       ======================= */
     const Staff = ({ token }) => {
       const toast = useToast();
       const [loading, setLoading] = useState(true);
@@ -1535,15 +1344,12 @@
                 <div>
                   <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Dostęp</div>
                   <div className="text-xl font-extrabold mt-1">Dodaj pracownika</div>
-                  <div className="text-sm text-gray-600 mt-2">
-                    Pracownik loguje się do panelu własnym PIN-em (4 cyfry).
-                  </div>
+                  <div className="text-sm text-gray-600 mt-2">Pracownik loguje się do panelu własnym PIN-em (4 cyfry).</div>
                 </div>
                 <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 border border-brand-yellow/30 grid place-items-center">
                   <Icon name="user-plus" className="w-6 h-6" />
                 </div>
               </div>
-
               <div className="mt-5 space-y-4">
                 <div>
                   <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">Imię i nazwisko</label>
@@ -1564,7 +1370,6 @@
                     onChange={(e)=>setPin(onlyDigits4(e.target.value))}
                   />
                 </div>
-
                 <button
                   type="button"
                   onClick={add}
@@ -1576,7 +1381,6 @@
                 </button>
               </div>
             </div>
-
             <div className="lg:col-span-2 bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
                 <div>
@@ -1588,22 +1392,16 @@
                   onClick={load}
                   className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
                 >
-                  <Icon name="refresh-cw" className="w-4 h-4" />
-                  Odśwież
+                  <Icon name="refresh-cw" className="w-4 h-4" /> Odśwież
                 </button>
               </div>
-
               <div className="p-4">
                 {loading ? (
                   <div className="space-y-3">
-                    <Skeleton className="h-16 w-full" />
-                    <Skeleton className="h-16 w-full" />
-                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" />
                   </div>
                 ) : list.length === 0 ? (
-                  <div className="text-sm text-gray-600">
-                    Brak pracowników. Dodaj pierwszą osobę po lewej stronie.
-                  </div>
+                  <div className="text-sm text-gray-600">Brak pracowników. Dodaj pierwszą osobę po lewej stronie.</div>
                 ) : (
                   <div className="space-y-3">
                     {list.map((p, i) => {
@@ -1614,17 +1412,14 @@
                         <div key={id} className="border border-gray-200 rounded-2xl p-4 flex items-center justify-between gap-3 hover:ring-2 hover:ring-brand-yellow/15 transition">
                           <div className="min-w-0">
                             <div className="font-extrabold text-gray-900 truncate">{nm}</div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              ID: <span className="font-mono">{String(id)}</span> • {role}
-                            </div>
+                            <div className="text-xs text-gray-500 mt-1">ID: <span className="font-mono">{String(id)}</span> • {role}</div>
                           </div>
                           <button
                             type="button"
                             onClick={() => remove(id)}
                             className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-red-200 transition font-extrabold text-sm text-red-700"
                           >
-                            <Icon name="trash-2" className="w-4 h-4" />
-                            Usuń
+                            <Icon name="trash-2" className="w-4 h-4" /> Usuń
                           </button>
                         </div>
                       );
@@ -1639,33 +1434,21 @@
     };
 
     /* =======================
-      Realtime: SSE + fallback polling
-    ======================= */
+       Realtime
+       ======================= */
     const useOrdersRealtime = ({ token, enabled, onNewOrder, getLatestOrder }) => {
       const esRef = useRef(null);
       const pollRef = useRef(null);
-
       const stopAll = () => {
-        if (esRef.current) {
-          try { esRef.current.close(); } catch {}
-          esRef.current = null;
-        }
-        if (pollRef.current) {
-          clearInterval(pollRef.current);
-          pollRef.current = null;
-        }
+        if (esRef.current) { try { esRef.current.close(); } catch {} esRef.current = null; }
+        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
       };
 
       useEffect(() => {
-        if (!enabled || !token) {
-          stopAll();
-          return;
-        }
-
+        if (!enabled || !token) { stopAll(); return; }
         try {
           const es = new EventSource(API.events, { withCredentials: false });
           esRef.current = es;
-
           es.onmessage = (ev) => {
             let data = null;
             try { data = JSON.parse(ev.data); } catch { data = null; }
@@ -1675,11 +1458,9 @@
               onNewOrder?.(latest, data);
             }
           };
-
           es.onerror = () => {
             try { es.close(); } catch {}
             esRef.current = null;
-
             if (!pollRef.current) {
               pollRef.current = setInterval(async () => {
                 try {
@@ -1687,7 +1468,6 @@
                   const r = await fetch(url.toString(), { headers: { ...authHeader(token) } });
                   const data = await safeJson(r);
                   if (!r.ok) return;
-
                   const list = Array.isArray(data.orders) ? data.orders : [];
                   const newest = list[0];
                   if (newest) onNewOrder?.(newest, { type: "new_order", via: "poll" });
@@ -1703,7 +1483,6 @@
                 const r = await fetch(url.toString(), { headers: { ...authHeader(token) } });
                 const data = await safeJson(r);
                 if (!r.ok) return;
-
                 const list = Array.isArray(data.orders) ? data.orders : [];
                 const newest = list[0];
                 if (newest) onNewOrder?.(newest, { type: "new_order", via: "poll" });
@@ -1711,26 +1490,21 @@
             }, 4000);
           }
         }
-
         return () => stopAll();
       }, [token, enabled]);
     };
 
     /* =======================
-      App: main
-      FIX: desktop layout dopiero od lg (>=1024)
-      Dzięki temu iPad (często 768-1024) dostaje układ "mobile/tablet" który jest 100% klikalny i czytelny.
-    ======================= */
+       App Shell
+       ======================= */
     const STORAGE_KEY = "eatmi-admin-token";
 
     const AppShell = ({ token, onLogout }) => {
       const toast = useToast();
       const [tab, setTab] = useState("dashboard");
       const [ordersCount, setOrdersCount] = useState(0);
-
       const [alertOpen, setAlertOpen] = useState(false);
       const [alertOrder, setAlertOrder] = useState(null);
-
       const latestOrderRef = useRef(null);
 
       useEffect(() => { window.lucide?.createIcons?.(); }, [tab, ordersCount, alertOpen]);
@@ -1739,13 +1513,11 @@
                     tab === "orders" ? "Zamówienia" :
                     tab === "push" ? "Powiadomienia push" :
                     tab === "staff" ? "Obsługa" : "Panel";
-
       const subtitle =
         tab === "dashboard" ? "Statystyki i szybki podgląd." :
         tab === "orders" ? "Wszystkie zamówienia i dane klienta." :
         tab === "push" ? "Wyślij powiadomienie na telefony użytkowników." :
-        tab === "staff" ? "Zarządzaj dostępem pracowników." :
-        "";
+        tab === "staff" ? "Zarządzaj dostępem pracowników." : "";
 
       const acknowledge = () => {
         const o = alertOrder;
@@ -1755,10 +1527,8 @@
         } else {
           localStorage.setItem(STORAGE_LAST_ACK, JSON.stringify({ lastSeenKey: "ack", ts: Date.now() }));
         }
-
         setAlertOpen(false);
         setAlertOrder(null);
-
         setTab("orders");
         toast.show("ok", "Powiadomienie", "Potwierdzono nowe zamówienie.");
       };
@@ -1766,17 +1536,13 @@
       const handleNewOrder = (orderObj, meta) => {
         const o = orderObj || latestOrderRef.current;
         if (!o) return;
-
         const newestKey = `${pickOrderId(o, 0)}|${pickCreatedAt(o) || ""}`;
-
         const rawAck = localStorage.getItem(STORAGE_LAST_ACK) || "";
         let ack = null;
         try { ack = rawAck ? JSON.parse(rawAck) : null; } catch { ack = null; }
         const lastSeenKey = ack?.lastSeenKey || "";
-
         if (!newestKey || newestKey === lastSeenKey) return;
         if (alertOpen) return;
-
         setAlertOrder(o);
         setAlertOpen(true);
       };
@@ -1801,64 +1567,27 @@
 
       return (
         <div className="min-h-screen">
-          <NewOrderOverlay
-            open={alertOpen}
-            orderPreview={alertOrder}
-            onAcknowledge={acknowledge}
-          />
-
+          <NewOrderOverlay open={alertOpen} orderPreview={alertOrder} onAcknowledge={acknowledge} />
           <div className={alertOpen ? "no-interact" : ""}>
-            {/* DESKTOP dopiero od lg */}
+            {/* DESKTOP (lg+) */}
             <div className="hidden lg:flex">
               <aside className="fixed top-0 left-0 bottom-0 w-[var(--sidebar-w)] p-4">
                 <div className="bg-white/85 border border-white/60 shadow-glass rounded-3xl p-4 h-full flex flex-col">
                   <Logo />
-
                   <div className="mt-5 space-y-2">
-                    <NavItem
-                      active={tab === "dashboard"}
-                      icon="layout-dashboard"
-                      label="Dashboard"
-                      onClick={() => setTab("dashboard")}
-                    />
-                    <NavItem
-                      active={tab === "orders"}
-                      icon="shopping-bag"
-                      label="Zamówienia"
-                      badge={ordersCount}
-                      onClick={() => setTab("orders")}
-                    />
-                    <NavItem
-                      active={tab === "push"}
-                      icon="bell"
-                      label="Powiadomienia push"
-                      onClick={() => setTab("push")}
-                    />
-                    <NavItem
-                      active={tab === "staff"}
-                      icon="users"
-                      label="Obsługa"
-                      onClick={() => setTab("staff")}
-                    />
+                    <NavItem active={tab === "dashboard"} icon="layout-dashboard" label="Dashboard" onClick={() => setTab("dashboard")} />
+                    <NavItem active={tab === "orders"} icon="shopping-bag" label="Zamówienia" badge={ordersCount} onClick={() => setTab("orders")} />
+                    <NavItem active={tab === "push"} icon="bell" label="Powiadomienia push" onClick={() => setTab("push")} />
+                    <NavItem active={tab === "staff"} icon="users" label="Obsługa" onClick={() => setTab("staff")} />
                   </div>
-
                   <div className="mt-auto pt-3">
-                    <button
-                      type="button"
-                      onClick={onLogout}
-                      className="w-full inline-flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
-                    >
-                      <Icon name="log-out" className="w-4 h-4" />
-                      Wyloguj
+                    <button type="button" onClick={onLogout} className="w-full inline-flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm">
+                      <Icon name="log-out" className="w-4 h-4" /> Wyloguj
                     </button>
-
-                    <div className="mt-3 text-xs text-gray-500 text-center">
-                      eatmi.pl • panel administratora
-                    </div>
+                    <div className="mt-3 text-xs text-gray-500 text-center">eatmi.pl • panel administratora</div>
                   </div>
                 </div>
               </aside>
-
               <main className="ml-[var(--sidebar-w)] w-full">
                 <Topbar title={title} subtitle={subtitle} onLogout={onLogout} />
                 {tab === "dashboard" && <Dashboard token={token} />}
@@ -1868,52 +1597,17 @@
               </main>
             </div>
 
-            {/* MOBILE + TABLET (do lg): czytelny, klikalny układ z gridem */}
+            {/* MOBILE + TABLET (lg hidden) */}
             <div className="lg:hidden">
               <Topbar title={title} subtitle={subtitle} onLogout={onLogout} />
-
               <div className="px-4 pt-4">
                 <div className="bg-white/85 border border-white/60 shadow-glass rounded-3xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <button
-                    className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${
-                      tab==="dashboard" ? "bg-brand-yellow/20 border-brand-yellow/30" : "bg-white border-gray-200"
-                    }`}
-                    onClick={()=>setTab("dashboard")}
-                  >
-                    <Icon name="layout-dashboard" className="w-4 h-4" /> Dashboard
-                  </button>
-                  <button
-                    className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${
-                      tab==="orders" ? "bg-brand-yellow/20 border-brand-yellow/30" : "bg-white border-gray-200"
-                    }`}
-                    onClick={()=>setTab("orders")}
-                  >
-                    <Icon name="shopping-bag" className="w-4 h-4" /> Zamówienia
-                    {ordersCount > 0 && (
-                      <span className="ml-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-gray-900 text-white">
-                        {ordersCount > 99 ? "99+" : ordersCount}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${
-                      tab==="push" ? "bg-brand-yellow/20 border-brand-yellow/30" : "bg-white border-gray-200"
-                    }`}
-                    onClick={()=>setTab("push")}
-                  >
-                    <Icon name="bell" className="w-4 h-4" /> Push
-                  </button>
-                  <button
-                    className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${
-                      tab==="staff" ? "bg-brand-yellow/20 border-brand-yellow/30" : "bg-white border-gray-200"
-                    }`}
-                    onClick={()=>setTab("staff")}
-                  >
-                    <Icon name="users" className="w-4 h-4" /> Obsługa
-                  </button>
+                  <button className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${tab==="dashboard"?"bg-brand-yellow/20 border-brand-yellow/30":"bg-white border-gray-200"}`} onClick={()=>setTab("dashboard")}><Icon name="layout-dashboard" className="w-4 h-4" /> Dashboard</button>
+                  <button className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${tab==="orders"?"bg-brand-yellow/20 border-brand-yellow/30":"bg-white border-gray-200"}`} onClick={()=>setTab("orders")}><Icon name="shopping-bag" className="w-4 h-4" /> Zamówienia {ordersCount > 0 && <span className="ml-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-gray-900 text-white">{ordersCount>99?"99+":ordersCount}</span>}</button>
+                  <button className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${tab==="push"?"bg-brand-yellow/20 border-brand-yellow/30":"bg-white border-gray-200"}`} onClick={()=>setTab("push")}><Icon name="bell" className="w-4 h-4" /> Push</button>
+                  <button className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${tab==="staff"?"bg-brand-yellow/20 border-brand-yellow/30":"bg-white border-gray-200"}`} onClick={()=>setTab("staff")}><Icon name="users" className="w-4 h-4" /> Obsługa</button>
                 </div>
               </div>
-
               {tab === "dashboard" && <Dashboard token={token} />}
               {tab === "orders" && <OrdersWithBridge />}
               {tab === "push" && <Push token={token} />}
@@ -1926,19 +1620,9 @@
 
     const Root = () => {
       const [token, setToken] = useState(() => localStorage.getItem(STORAGE_KEY) || "");
-
       useEffect(() => { window.lucide?.createIcons?.(); });
-
-      const onAuth = (t) => {
-        setToken(t);
-        localStorage.setItem(STORAGE_KEY, t);
-      };
-
-      const logout = () => {
-        setToken("");
-        localStorage.removeItem(STORAGE_KEY);
-      };
-
+      const onAuth = (t) => { setToken(t); localStorage.setItem(STORAGE_KEY, t); };
+      const logout = () => { setToken(""); localStorage.removeItem(STORAGE_KEY); };
       return token ? <AppShell token={token} onLogout={logout} /> : <Login onAuth={onAuth} />;
     };
 
