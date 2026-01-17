@@ -579,17 +579,26 @@
       const show = toast?.show;
 
       const add = (entry) => {
+        const uuid =
+          (typeof window !== "undefined" &&
+            window.crypto &&
+            typeof window.crypto.randomUUID === "function")
+            ? window.crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
         const newItem = {
-          id: (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
+          id: uuid,
           qty: 1,
-          addons: [], 
+          addons: [],
           ...entry
         };
+
         setCart(prev => [...prev, newItem]);
         if (show) show(`Dodano: ${entry.name}`);
         haptics();
-        return newItem.id; 
+        return newItem.id;
       };
+
 
       const remove  = (id) => setCart(prev => prev.filter(i => i.id !== id));
 
