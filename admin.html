@@ -2,7 +2,7 @@
 <html lang="pl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" />
   <meta name="theme-color" content="#FFC107" />
   <title>eatmi.pl — Panel Administratora</title>
   <meta name="description" content="Panel administratora eatmi.pl" />
@@ -36,7 +36,14 @@
             glass: '0 8px 25px rgba(0,0,0,.12)',
             kiosk: '0 14px 50px rgba(0,0,0,.35)'
           },
-          borderRadius: { xl2: '1.25rem' }
+          borderRadius: { xl2: '1.25rem' },
+          screens: {
+            'xs': '375px',
+            'sm': '640px',
+            'md': '768px',
+            'lg': '1024px',
+            'xl': '1280px',
+          }
         }
       }
     };
@@ -45,35 +52,43 @@
 
   <style>
     :root{
-      --safe-b: env(safe-area-inset-bottom, 0px);
-      --safe-t: env(safe-area-inset-top, 0px);
+      --safe-b: env(safe-area-inset-bottom, 20px);
+      --safe-t: env(safe-area-inset-top, 20px);
       --sidebar-w: 280px;
     }
-    html, body { height: 100%; }
-    body { overscroll-behavior-y: none; }
-
-    .liquid { background: rgba(255,255,255,.75); backdrop-filter: blur(12px); }
-    .input-focus { outline: none; }
-    .input-focus:focus { box-shadow: 0 0 0 3px rgba(255,193,7,.35); border-color: rgba(255,193,7,.75); }
-    .toast-enter { animation: toastIn .18s ease-out; }
-    @keyframes toastIn { from { transform: translateY(8px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
-
-    /* Subtle background */
-    .bg-soft {
-      background:
-        radial-gradient(900px 500px at 20% -10%, rgba(255,193,7,.22), transparent 55%),
-        radial-gradient(700px 450px at 95% 20%, rgba(59,130,246,.14), transparent 55%),
-        radial-gradient(600px 400px at 30% 110%, rgba(34,197,94,.12), transparent 55%),
-        linear-gradient(#fff, #f7f8fb);
+    html, body { height: 100%; width: 100%; }
+    body { 
+      overscroll-behavior-y: none; 
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
 
-    /* Drawer scroll */
-    .drawer-scroll { max-height: calc(100vh - 140px); overflow: auto; -webkit-overflow-scrolling: touch; }
+    .liquid { background: rgba(255,255,255,.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+    
+    /* Input focus ring adjustment */
+    .input-focus { outline: none; transition: box-shadow 0.2s; font-size: 16px; /* Prevents iOS zoom */ }
+    .input-focus:focus { box-shadow: 0 0 0 3px rgba(255,193,7,.35); border-color: rgba(255,193,7,.75); }
+    
+    .toast-enter { animation: toastIn .25s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    @keyframes toastIn { from { transform: translateY(20px) scale(0.95); opacity: 0 } to { transform: translateY(0) scale(1); opacity: 1 } }
 
-    /* New order full-screen overlay flashing */
-    .flash-yellow { background: #FFC107; }
-    .flash-white { background: #ffffff; }
-    .no-interact { pointer-events: none; user-select: none; }
+    /* Subtle background pattern */
+    .bg-soft {
+      background:
+        radial-gradient(900px 500px at 20% -10%, rgba(255,193,7,.18), transparent 55%),
+        radial-gradient(700px 450px at 95% 20%, rgba(59,130,246,.10), transparent 55%),
+        radial-gradient(600px 400px at 30% 110%, rgba(34,197,94,.08), transparent 55%),
+        linear-gradient(#fff, #f7f8fb);
+      background-attachment: fixed;
+    }
+
+    /* Drawer scroll & fix */
+    .drawer-scroll { max-height: calc(100vh - 80px); overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: calc(20px + var(--safe-b)); }
+
+    /* Flashing alert */
+    .flash-yellow { background: #FFC107; transition: background 0.1s; }
+    .flash-white { background: #ffffff; transition: background 0.1s; }
+    .no-interact { pointer-events: none; user-select: none; filter: blur(2px); }
 
     /* iOS/Safari fixed centering helpers */
     .ios-fixed {
@@ -81,18 +96,25 @@
       inset: 0;
       width: 100vw;
       height: 100vh;
+      height: 100dvh; /* Dynamic viewport height for mobile browsers */
+    }
+
+    /* Custom Scrollbar for desktop */
+    @media (min-width: 1024px) {
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: #D1D5DB; }
     }
   </style>
 
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 
-<body class="bg-soft text-gray-900">
+<body class="bg-soft text-gray-900 selection:bg-brand-yellow/30">
   <div id="root"></div>
 
   <script type="text/babel">
@@ -279,25 +301,25 @@
         <ToastContext.Provider value={{ show }}>
           {children}
           {toast && (
-            <div className="fixed bottom-[calc(18px+var(--safe-b))] left-1/2 -translate-x-1/2 z-[200] pointer-events-none">
-              <div className="pointer-events-auto toast-enter bg-white/95 border border-gray-200 shadow-glass rounded-2xl px-4 py-3 min-w-[280px] max-w-[92vw] flex items-start gap-3">
-                <div className={`w-9 h-9 rounded-full grid place-items-center text-lg ${
+            <div className="fixed bottom-[calc(18px+var(--safe-b))] left-1/2 -translate-x-1/2 z-[200] pointer-events-none w-full flex justify-center px-4">
+              <div className="pointer-events-auto toast-enter bg-white/95 border border-gray-200 shadow-glass rounded-2xl px-4 py-3 min-w-[280px] max-w-md w-full flex items-start gap-3 backdrop-blur-md">
+                <div className={`w-9 h-9 rounded-full grid place-items-center text-lg shrink-0 ${
                   toast.type === "ok" ? "bg-emerald-100 text-emerald-700" :
                   toast.type === "error" ? "bg-red-100 text-red-700" :
                   "bg-gray-100 text-gray-700"
                 }`}>
                   {toast.type === "ok" ? "✓" : toast.type === "error" ? "!" : "i"}
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-gray-500">
                     {toast.title || (toast.type === "ok" ? "Sukces" : toast.type === "error" ? "Błąd" : "Info")}
                   </div>
-                  <div className="text-sm text-gray-900 mt-0.5">{toast.msg}</div>
+                  <div className="text-sm text-gray-900 mt-0.5 break-words font-medium">{toast.msg}</div>
                 </div>
                 <button
                   type="button"
                   onClick={close}
-                  className="ml-2 text-gray-400 hover:text-gray-700 text-xl leading-none"
+                  className="ml-2 text-gray-400 hover:text-gray-700 text-xl leading-none p-2 -mr-2"
                   aria-label="Zamknij"
                 >
                   ×
@@ -314,7 +336,7 @@
        ======================= */
     const Logo = () => (
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-2xl bg-white border border-gray-200 shadow-soft grid place-items-center overflow-hidden">
+        <div className="w-10 h-10 rounded-2xl bg-white border border-gray-200 shadow-soft grid place-items-center overflow-hidden shrink-0">
           <img
             src="https://i.imgur.com/f9TN0Gh.png"
             alt="eatmi"
@@ -323,16 +345,16 @@
           />
         </div>
         <div className="leading-tight">
-          <div className="font-extrabold tracking-tight">
+          <div className="font-extrabold tracking-tight text-lg">
             eatmi<span className="text-brand-yellow">.pl</span>
           </div>
-          <div className="text-xs text-gray-500 font-semibold">Panel administratora</div>
+          <div className="text-[11px] text-gray-500 font-bold uppercase tracking-wide">Administrator</div>
         </div>
       </div>
     );
 
     const Pill = ({ children }) => (
-      <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 border border-gray-200 shadow-soft text-xs font-extrabold">
+      <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 border border-gray-200 shadow-soft text-xs font-extrabold whitespace-nowrap">
         {children}
       </span>
     );
@@ -356,7 +378,7 @@
 
       return (
         <span
-          className={`inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] px-2.5 py-1 rounded-full border ${cls}`}
+          className={`inline-flex items-center gap-2 text-[10px] sm:text-[11px] font-black uppercase tracking-[0.14em] px-2.5 py-1 rounded-full border ${cls}`}
           title={p.label}
         >
           <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
@@ -463,16 +485,15 @@
         <div className={`ios-fixed z-[999] ${bgClass}`}>
           <div className="absolute inset-0"></div>
           <div className="relative h-full w-full flex items-center justify-center px-4 py-6">
-            <div className="w-full max-w-2xl bg-white/90 border border-black/10 shadow-kiosk rounded-3xl p-6 md:p-8">
+            <div className="w-full max-w-2xl bg-white/95 border border-black/10 shadow-kiosk rounded-3xl p-6 md:p-8 backdrop-blur-xl">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="text-xs uppercase tracking-[0.18em] font-black text-gray-700">NOWE ZAMÓWIENIE</div>
-                  <div className="text-3xl md:text-4xl font-black mt-2 leading-tight">Wpadło nowe zamówienie!</div>
-                  <div className="text-sm text-gray-700 mt-3">Dopóki nie klikniesz <span className="font-black">OK</span>, nie da się zamknąć tego ekranu.</div>
-                  <div className="mt-3 flex items-center gap-2 flex-wrap">
+                  <div className="text-2xl md:text-4xl font-black mt-2 leading-tight">Wpadło zamówienie!</div>
+                  <div className="text-sm text-gray-700 mt-3 font-medium">Musisz zatwierdzić (kliknij OK), aby przejść dalej.</div>
+                  <div className="mt-4 flex items-center gap-2 flex-wrap">
                     <span className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Płatność:</span>
                     <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 shadow-soft text-xs font-black">{pay.label}</span>
-                    <PaymentPill order={orderPreview} />
                   </div>
                 </div>
                 <div className="w-14 h-14 rounded-3xl bg-brand-yellow/30 border border-black/10 grid place-items-center shrink-0">
@@ -480,33 +501,34 @@
                 </div>
               </div>
 
-              <div className="mt-6 grid md:grid-cols-3 gap-3">
-                <div className="bg-white border border-gray-200 rounded-2xl p-4">
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
                   <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 font-black">ID</div>
-                  <div className="mt-2 font-mono text-sm break-all">{String(id)}</div>
+                  <div className="mt-1 font-mono text-sm break-all">{String(id)}</div>
                 </div>
-                <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
                   <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 font-black">Klient</div>
-                  <div className="mt-2 font-extrabold text-gray-900">{name}</div>
+                  <div className="mt-1 font-extrabold text-gray-900 truncate">{name}</div>
                   <div className="mt-1 text-xs text-gray-600 font-mono">{phone}</div>
                 </div>
-                <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
                   <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 font-black">Kwota</div>
-                  <div className="mt-2 text-2xl font-black">{currency(totalPLN)}</div>
+                  <div className="mt-1 text-2xl font-black">{currency(totalPLN)}</div>
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+              <div className="mt-8">
                 <button
                   type="button"
                   onClick={async () => { await ensure(); onAcknowledge?.(); }}
-                  className="w-full md:w-auto inline-flex items-center justify-center gap-2 bg-gray-900 text-white font-black rounded-2xl px-7 py-5 shadow-glass hover:ring-2 hover:ring-black/20 transition text-lg"
+                  className="w-full inline-flex items-center justify-center gap-3 bg-gray-900 text-white font-black rounded-2xl px-8 py-5 shadow-glass hover:ring-4 hover:ring-black/10 active:scale-[0.98] transition text-xl"
                 >
-                  <Icon name="check" className="w-6 h-6" /> OK
+                  <Icon name="check" className="w-6 h-6" /> OK, PRZYJMUJĘ
                 </button>
-                <div className="text-xs text-gray-700">Tip: po kliknięciu OK przejdź do zakładki <span className="font-black">Zamówienia</span>.</div>
+                <div className="mt-4 text-center text-xs text-gray-500">
+                  Kliknięcie OK zatrzyma alarm dźwiękowy.
+                </div>
               </div>
-              <div className="mt-5 text-[11px] text-gray-600">Uwaga: jeśli przeglądarka blokuje auto-dźwięk, kliknij OK — i tak musisz potwierdzić.</div>
             </div>
           </div>
         </div>
@@ -517,20 +539,20 @@
        Login
        ======================= */
     const Key = ({ label, onClick, variant="default" }) => {
-      const base = "w-full h-14 rounded-2xl border shadow-soft font-extrabold text-lg active:scale-[0.99] transition";
+      const base = "w-full h-16 sm:h-14 rounded-2xl border shadow-soft font-extrabold text-xl active:scale-[0.95] transition touch-manipulation";
       const styles =
-        variant === "primary" ? "bg-brand-yellow text-gray-900 border-black/5 hover:ring-2 hover:ring-brand-yellow/40" :
-        variant === "ghost" ? "bg-white text-gray-800 border-gray-200 hover:ring-2 hover:ring-brand-yellow/25" :
-        "bg-white text-gray-900 border-gray-200 hover:ring-2 hover:ring-brand-yellow/25";
+        variant === "primary" ? "bg-brand-yellow text-gray-900 border-black/5" :
+        variant === "ghost" ? "bg-white text-gray-800 border-gray-200" :
+        "bg-white text-gray-900 border-gray-200";
       return <button type="button" onClick={onClick} className={`${base} ${styles}`}>{label}</button>;
     };
 
     const PinDots = ({ value, max=4 }) => {
       const filled = value.length;
       return (
-        <div className="flex items-center justify-center gap-2">
+        <div className="flex items-center justify-center gap-3">
           {Array.from({ length: max }).map((_, i) => (
-            <div key={i} className={`w-3.5 h-3.5 rounded-full border ${i < filled ? "bg-gray-900 border-gray-900" : "bg-white border-gray-300"}`} />
+            <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all ${i < filled ? "bg-gray-900 border-gray-900 scale-110" : "bg-transparent border-gray-300"}`} />
           ))}
         </div>
       );
@@ -586,27 +608,25 @@
       };
 
       return (
-        <div className="min-h-screen flex items-center justify-center px-4 py-10">
+        <div className="min-h-screen flex items-center justify-center px-4 py-8">
           <div className="w-full max-w-md">
-            <div className="bg-white/85 border border-white/60 shadow-glass rounded-3xl p-6 md:p-7">
-              <div className="flex items-center justify-between gap-3">
+            <div className="bg-white/90 border border-white/60 shadow-glass rounded-3xl p-6 md:p-8 backdrop-blur-md">
+              <div className="flex items-center justify-between gap-3 mb-6">
                 <Logo />
                 <Pill>
                   <span className="text-[10px] uppercase tracking-[0.16em] text-gray-500">PIN</span>
-                  <span className="font-black text-gray-900">4 cyfry</span>
                 </Pill>
               </div>
-              <div className="mt-6 text-center">
+              <div className="text-center py-4">
                 <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Dostęp do panelu</div>
-                <div className="text-2xl font-extrabold mt-1">Wpisz kod</div>
-                <div className="text-sm text-gray-600 mt-2">Użyj klawiatury ekranowej lub klawiatury fizycznej.</div>
-                <div className="mt-5"><PinDots value={pin} /></div>
+                <div className="text-3xl font-black mt-2">Wpisz kod</div>
+                <div className="mt-8 mb-4"><PinDots value={pin} /></div>
               </div>
-              <div className="mt-6 grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-3 md:gap-4">
                 {["1","2","3","4","5","6","7","8","9"].map((d) => (
                   <Key key={d} label={d} onClick={() => addDigit(d)} />
                 ))}
-                <Key label="Wyczyść" variant="ghost" onClick={clear} />
+                <Key label="C" variant="ghost" onClick={clear} />
                 <Key label="0" onClick={() => addDigit("0")} />
                 <Key label="⌫" variant="ghost" onClick={back} />
               </div>
@@ -614,9 +634,9 @@
                 type="button"
                 onClick={() => submit()}
                 disabled={loading || pin.length !== 4}
-                className="mt-4 w-full bg-gray-900 text-white font-extrabold rounded-2xl px-5 py-4 shadow-glass hover:ring-2 hover:ring-brand-yellow/35 disabled:opacity-60 disabled:cursor-not-allowed transition"
+                className="mt-6 w-full bg-gray-900 text-white font-extrabold rounded-2xl px-5 py-4 shadow-glass hover:ring-4 hover:ring-brand-yellow/35 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition text-lg"
               >
-                {loading ? "Logowanie..." : "Zaloguj"}
+                {loading ? "Weryfikacja..." : "Zaloguj się"}
               </button>
             </div>
           </div>
@@ -631,21 +651,21 @@
       <button
         type="button"
         onClick={onClick}
-        className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border transition text-left ${
+        className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border transition text-left active:scale-[0.98] touch-manipulation ${
           active ? "bg-brand-yellow/20 border-brand-yellow/30 ring-1 ring-brand-yellow/30" : "bg-white border-gray-200 hover:ring-2 hover:ring-brand-yellow/20"
         }`}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <span className={`w-10 h-10 rounded-2xl grid place-items-center border ${active ? "bg-brand-yellow/25 border-brand-yellow/30" : "bg-gray-50 border-gray-200"}`}>
+          <span className={`w-10 h-10 rounded-2xl grid place-items-center border shrink-0 ${active ? "bg-brand-yellow/25 border-brand-yellow/30" : "bg-gray-50 border-gray-200"}`}>
             <Icon name={icon} className="w-5 h-5" />
           </span>
           <div className="min-w-0">
-            <div className="font-extrabold text-sm text-gray-900">{label}</div>
-            <div className="text-xs text-gray-500 truncate">{active ? "Aktywne" : "Otwórz"}</div>
+            <div className="font-extrabold text-sm text-gray-900 leading-tight">{label}</div>
+            <div className="text-[10px] text-gray-500 truncate font-medium">{active ? "Aktywne" : "Przejdź"}</div>
           </div>
         </div>
         {typeof badge === "number" && badge > 0 && (
-          <span className="shrink-0 text-[11px] font-black px-2.5 py-1 rounded-full bg-gray-900 text-white">{badge > 99 ? "99+" : badge}</span>
+          <span className="shrink-0 text-[10px] font-black px-2 py-1 rounded-full bg-gray-900 text-white shadow-sm">{badge > 99 ? "99+" : badge}</span>
         )}
       </button>
     );
@@ -654,18 +674,18 @@
       <div className="sticky top-0 z-40">
         <div className="mx-auto w-full">
           <div className="liquid border-b border-white/60">
-            <div className="px-4 md:px-6 py-4 flex items-center justify-between gap-4">
+            <div className="px-4 md:px-6 py-3 md:py-4 flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Panel</div>
-                <div className="text-xl md:text-2xl font-extrabold mt-1 truncate">{title}</div>
-                {subtitle && <div className="text-sm text-gray-600 mt-1">{subtitle}</div>}
+                <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold">Panel</div>
+                <div className="text-xl md:text-2xl font-extrabold leading-tight truncate">{title}</div>
+                {subtitle && <div className="hidden sm:block text-xs text-gray-600 mt-0.5">{subtitle}</div>}
               </div>
               <button
                 type="button"
                 onClick={onLogout}
-                className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
+                className="shrink-0 inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-3 py-2 md:px-4 md:py-3 shadow-soft active:scale-95 transition font-extrabold text-xs md:text-sm"
               >
-                <Icon name="log-out" className="w-4 h-4" /> Wyloguj
+                <Icon name="log-out" className="w-4 h-4" /> <span className="hidden xs:inline">Wyloguj</span>
               </button>
             </div>
           </div>
@@ -677,12 +697,12 @@
       <div className="bg-white border border-gray-200 rounded-3xl p-5 shadow-soft hover:shadow-md transition">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">{title}</div>
-            <div className="mt-2 text-3xl font-black tracking-tight">{loading ? <Skeleton className="h-9 w-40" /> : value}</div>
-            {hint && <div className="text-xs text-gray-500 mt-2">{hint}</div>}
+            <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold">{title}</div>
+            <div className="mt-1 md:mt-2 text-2xl md:text-3xl font-black tracking-tight text-gray-900">{loading ? <Skeleton className="h-9 w-32" /> : value}</div>
+            {hint && <div className="text-[11px] md:text-xs text-gray-500 mt-1">{hint}</div>}
           </div>
-          <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 border border-brand-yellow/30 grid place-items-center">
-            <Icon name={icon} className="w-6 h-6" />
+          <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-brand-yellow/20 border border-brand-yellow/30 grid place-items-center shrink-0">
+            <Icon name={icon} className="w-5 h-5 md:w-6 md:h-6" />
           </div>
         </div>
       </div>
@@ -702,7 +722,7 @@
           const r = await fetch(API.stats, { headers: { ...authHeader(token) } });
           const data = await safeJson(r);
           if (!r.ok) {
-            toast.show("error", "Dashboard", data.error || "Nie udało się pobrać statystyk.");
+            toast.show("error", "Dashboard", data.error || "Błąd pobierania danych.");
             setLoading(false);
             return;
           }
@@ -714,7 +734,7 @@
           });
         } catch (e) {
           console.log(e);
-          toast.show("error", "Dashboard", "Błąd połączenia z serwerem.");
+          toast.show("error", "Dashboard", "Błąd połączenia.");
         } finally {
           setLoading(false);
         }
@@ -724,21 +744,21 @@
       useEffect(() => { window.lucide?.createIcons?.(); });
 
       return (
-        <div className="p-4 md:p-6">
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-sm text-gray-600">Podgląd kluczowych danych — bez zbędnych elementów.</div>
+        <div className="p-4 md:p-6 pb-24">
+          <div className="flex items-center justify-between gap-3 mb-5">
+            <div className="text-xs md:text-sm text-gray-600">Szybki podgląd dnia.</div>
             <button
               type="button"
               onClick={load}
-              className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
+              className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-3 py-2 md:px-4 md:py-3 shadow-soft active:scale-95 transition font-extrabold text-xs md:text-sm"
             >
-              <Icon name="refresh-cw" className="w-4 h-4" /> Odśwież
+              <Icon name="refresh-cw" className="w-3 h-3 md:w-4 md:h-4" /> Odśwież
             </button>
           </div>
-          <div className="mt-5 grid gap-4 md:grid-cols-3">
-            <Card title="Zamówienia łącznie" value={stats.ordersTotal.toLocaleString("pl-PL")} icon="shopping-bag" loading={loading} hint="Suma wszystkich zamówień w systemie." />
-            <Card title="Zamówienia dziś" value={stats.ordersToday.toLocaleString("pl-PL")} icon="calendar" loading={loading} hint="Zamówienia z bieżącego dnia (per day)." />
-            <Card title="Zarobek" value={currency(stats.revenueTotal)} icon="wallet" loading={loading} hint="Łączny przychód (per start)." />
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+            <Card title="Zamówienia łącznie" value={stats.ordersTotal.toLocaleString("pl-PL")} icon="shopping-bag" loading={loading} hint="Suma zamówień (all time)." />
+            <Card title="Zamówienia dziś" value={stats.ordersToday.toLocaleString("pl-PL")} icon="calendar" loading={loading} hint="Licznik zerowany o północy." />
+            <Card title="Zarobek" value={currency(stats.revenueTotal)} icon="wallet" loading={loading} hint="Szacunkowy przychód." />
           </div>
         </div>
       );
@@ -755,7 +775,7 @@
         s.includes("cancel") || s.includes("anul") ? "bg-red-100 text-red-800 border-red-200" :
         "bg-gray-100 text-gray-800 border-gray-200";
       return (
-        <span className={`inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] px-2.5 py-1 rounded-full border ${cls}`}>
+        <span className={`inline-flex items-center gap-2 text-[10px] sm:text-[11px] font-black uppercase tracking-[0.14em] px-2.5 py-1 rounded-full border ${cls}`}>
           <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
           {status || "—"}
         </span>
@@ -769,26 +789,28 @@
         return () => window.removeEventListener("keydown", onKey);
       }, [open, onClose]);
       useEffect(() => { window.lucide?.createIcons?.(); }, [open]);
+
       if (!open) return null;
+
       return (
-        <div className="fixed inset-0 z-[160]">
-          <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true"></div>
-          <div className="absolute inset-0 lg:inset-y-0 lg:right-0 lg:left-auto w-full lg:max-w-2xl bg-white border-l border-gray-200 shadow-kiosk">
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between gap-3 sticky top-0 bg-white z-10">
+        <div className="fixed inset-0 z-[160] flex justify-end">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={onClose} aria-hidden="true"></div>
+          <div className="relative w-full lg:max-w-2xl h-full bg-white border-l border-gray-200 shadow-kiosk flex flex-col animate-slideInRight">
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between gap-3 shrink-0 bg-white z-10 safe-top-padding">
               <div className="min-w-0">
-                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Szczegóły</div>
-                <div className="text-lg font-extrabold truncate">{title}</div>
+                <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold">Szczegóły</div>
+                <div className="text-lg font-extrabold truncate leading-tight">{title}</div>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                className="w-11 h-11 rounded-2xl border border-gray-200 bg-white shadow-soft grid place-items-center hover:ring-2 hover:ring-brand-yellow/25"
+                className="w-10 h-10 rounded-2xl border border-gray-200 bg-white shadow-soft grid place-items-center active:scale-90 transition"
                 aria-label="Zamknij"
               >
                 <Icon name="x" className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-4 drawer-scroll">
+            <div className="flex-1 overflow-y-auto drawer-scroll p-4 md:p-6">
               {children}
             </div>
           </div>
@@ -797,9 +819,9 @@
     };
 
     const KV = ({ k, v, mono=false }) => (
-      <div className="flex items-start justify-between gap-4 border-b border-gray-100 py-3">
-        <div className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">{k}</div>
-        <div className={`text-sm text-gray-900 text-right ${mono ? "font-mono" : "font-semibold"} break-words max-w-[65%]`}>{v ?? "—"}</div>
+      <div className="flex items-start justify-between gap-4 border-b border-gray-100 py-3 last:border-0">
+        <div className="text-[11px] uppercase tracking-widest text-gray-500 font-extrabold shrink-0 mt-0.5">{k}</div>
+        <div className={`text-sm text-gray-900 text-right ${mono ? "font-mono" : "font-semibold"} break-words max-w-[70%]`}>{v ?? "—"}</div>
       </div>
     );
 
@@ -810,61 +832,54 @@
       const pay = resolvePayment(order);
 
       return (
-        <div className="space-y-6">
-          <div className="bg-gray-50 border border-gray-200 rounded-3xl p-4">
-            <div className="flex items-start justify-between gap-3">
+        <div className="space-y-5 pb-10">
+          <div className="bg-gray-50 border border-gray-200 rounded-3xl p-5">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
               <div>
-                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Status</div>
+                <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold">Status & Płatność</div>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <StatusPill status={order.status || order.paymentStatus || order.payuStatus || "—"} />
                   <PaymentPill order={order} />
                 </div>
-                <div className="mt-2 text-sm text-gray-600"><span className="font-extrabold">Płatność:</span> {pay.label}</div>
+                <div className="mt-2 text-sm text-gray-600 font-medium">{pay.label}</div>
               </div>
-              <div className="text-right">
-                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Kwota</div>
-                <div className="mt-2 text-2xl font-black">{currency(totalPLN)}</div>
+              <div className="text-left sm:text-right border-t sm:border-0 border-gray-200 pt-3 sm:pt-0 mt-2 sm:mt-0">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold">Do zapłaty</div>
+                <div className="mt-1 text-3xl font-black">{currency(totalPLN)}</div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-3xl p-4">
-            <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Dane klienta</div>
-            <div className="mt-2">
+          <div className="bg-white border border-gray-200 rounded-3xl p-5 shadow-sm">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold mb-2">Dane klienta</div>
+            <div className="flex flex-col">
               <KV k="Imię i nazwisko" v={c.imieNazwisko || c.name} />
               <KV k="Telefon" v={c.telefon || c.phone} mono />
               <KV k="Email" v={c.email} />
-              <KV k="Miasto" v={c.miasto} />
-              <KV k="Kod" v={c.kod} mono />
-              <KV k="Ulica" v={c.ulica} />
-              <KV k="Nr budynku" v={c.nrBud} mono />
-              <KV k="Piętro" v={c.pietro} mono />
-              <KV k="Nr lokalu" v={c.lokal} mono />
+              <KV k="Adres" v={`${c.miasto || '-'}, ${c.ulica || '-'} ${c.nrBud || ''}${c.lokal ? '/'+c.lokal : ''}`} />
+              <KV k="Kod pocztowy" v={c.kod} mono />
               <KV k="Uwagi" v={c.uwagi} />
               <KV k="Faktura" v={c.faktura ? "Tak" : "Nie"} />
               {c.faktura && <><KV k="NIP" v={c.nip} mono /><KV k="Firma" v={c.firma} /></>}
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-3xl p-4">
-            <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Pozycje</div>
-            <div className="mt-3 space-y-3">
-              {cart.length === 0 ? <div className="text-sm text-gray-600">Brak danych koszyka w obiekcie zamówienia.</div> : cart.map((it, i) => {
+          <div className="bg-white border border-gray-200 rounded-3xl p-5 shadow-sm">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold mb-3">Koszyk ({cart.length})</div>
+            <div className="space-y-3">
+              {cart.length === 0 ? <div className="text-sm text-gray-600 italic">Pusty koszyk w danych.</div> : cart.map((it, i) => {
                 const qty = Number(it.qty || it.quantity || 1) || 1;
                 const name = resolveProductName(it);
                 const unitPricePLN = getItemUnitPricePLN(it);
                 const linePLN = unitPricePLN * qty;
                 return (
-                  <div key={i} className="border border-gray-200 rounded-2xl p-4 hover:ring-2 hover:ring-brand-yellow/15 transition">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="font-extrabold text-gray-900">{name}</div>
-                        <div className="text-xs text-gray-500 mt-1"><span className="font-black">{qty}×</span> szt.</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-black">{currency(linePLN)}</div>
-                        <div className="text-xs text-gray-500 mt-1">{currency(unitPricePLN)} / szt.</div>
-                      </div>
+                  <div key={i} className="border border-gray-200 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-bold text-gray-900 text-sm leading-tight">{name}</div>
+                      <div className="text-xs text-gray-500 mt-1 font-mono"><span className="font-black text-gray-900">{qty}x</span> @ {currency(unitPricePLN)}</div>
+                    </div>
+                    <div className="font-black text-sm text-right shrink-0 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                      {currency(linePLN)}
                     </div>
                   </div>
                 );
@@ -872,79 +887,47 @@
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-3xl p-4">
-            <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Dane techniczne</div>
-            <div className="mt-2">
-              <KV k="Płatność" v={pay.label} />
-              <KV k="paymentMethod" v={order.paymentMethod ?? order.paymentType ?? order.payment?.method ?? order.payment?.type ?? "—"} mono />
-              <KV k="isOffline" v={String(!!order.isOffline)} mono />
-              <KV k="orderId" v={order.orderId || order.id || order._id} mono />
-              <KV k="extOrderId" v={order.extOrderId} mono />
-              <KV k="payuOrderId" v={order.payuOrderId || order.payu?.orderId} mono />
-              <KV k="createdAt" v={order.createdAt || order.created_at || order.date || order.timestamp} mono />
+          <div className="bg-white border border-gray-200 rounded-3xl p-5 shadow-sm">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold mb-2">Techniczne</div>
+            <div className="flex flex-col">
+               <KV k="ID (DB)" v={order.orderId || order.id || order._id} mono />
+               <KV k="Ext ID" v={order.extOrderId} mono />
+               <KV k="PayU ID" v={order.payuOrderId || order.payu?.orderId} mono />
+               <KV k="Utworzono" v={fmtDate(pickCreatedAt(order))} mono />
             </div>
           </div>
         </div>
       );
     };
 
-    /* =======================
-       Orders Component (FIXED for iPad/Touch)
-       OrderCard is defined OUTSIDE to prevent re-creation on render
-       ======================= */
-
     const OrderCard = ({ o, idx, onSelect }) => {
       const id = pickOrderId(o, idx);
       const name = o.customer?.imieNazwisko || o.customer?.name || o.name || "—";
-      const email = o.customer?.email || o.email || "—";
-      const phone = o.customer?.telefon || o.customer?.phone || o.telefon || "—";
-      const status = o.status || o.paymentStatus || o.payuStatus || "—";
-      const created = pickCreatedAt(o);
-      const city = o.customer?.miasto ? `${o.customer.miasto}` : "—";
-
-      // Handlers
-      const handleSelect = () => onSelect(o);
+      const total = sumOrder(o);
+      const status = o.status || o.paymentStatus || "—";
+      const date = fmtDate(pickCreatedAt(o));
 
       return (
-        <div className="bg-white border border-gray-200 rounded-3xl shadow-soft p-4 transform transition-transform duration-200">
-          <div className="flex items-start justify-between gap-3">
+        <div 
+          onClick={() => onSelect(o)}
+          className="bg-white border border-gray-200 rounded-3xl p-4 shadow-soft active:scale-[0.98] transition cursor-pointer relative overflow-hidden group"
+        >
+          <div className="flex justify-between items-start gap-3">
             <div className="min-w-0">
-              <div className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">ID</div>
-              <div className="mt-1 font-mono text-xs text-gray-700 break-all">{String(id)}</div>
-              <div className="mt-3 font-extrabold text-gray-900 truncate">{name}</div>
-              <div className="text-xs text-gray-500 mt-1">{city}</div>
+              <div className="text-[10px] text-gray-500 font-mono mb-1">#{String(id).slice(-6)}</div>
+              <div className="font-extrabold text-gray-900 truncate text-lg">{name}</div>
+              <div className="text-xs text-gray-500 mt-0.5 font-medium">{date}</div>
             </div>
             <div className="text-right shrink-0">
-              <div className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">Kwota</div>
-              <div className="mt-1 text-lg font-black">{sumOrder(o)}</div>
-              <div className="mt-2 flex items-center justify-end gap-2">
-                <StatusPill status={status} />
-                <PaymentPill order={o} />
-              </div>
+              <div className="font-black text-xl">{total}</div>
             </div>
           </div>
-
-          <div className="mt-3 grid sm:grid-cols-2 gap-2 text-sm text-gray-700">
-            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 font-black">Data</div>
-              <div className="mt-1 font-semibold">{fmtDate(created)}</div>
-            </div>
-            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 font-black">Kontakt</div>
-              <div className="mt-1 truncate">{email}</div>
-              <div className="text-xs text-gray-500 mt-1">{phone}</div>
-            </div>
+          <div className="mt-4 flex items-center gap-2 flex-wrap">
+            <StatusPill status={status} />
+            <PaymentPill order={o} />
           </div>
-
-          <div className="mt-3">
-            <button
-              type="button"
-              onClick={handleSelect}
-              className="w-full inline-flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 active:bg-gray-50 active:scale-[0.98] transition font-extrabold text-sm cursor-pointer"
-            >
-              <Icon name="eye" className="w-4 h-4" />
-              Szczegóły zamówienia
-            </button>
+          <div className="absolute right-4 bottom-4 opacity-0 group-hover:opacity-100 transition-opacity hidden lg:block text-brand-yellow">
+             <Icon name="chevron-right" className="w-6 h-6" />
           </div>
         </div>
       );
@@ -970,7 +953,7 @@
           const r = await fetch(url.toString(), { headers: { ...authHeader(token) } });
           const data = await safeJson(r);
           if (!r.ok) {
-            toast.show("error", "Zamówienia", data.error || "Nie udało się pobrać zamówień.");
+            toast.show("error", "Zamówienia", data.error || "Błąd pobierania.");
             if (!silent) setLoading(false);
             return;
           }
@@ -981,22 +964,17 @@
 
           const newest = list[0];
           if (newest) {
-            const newestId = pickOrderId(newest, 0);
-            const newestCreated = pickCreatedAt(newest) || "";
-            const newestKey = `${newestId}|${newestCreated}`;
-
+            const newestKey = `${pickOrderId(newest, 0)}|${pickCreatedAt(newest)}`;
             const rawAck = localStorage.getItem(STORAGE_LAST_ACK) || "";
             let ack = null;
             try { ack = rawAck ? JSON.parse(rawAck) : null; } catch { ack = null; }
-            const lastSeenKey = ack?.lastSeenKey || "";
-
-            if (newestKey && newestKey !== lastSeenKey) {
+            if (newestKey && newestKey !== ack?.lastSeenKey) {
               onNewOrderDetected?.(newest);
             }
           }
         } catch (e) {
           console.log(e);
-          if (!silent) toast.show("error", "Zamówienia", "Błąd połączenia z serwerem.");
+          if (!silent) toast.show("error", "Zamówienia", "Błąd sieci.");
         } finally {
           if (!silent) setLoading(false);
         }
@@ -1008,155 +986,90 @@
       const rows = useMemo(() => {
         const q = query.trim().toLowerCase();
         if (!q) return orders;
-        return orders.filter((o) => {
-          const blob = JSON.stringify(o || {}).toLowerCase();
-          return blob.includes(q);
-        });
+        return orders.filter((o) => JSON.stringify(o).toLowerCase().includes(q));
       }, [orders, query]);
 
       return (
-        <div className="p-4 md:p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="p-4 md:p-6 pb-24">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
             <div className="flex-1">
-              <div className="text-sm text-gray-600">
-                Lista zamówień z pełnymi danymi klienta (per priority).
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  <Icon name="search" className="w-4 h-4" />
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                  <Icon name="search" className="w-5 h-5" />
                 </span>
                 <input
-                  className="input-focus w-full sm:w-[360px] bg-white border border-gray-200 rounded-2xl pl-9 pr-4 py-3 shadow-soft"
-                  placeholder="Szukaj (ID, email, telefon, produkt, payu...)"
+                  className="input-focus w-full lg:max-w-md bg-white border border-gray-200 rounded-2xl pl-11 pr-4 py-3 md:py-3.5 shadow-soft text-base"
+                  placeholder="Szukaj (nazwisko, telefon, ID)..."
                   value={query}
                   onChange={(e)=>setQuery(e.target.value)}
                 />
               </div>
-              <button
-                type="button"
-                onClick={() => load({ silent: false })}
-                className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
-              >
-                <Icon name="refresh-cw" className="w-4 h-4" />
-                Odśwież
-              </button>
             </div>
+            <button
+              type="button"
+              onClick={() => load({ silent: false })}
+              className="inline-flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-2xl px-5 py-3 md:py-3.5 shadow-soft active:scale-95 transition font-extrabold text-sm"
+            >
+              <Icon name="refresh-cw" className="w-4 h-4" /> Odśwież
+            </button>
           </div>
 
-          {/* Mobile/Tablet cards (poniżej lg) */}
-          <div className="mt-4 lg:hidden">
+          {/* Mobile / Tablet List */}
+          <div className="lg:hidden space-y-3">
             {loading ? (
-              <div className="space-y-3">
-                <Skeleton className="h-40 w-full" />
-                <Skeleton className="h-40 w-full" />
-                <Skeleton className="h-40 w-full" />
-              </div>
+              [1,2,3].map(i => <Skeleton key={i} className="h-40 w-full" />)
             ) : rows.length === 0 ? (
-              <div className="bg-white border border-gray-200 rounded-3xl shadow-soft p-8 text-center text-gray-600">
-                Brak zamówień do wyświetlenia.
-              </div>
+              <div className="bg-white/50 border border-gray-200 rounded-3xl p-8 text-center text-gray-500">Brak wyników.</div>
             ) : (
-              <div className="space-y-3">
-                {rows.map((o, idx) => (
-                  <OrderCard key={pickOrderId(o, idx)} o={o} idx={idx} onSelect={setSelected} />
-                ))}
-              </div>
+              rows.map((o, idx) => <OrderCard key={pickOrderId(o, idx)} o={o} idx={idx} onSelect={setSelected} />)
             )}
           </div>
 
-          {/* Desktop table (lg+) */}
-          <div className="mt-4 bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden hidden lg:block">
-            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-              <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Zamówienia</div>
-              <div className="text-xs text-gray-500 font-semibold">{loading ? "Ładowanie..." : `${rows.length} pozycji`}</div>
-            </div>
-
-            <div className="overflow-auto">
-              <table className="min-w-[1040px] w-full">
-                <thead className="bg-gray-50">
-                  <tr className="text-left text-xs uppercase tracking-widest text-gray-500">
-                    <th className="px-4 py-3 font-extrabold">ID</th>
-                    <th className="px-4 py-3 font-extrabold">Data</th>
-                    <th className="px-4 py-3 font-extrabold">Klient</th>
-                    <th className="px-4 py-3 font-extrabold">Kontakt</th>
-                    <th className="px-4 py-3 font-extrabold">Status</th>
-                    <th className="px-4 py-3 font-extrabold">Płatność</th>
-                    <th className="px-4 py-3 font-extrabold text-right">Kwota</th>
-                    <th className="px-4 py-3 font-extrabold"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    Array.from({ length: 6 }).map((_, i) => (
-                      <tr key={i} className="border-t border-gray-100">
-                        <td className="px-4 py-4"><Skeleton className="h-5 w-32" /></td>
-                        <td className="px-4 py-4"><Skeleton className="h-5 w-40" /></td>
-                        <td className="px-4 py-4"><Skeleton className="h-5 w-44" /></td>
-                        <td className="px-4 py-4"><Skeleton className="h-5 w-56" /></td>
-                        <td className="px-4 py-4"><Skeleton className="h-6 w-28" /></td>
-                        <td className="px-4 py-4"><Skeleton className="h-6 w-28" /></td>
-                        <td className="px-4 py-4 text-right"><Skeleton className="h-5 w-24 ml-auto" /></td>
-                        <td className="px-4 py-4"><Skeleton className="h-10 w-28" /></td>
-                      </tr>
-                    ))
-                  ) : rows.length === 0 ? (
-                    <tr>
-                      <td colSpan="8" className="px-4 py-10 text-center text-gray-600">Brak zamówień do wyświetlenia.</td>
-                    </tr>
-                  ) : (
-                    rows.map((o, idx) => {
-                      const id = pickOrderId(o, idx);
-                      const name = o.customer?.imieNazwisko || o.customer?.name || o.name || "—";
-                      const email = o.customer?.email || o.email || "—";
-                      const phone = o.customer?.telefon || o.customer?.phone || o.telefon || "—";
-                      const status = o.status || o.paymentStatus || o.payuStatus || "—";
-                      const created = pickCreatedAt(o);
-
-                      return (
-                        <tr key={id} className="border-t border-gray-100 hover:bg-gray-50/60 transition">
-                          <td className="px-4 py-4">
-                            <div className="font-mono text-xs text-gray-700">{String(id)}</div>
-                          </td>
-                          <td className="px-4 py-4 text-sm text-gray-700 whitespace-nowrap">
-                            {fmtDate(created)}
-                          </td>
-                          <td className="px-4 py-4">
-                            <div className="font-extrabold text-sm text-gray-900">{name}</div>
-                            <div className="text-xs text-gray-500 mt-1">{o.customer?.miasto ? `${o.customer.miasto}` : "—"}</div>
-                          </td>
-                          <td className="px-4 py-4 text-sm text-gray-700">
-                            <div>{email}</div>
-                            <div className="text-xs text-gray-500 mt-1">{phone}</div>
-                          </td>
-                          <td className="px-4 py-4"><StatusPill status={status} /></td>
-                          <td className="px-4 py-4"><PaymentPill order={o} /></td>
-                          <td className="px-4 py-4 text-right font-extrabold whitespace-nowrap">{sumOrder(o)}</td>
-                          <td className="px-4 py-4">
-                            <button
-                              type="button"
-                              onClick={() => setSelected(o)}
-                              className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2.5 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 active:bg-gray-50 active:scale-[0.98] transition font-extrabold text-sm cursor-pointer"
-                            >
-                              <Icon name="eye" className="w-4 h-4" /> Szczegóły
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+          {/* Desktop Table */}
+          <div className="hidden lg:block bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+            <div className="overflow-x-auto">
+               <table className="w-full text-left border-collapse">
+                 <thead className="bg-gray-50/80 border-b border-gray-200">
+                   <tr>
+                     <th className="px-6 py-4 text-[10px] uppercase tracking-widest text-gray-500 font-extrabold">ID</th>
+                     <th className="px-6 py-4 text-[10px] uppercase tracking-widest text-gray-500 font-extrabold">Data</th>
+                     <th className="px-6 py-4 text-[10px] uppercase tracking-widest text-gray-500 font-extrabold">Klient</th>
+                     <th className="px-6 py-4 text-[10px] uppercase tracking-widest text-gray-500 font-extrabold">Status</th>
+                     <th className="px-6 py-4 text-[10px] uppercase tracking-widest text-gray-500 font-extrabold text-right">Kwota</th>
+                     <th className="px-6 py-4"></th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y divide-gray-100">
+                   {loading ? (
+                     [1,2,3,4].map(i => <tr key={i}><td colSpan="6" className="p-6"><Skeleton className="h-8 w-full" /></td></tr>)
+                   ) : rows.length === 0 ? (
+                     <tr><td colSpan="6" className="p-10 text-center text-gray-500">Brak zamówień.</td></tr>
+                   ) : (
+                     rows.map((o, idx) => (
+                       <tr key={pickOrderId(o, idx)} className="hover:bg-gray-50 transition group cursor-pointer" onClick={()=>setSelected(o)}>
+                         <td className="px-6 py-4 font-mono text-xs text-gray-600">{String(pickOrderId(o, idx)).slice(-8)}</td>
+                         <td className="px-6 py-4 text-sm font-medium text-gray-700">{fmtDate(pickCreatedAt(o))}</td>
+                         <td className="px-6 py-4">
+                           <div className="font-bold text-gray-900">{o.customer?.imieNazwisko || o.name || "—"}</div>
+                           <div className="text-xs text-gray-500">{o.customer?.telefon}</div>
+                         </td>
+                         <td className="px-6 py-4"><div className="flex gap-2"><StatusPill status={o.status} /><PaymentPill order={o} /></div></td>
+                         <td className="px-6 py-4 text-right font-black text-gray-900">{sumOrder(o)}</td>
+                         <td className="px-6 py-4 text-right">
+                           <button className="w-8 h-8 rounded-xl border border-gray-200 bg-white grid place-items-center shadow-sm hover:border-brand-yellow">
+                             <Icon name="eye" className="w-4 h-4 text-gray-500" />
+                           </button>
+                         </td>
+                       </tr>
+                     ))
+                   )}
+                 </tbody>
+               </table>
             </div>
           </div>
 
-          <Drawer
-            open={!!selected}
-            onClose={() => setSelected(null)}
-            title={selected ? `Zamówienie: ${pickOrderId(selected)}` : ""}
-          >
-            {selected && <OrderDetails order={selected} />}
+          <Drawer open={!!selected} onClose={() => setSelected(null)} title={selected ? `Zamówienie` : ""}>
+             {selected && <OrderDetails order={selected} />}
           </Drawer>
         </div>
       );
@@ -1174,75 +1087,61 @@
       useEffect(() => { window.lucide?.createIcons?.(); });
 
       const send = async () => {
-        const msg = body.trim();
-        if (!msg) {
-          toast.show("error", "Powiadomienia push", "Wpisz treść powiadomienia.");
-          return;
-        }
+        if (!body.trim()) return toast.show("error", "Push", "Brak treści.");
         setLoading(true);
         try {
           const r = await fetch(API.push, {
             method: "POST",
             headers: { "Content-Type": "application/json", ...authHeader(token) },
-            body: JSON.stringify({ title: title.trim() || undefined, body: msg }),
+            body: JSON.stringify({ title: title.trim(), body: body.trim() }),
           });
-          const data = await safeJson(r);
-          if (!r.ok) {
-            toast.show("error", "Powiadomienia push", data.error || "Nie udało się wysłać powiadomienia.");
-            setLoading(false);
-            return;
-          }
-          setTitle("");
-          setBody("");
-          toast.show("ok", "Powiadomienia push", "Wysłano do użytkowników.");
-        } catch (e) {
-          console.log(e);
-          toast.show("error", "Powiadomienia push", "Błąd połączenia z serwerem.");
+          if (!r.ok) throw new Error();
+          setTitle(""); setBody("");
+          toast.show("ok", "Push", "Wysłano powiadomienie.");
+        } catch {
+          toast.show("error", "Push", "Błąd wysyłania.");
         } finally {
           setLoading(false);
         }
       };
 
       return (
-        <div className="p-4 md:p-6">
-          <div className="bg-white border border-gray-200 rounded-3xl shadow-soft p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Wysyłka push</div>
-                <div className="text-xl font-extrabold mt-1">Powiadomienia push</div>
-                <div className="text-sm text-gray-600 mt-2">Wpisz treść i wyślij — każdy użytkownik aplikacji otrzyma powiadomienie (beta).</div>
+        <div className="p-4 md:p-6 pb-24 max-w-2xl mx-auto lg:mx-0">
+          <div className="bg-white border border-gray-200 rounded-3xl shadow-soft p-5 md:p-8">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 rounded-2xl bg-brand-yellow/20 border border-brand-yellow/30 grid place-items-center text-brand-dark shrink-0">
+                <Icon name="radio" className="w-6 h-6" />
               </div>
-              <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 border border-brand-yellow/30 grid place-items-center">
-                <Icon name="bell" className="w-6 h-6" />
+              <div>
+                <h2 className="text-lg font-extrabold">Nowe powiadomienie</h2>
+                <p className="text-xs text-gray-500">Wyślij wiadomość do wszystkich użytkowników aplikacji.</p>
               </div>
             </div>
-            <div className="mt-5 grid gap-4">
+            <div className="space-y-4">
               <div>
-                <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">Tytuł (opcjonalnie)</label>
+                <label className="block text-xs uppercase font-extrabold text-gray-500 mb-2 ml-1">Tytuł</label>
                 <input
-                  className="input-focus mt-2 w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft"
-                  placeholder="np. eatmi — nowość"
+                  className="input-focus w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-base"
+                  placeholder="np. Promocja na lunch"
                   value={title}
-                  onChange={(e)=>setTitle(e.target.value)}
+                  onChange={e => setTitle(e.target.value)}
                 />
               </div>
               <div>
-                <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">Treść</label>
+                <label className="block text-xs uppercase font-extrabold text-gray-500 mb-2 ml-1">Treść</label>
                 <textarea
-                  className="input-focus mt-2 w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft min-h-[160px]"
-                  placeholder="Wpisz wiadomość push..."
+                  className="input-focus w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 min-h-[140px] text-base"
+                  placeholder="Wpisz tutaj treść powiadomienia..."
                   value={body}
-                  onChange={(e)=>setBody(e.target.value)}
+                  onChange={e => setBody(e.target.value)}
                 />
               </div>
               <button
-                type="button"
                 onClick={send}
                 disabled={loading}
-                className="w-full md:w-auto inline-flex items-center justify-center gap-2 bg-gray-900 text-white font-extrabold rounded-2xl px-5 py-4 shadow-glass hover:ring-2 hover:ring-brand-yellow/35 disabled:opacity-60 disabled:cursor-not-allowed transition"
+                className="w-full bg-gray-900 text-white font-extrabold rounded-2xl py-4 shadow-glass hover:bg-gray-800 active:scale-[0.98] transition flex items-center justify-center gap-2"
               >
-                <Icon name="send" className="w-5 h-5" />
-                {loading ? "Wysyłanie..." : "Wyślij powiadomienie"}
+                {loading ? "Wysyłanie..." : <><Icon name="send" className="w-4 h-4" /> Wyślij teraz</>}
               </button>
             </div>
           </div>
@@ -1255,8 +1154,8 @@
        ======================= */
     const Staff = ({ token }) => {
       const toast = useToast();
-      const [loading, setLoading] = useState(true);
       const [list, setList] = useState([]);
+      const [loading, setLoading] = useState(true);
       const [name, setName] = useState("");
       const [pin, setPin] = useState("");
       const [saving, setSaving] = useState(false);
@@ -1265,168 +1164,70 @@
         setLoading(true);
         try {
           const r = await fetch(API.staff, { headers: { ...authHeader(token) } });
-          const data = await safeJson(r);
-          if (!r.ok) {
-            toast.show("error", "Obsługa", data.error || "Nie udało się pobrać listy pracowników.");
-            setLoading(false);
-            return;
-          }
-          setList(Array.isArray(data.staff) ? data.staff : (Array.isArray(data) ? data : []));
-        } catch (e) {
-          console.log(e);
-          toast.show("error", "Obsługa", "Błąd połączenia z serwerem.");
-        } finally {
-          setLoading(false);
-        }
+          const d = await safeJson(r);
+          if (r.ok) setList(Array.isArray(d.staff) ? d.staff : (Array.isArray(d) ? d : []));
+        } catch {} finally { setLoading(false); }
       };
 
       useEffect(() => { load(); }, []);
       useEffect(() => { window.lucide?.createIcons?.(); });
 
       const add = async () => {
-        const n = name.trim();
-        const p = pin.trim();
-        if (!n) return toast.show("error", "Obsługa", "Wpisz imię i nazwisko.");
-        if (!/^\d{4}$/.test(p)) return toast.show("error", "Obsługa", "PIN musi mieć 4 cyfry.");
-
+        if (!name.trim() || pin.length !== 4) return toast.show("error", "Obsługa", "Błędne dane.");
         setSaving(true);
         try {
           const r = await fetch(API.staff, {
             method: "POST",
-            headers: { "Content-Type":"application/json", ...authHeader(token) },
-            body: JSON.stringify({ name: n, pin: p }),
+            headers: {"Content-Type":"application/json", ...authHeader(token)},
+            body: JSON.stringify({ name: name.trim(), pin }),
           });
-          const data = await safeJson(r);
-          if (!r.ok) {
-            toast.show("error", "Obsługa", data.error || "Nie udało się dodać pracownika.");
-            setSaving(false);
-            return;
-          }
-          setName("");
-          setPin("");
-          toast.show("ok", "Obsługa", "Dodano pracownika.");
-          load();
-        } catch (e) {
-          console.log(e);
-          toast.show("error", "Obsługa", "Błąd połączenia z serwerem.");
-        } finally {
-          setSaving(false);
-        }
+          if (!r.ok) throw new Error();
+          toast.show("ok", "Obsługa", "Dodano.");
+          setName(""); setPin(""); load();
+        } catch {
+          toast.show("error", "Obsługa", "Błąd.");
+        } finally { setSaving(false); }
       };
 
       const remove = async (id) => {
-        if (!id) return;
+        if(!confirm("Usunąć dostęp?")) return;
         try {
-          const r = await fetch(`${API.staff}/${encodeURIComponent(id)}`, {
-            method: "DELETE",
-            headers: { ...authHeader(token) },
-          });
-          const data = await safeJson(r);
-          if (!r.ok) {
-            toast.show("error", "Obsługa", data.error || "Nie udało się usunąć pracownika.");
-            return;
-          }
-          toast.show("ok", "Obsługa", "Usunięto pracownika.");
+          await fetch(`${API.staff}/${id}`, { method: "DELETE", headers: {...authHeader(token)} });
           load();
-        } catch (e) {
-          console.log(e);
-          toast.show("error", "Obsługa", "Błąd połączenia z serwerem.");
-        }
+        } catch {}
       };
 
-      const onlyDigits4 = (v) => (v || "").replace(/[^\d]/g, "").slice(0, 4);
-
       return (
-        <div className="p-4 md:p-6">
-          <div className="grid lg:grid-cols-3 gap-5 items-start">
-            <div className="lg:col-span-1 bg-white border border-gray-200 rounded-3xl shadow-soft p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Dostęp</div>
-                  <div className="text-xl font-extrabold mt-1">Dodaj pracownika</div>
-                  <div className="text-sm text-gray-600 mt-2">Pracownik loguje się do panelu własnym PIN-em (4 cyfry).</div>
-                </div>
-                <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 border border-brand-yellow/30 grid place-items-center">
-                  <Icon name="user-plus" className="w-6 h-6" />
-                </div>
-              </div>
-              <div className="mt-5 space-y-4">
-                <div>
-                  <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">Imię i nazwisko</label>
-                  <input
-                    className="input-focus mt-2 w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft"
-                    placeholder="np. Jan Kowalski"
-                    value={name}
-                    onChange={(e)=>setName(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">PIN (4 cyfry)</label>
-                  <input
-                    className="input-focus mt-2 w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft font-mono tracking-widest"
-                    placeholder="1234"
-                    inputMode="numeric"
-                    value={pin}
-                    onChange={(e)=>setPin(onlyDigits4(e.target.value))}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={add}
-                  disabled={saving}
-                  className="w-full inline-flex items-center justify-center gap-2 bg-gray-900 text-white font-extrabold rounded-2xl px-5 py-4 shadow-glass hover:ring-2 hover:ring-brand-yellow/35 disabled:opacity-60 disabled:cursor-not-allowed transition"
-                >
-                  <Icon name="plus" className="w-5 h-5" />
-                  {saving ? "Dodawanie..." : "Dodaj"}
-                </button>
-              </div>
+        <div className="p-4 md:p-6 pb-24 grid lg:grid-cols-3 gap-6 items-start">
+          <div className="bg-white border border-gray-200 rounded-3xl shadow-soft p-5 md:p-6 lg:col-span-1">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl bg-gray-100 grid place-items-center"><Icon name="user-plus" className="w-5 h-5 text-gray-700" /></div>
+              <div className="font-extrabold text-lg">Dodaj</div>
             </div>
-            <div className="lg:col-span-2 bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-                <div>
-                  <div className="text-xs uppercase tracking-[0.18em] text-gray-500 font-extrabold">Obsługa</div>
-                  <div className="text-lg font-extrabold mt-0.5">Lista pracowników</div>
+            <div className="space-y-4">
+              <input className="input-focus w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-base" placeholder="Imię i nazwisko" value={name} onChange={e=>setName(e.target.value)} />
+              <input className="input-focus w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-base font-mono tracking-widest" placeholder="PIN (4 cyfry)" maxLength={4} inputMode="numeric" value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g,'').slice(0,4))} />
+              <button onClick={add} disabled={saving} className="w-full bg-gray-900 text-white font-extrabold rounded-2xl py-3.5 shadow-glass hover:bg-gray-800 active:scale-[0.98] transition">
+                {saving ? "..." : "Dodaj pracownika"}
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-3xl shadow-soft p-5 md:p-6 lg:col-span-2">
+            <div className="flex items-center justify-between mb-5">
+              <div className="font-extrabold text-lg">Lista pracowników</div>
+              <button onClick={load} className="p-2 bg-gray-50 rounded-xl hover:bg-gray-100"><Icon name="refresh-cw" className="w-4 h-4" /></button>
+            </div>
+            <div className="space-y-3">
+              {loading ? <Skeleton className="h-16 w-full" /> : list.length===0 ? <div className="text-gray-500 text-sm">Pusto.</div> : list.map(p => (
+                <div key={p.id||p._id} className="flex items-center justify-between p-4 border border-gray-200 rounded-2xl">
+                  <div>
+                    <div className="font-bold text-gray-900">{p.name}</div>
+                    <div className="text-xs text-gray-400 font-mono mt-0.5">ID: {String(p.id||p._id).slice(-4)}</div>
+                  </div>
+                  <button onClick={() => remove(p.id||p._id)} className="text-red-500 p-2 hover:bg-red-50 rounded-xl transition"><Icon name="trash-2" className="w-4 h-4" /></button>
                 </div>
-                <button
-                  type="button"
-                  onClick={load}
-                  className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm"
-                >
-                  <Icon name="refresh-cw" className="w-4 h-4" /> Odśwież
-                </button>
-              </div>
-              <div className="p-4">
-                {loading ? (
-                  <div className="space-y-3">
-                    <Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" />
-                  </div>
-                ) : list.length === 0 ? (
-                  <div className="text-sm text-gray-600">Brak pracowników. Dodaj pierwszą osobę po lewej stronie.</div>
-                ) : (
-                  <div className="space-y-3">
-                    {list.map((p, i) => {
-                      const id = p.id || p._id || p.userId || String(i);
-                      const nm = p.name || p.fullName || "—";
-                      const role = p.role || "pracownik";
-                      return (
-                        <div key={id} className="border border-gray-200 rounded-2xl p-4 flex items-center justify-between gap-3 hover:ring-2 hover:ring-brand-yellow/15 transition">
-                          <div className="min-w-0">
-                            <div className="font-extrabold text-gray-900 truncate">{nm}</div>
-                            <div className="text-xs text-gray-500 mt-1">ID: <span className="font-mono">{String(id)}</span> • {role}</div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => remove(id)}
-                            className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-red-200 transition font-extrabold text-sm text-red-700"
-                          >
-                            <Icon name="trash-2" className="w-4 h-4" /> Usuń
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              ))}
             </div>
           </div>
         </div>
@@ -1434,68 +1235,7 @@
     };
 
     /* =======================
-       Realtime
-       ======================= */
-    const useOrdersRealtime = ({ token, enabled, onNewOrder, getLatestOrder }) => {
-      const esRef = useRef(null);
-      const pollRef = useRef(null);
-      const stopAll = () => {
-        if (esRef.current) { try { esRef.current.close(); } catch {} esRef.current = null; }
-        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-      };
-
-      useEffect(() => {
-        if (!enabled || !token) { stopAll(); return; }
-        try {
-          const es = new EventSource(API.events, { withCredentials: false });
-          esRef.current = es;
-          es.onmessage = (ev) => {
-            let data = null;
-            try { data = JSON.parse(ev.data); } catch { data = null; }
-            if (!data) return;
-            if (data.type === "new_order") {
-              const latest = getLatestOrder?.() || null;
-              onNewOrder?.(latest, data);
-            }
-          };
-          es.onerror = () => {
-            try { es.close(); } catch {}
-            esRef.current = null;
-            if (!pollRef.current) {
-              pollRef.current = setInterval(async () => {
-                try {
-                  const url = new URL(API.orders, window.location.origin);
-                  const r = await fetch(url.toString(), { headers: { ...authHeader(token) } });
-                  const data = await safeJson(r);
-                  if (!r.ok) return;
-                  const list = Array.isArray(data.orders) ? data.orders : [];
-                  const newest = list[0];
-                  if (newest) onNewOrder?.(newest, { type: "new_order", via: "poll" });
-                } catch {}
-              }, 4000);
-            }
-          };
-        } catch (e) {
-          if (!pollRef.current) {
-            pollRef.current = setInterval(async () => {
-              try {
-                const url = new URL(API.orders, window.location.origin);
-                const r = await fetch(url.toString(), { headers: { ...authHeader(token) } });
-                const data = await safeJson(r);
-                if (!r.ok) return;
-                const list = Array.isArray(data.orders) ? data.orders : [];
-                const newest = list[0];
-                if (newest) onNewOrder?.(newest, { type: "new_order", via: "poll" });
-              } catch {}
-            }, 4000);
-          }
-        }
-        return () => stopAll();
-      }, [token, enabled]);
-    };
-
-    /* =======================
-       App Shell
+       App Shell & Logic
        ======================= */
     const STORAGE_KEY = "eatmi-admin-token";
 
@@ -1507,112 +1247,133 @@
       const [alertOrder, setAlertOrder] = useState(null);
       const latestOrderRef = useRef(null);
 
-      useEffect(() => { window.lucide?.createIcons?.(); }, [tab, ordersCount, alertOpen]);
+      // Title Logic
+      const titleData = {
+        dashboard: { t: "Dashboard", s: "Przegląd statystyk" },
+        orders: { t: "Zamówienia", s: "Zarządzanie zamówieniami" },
+        push: { t: "Powiadomienia", s: "Wysyłka PUSH" },
+        staff: { t: "Obsługa", s: "Zarządzanie personelem" }
+      };
+      const curT = titleData[tab] || {t:"Panel",s:""};
 
-      const title = tab === "dashboard" ? "Dashboard" :
-                    tab === "orders" ? "Zamówienia" :
-                    tab === "push" ? "Powiadomienia push" :
-                    tab === "staff" ? "Obsługa" : "Panel";
-      const subtitle =
-        tab === "dashboard" ? "Statystyki i szybki podgląd." :
-        tab === "orders" ? "Wszystkie zamówienia i dane klienta." :
-        tab === "push" ? "Wyślij powiadomienie na telefony użytkowników." :
-        tab === "staff" ? "Zarządzaj dostępem pracowników." : "";
-
+      // Alert Logic
       const acknowledge = () => {
         const o = alertOrder;
         if (o) {
           const key = `${pickOrderId(o, 0)}|${pickCreatedAt(o) || ""}`;
           localStorage.setItem(STORAGE_LAST_ACK, JSON.stringify({ lastSeenKey: key, ts: Date.now() }));
-        } else {
-          localStorage.setItem(STORAGE_LAST_ACK, JSON.stringify({ lastSeenKey: "ack", ts: Date.now() }));
         }
         setAlertOpen(false);
         setAlertOrder(null);
         setTab("orders");
-        toast.show("ok", "Powiadomienie", "Potwierdzono nowe zamówienie.");
+        toast.show("ok", "Powiadomienie", "Potwierdzono.");
       };
 
-      const handleNewOrder = (orderObj, meta) => {
+      const handleNewOrder = (orderObj) => {
         const o = orderObj || latestOrderRef.current;
         if (!o) return;
-        const newestKey = `${pickOrderId(o, 0)}|${pickCreatedAt(o) || ""}`;
-        const rawAck = localStorage.getItem(STORAGE_LAST_ACK) || "";
-        let ack = null;
-        try { ack = rawAck ? JSON.parse(rawAck) : null; } catch { ack = null; }
-        const lastSeenKey = ack?.lastSeenKey || "";
-        if (!newestKey || newestKey === lastSeenKey) return;
         if (alertOpen) return;
-        setAlertOrder(o);
-        setAlertOpen(true);
+        const key = `${pickOrderId(o, 0)}|${pickCreatedAt(o)}`;
+        const raw = localStorage.getItem(STORAGE_LAST_ACK);
+        const last = raw ? JSON.parse(raw).lastSeenKey : "";
+        if (key !== last) {
+           setAlertOrder(o);
+           setAlertOpen(true);
+        }
       };
 
-      useOrdersRealtime({
-        token,
-        enabled: true,
-        onNewOrder: (orderObj, meta) => handleNewOrder(orderObj, meta),
-        getLatestOrder: () => latestOrderRef.current,
-      });
+      // Polling / SSE
+      useEffect(() => {
+        if (!token) return;
+        let es = null;
+        let poll = null;
 
-      const OrdersWithBridge = () => (
-        <Orders
-          token={token}
-          setOrdersCount={(n)=>setOrdersCount(n)}
-          onNewOrderDetected={(newest) => {
-            latestOrderRef.current = newest || null;
-            handleNewOrder(newest, { type: "new_order", via: "orders_load" });
-          }}
-        />
-      );
+        const check = async () => {
+           try {
+             const r = await fetch(API.orders, { headers: {...authHeader(token)} });
+             const d = await safeJson(r);
+             if (d.orders?.[0]) handleNewOrder(d.orders[0]);
+           } catch {}
+        };
+
+        try {
+          es = new EventSource(API.events);
+          es.onmessage = (e) => {
+             const d = JSON.parse(e.data);
+             if (d.type === "new_order") check();
+          };
+        } catch {
+          poll = setInterval(check, 5000);
+        }
+        
+        // Initial check
+        check();
+
+        return () => {
+          if (es) es.close();
+          if (poll) clearInterval(poll);
+        };
+      }, [token]);
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [tab, ordersCount]);
 
       return (
-        <div className="min-h-screen">
+        <div className="min-h-screen pb-[env(safe-area-inset-bottom)]">
           <NewOrderOverlay open={alertOpen} orderPreview={alertOrder} onAcknowledge={acknowledge} />
-          <div className={alertOpen ? "no-interact" : ""}>
-            {/* DESKTOP (lg+) */}
-            <div className="hidden lg:flex">
-              <aside className="fixed top-0 left-0 bottom-0 w-[var(--sidebar-w)] p-4">
-                <div className="bg-white/85 border border-white/60 shadow-glass rounded-3xl p-4 h-full flex flex-col">
-                  <Logo />
-                  <div className="mt-5 space-y-2">
-                    <NavItem active={tab === "dashboard"} icon="layout-dashboard" label="Dashboard" onClick={() => setTab("dashboard")} />
-                    <NavItem active={tab === "orders"} icon="shopping-bag" label="Zamówienia" badge={ordersCount} onClick={() => setTab("orders")} />
-                    <NavItem active={tab === "push"} icon="bell" label="Powiadomienia push" onClick={() => setTab("push")} />
-                    <NavItem active={tab === "staff"} icon="users" label="Obsługa" onClick={() => setTab("staff")} />
-                  </div>
-                  <div className="mt-auto pt-3">
-                    <button type="button" onClick={onLogout} className="w-full inline-flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/25 transition font-extrabold text-sm">
-                      <Icon name="log-out" className="w-4 h-4" /> Wyloguj
+          <div className={alertOpen ? "no-interact blur-sm" : ""}>
+            
+            {/* Desktop Sidebar */}
+            <aside className="hidden lg:block fixed inset-y-0 left-0 w-[var(--sidebar-w)] p-4 z-50">
+               <div className="bg-white/90 border border-white/60 shadow-glass rounded-[2rem] h-full flex flex-col p-5 backdrop-blur-xl">
+                 <Logo />
+                 <div className="mt-8 space-y-2 flex-1">
+                   <NavItem active={tab==="dashboard"} icon="layout-dashboard" label="Dashboard" onClick={()=>setTab("dashboard")} />
+                   <NavItem active={tab==="orders"} icon="shopping-bag" label="Zamówienia" badge={ordersCount} onClick={()=>setTab("orders")} />
+                   <NavItem active={tab==="push"} icon="radio" label="Powiadomienia" onClick={()=>setTab("push")} />
+                   <NavItem active={tab==="staff"} icon="users" label="Obsługa" onClick={()=>setTab("staff")} />
+                 </div>
+                 <div className="pt-4 border-t border-gray-100">
+                    <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-red-50 text-red-600 transition font-bold text-sm">
+                       <Icon name="log-out" className="w-5 h-5" /> Wyloguj się
                     </button>
-                    <div className="mt-3 text-xs text-gray-500 text-center">eatmi.pl • panel administratora</div>
-                  </div>
-                </div>
-              </aside>
-              <main className="ml-[var(--sidebar-w)] w-full">
-                <Topbar title={title} subtitle={subtitle} onLogout={onLogout} />
-                {tab === "dashboard" && <Dashboard token={token} />}
-                {tab === "orders" && <OrdersWithBridge />}
-                {tab === "push" && <Push token={token} />}
-                {tab === "staff" && <Staff token={token} />}
-              </main>
+                 </div>
+               </div>
+            </aside>
+
+            {/* Mobile/Tablet Tab Bar (Top) - can be moved to bottom if preferred */}
+            <div className="lg:hidden px-4 pt-4 pb-0">
+               <div className="bg-white/90 border border-white/60 shadow-soft rounded-2xl p-2 grid grid-cols-4 gap-1 backdrop-blur-md">
+                 {[
+                   { id: "dashboard", icon: "layout-dashboard", label: "Start" },
+                   { id: "orders", icon: "shopping-bag", label: "Zam.", badge: ordersCount },
+                   { id: "push", icon: "radio", label: "Push" },
+                   { id: "staff", icon: "users", label: "Ekipa" }
+                 ].map(item => (
+                   <button
+                     key={item.id}
+                     onClick={()=>setTab(item.id)}
+                     className={`flex flex-col items-center justify-center py-2 rounded-xl transition active:scale-95 ${tab===item.id ? "bg-brand-yellow/20 text-gray-900" : "text-gray-500 hover:bg-gray-50"}`}
+                   >
+                     <div className="relative">
+                       <Icon name={item.icon} className={`w-6 h-6 ${tab===item.id?"stroke-[2.5px]":""}`} />
+                       {item.badge > 0 && <span className="absolute -top-1 -right-2 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full grid place-items-center border-2 border-white">{item.badge}</span>}
+                     </div>
+                     <span className="text-[10px] font-bold mt-1 uppercase tracking-wide">{item.label}</span>
+                   </button>
+                 ))}
+               </div>
             </div>
 
-            {/* MOBILE + TABLET (lg hidden) */}
-            <div className="lg:hidden">
-              <Topbar title={title} subtitle={subtitle} onLogout={onLogout} />
-              <div className="px-4 pt-4">
-                <div className="bg-white/85 border border-white/60 shadow-glass rounded-3xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <button className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${tab==="dashboard"?"bg-brand-yellow/20 border-brand-yellow/30":"bg-white border-gray-200"}`} onClick={()=>setTab("dashboard")}><Icon name="layout-dashboard" className="w-4 h-4" /> Dashboard</button>
-                  <button className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${tab==="orders"?"bg-brand-yellow/20 border-brand-yellow/30":"bg-white border-gray-200"}`} onClick={()=>setTab("orders")}><Icon name="shopping-bag" className="w-4 h-4" /> Zamówienia {ordersCount > 0 && <span className="ml-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-gray-900 text-white">{ordersCount>99?"99+":ordersCount}</span>}</button>
-                  <button className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${tab==="push"?"bg-brand-yellow/20 border-brand-yellow/30":"bg-white border-gray-200"}`} onClick={()=>setTab("push")}><Icon name="bell" className="w-4 h-4" /> Push</button>
-                  <button className={`px-4 py-3 rounded-2xl border font-extrabold text-sm flex items-center gap-2 justify-center ${tab==="staff"?"bg-brand-yellow/20 border-brand-yellow/30":"bg-white border-gray-200"}`} onClick={()=>setTab("staff")}><Icon name="users" className="w-4 h-4" /> Obsługa</button>
-                </div>
+            <main className="lg:ml-[var(--sidebar-w)] transition-all duration-300">
+              <Topbar title={curT.t} subtitle={curT.s} onLogout={onLogout} />
+              <div className="animate-fadeIn">
+                {tab === "dashboard" && <Dashboard token={token} />}
+                {tab === "orders" && <Orders token={token} setOrdersCount={setOrdersCount} onNewOrderDetected={(o) => { latestOrderRef.current=o; handleNewOrder(o); }} />}
+                {tab === "push" && <Push token={token} />}
+                {tab === "staff" && <Staff token={token} />}
               </div>
-              {tab === "dashboard" && <Dashboard token={token} />}
-              {tab === "orders" && <OrdersWithBridge />}
-              {tab === "push" && <Push token={token} />}
-              {tab === "staff" && <Staff token={token} />}
-            </div>
+            </main>
+
           </div>
         </div>
       );
@@ -1620,7 +1381,6 @@
 
     const Root = () => {
       const [token, setToken] = useState(() => localStorage.getItem(STORAGE_KEY) || "");
-      useEffect(() => { window.lucide?.createIcons?.(); });
       const onAuth = (t) => { setToken(t); localStorage.setItem(STORAGE_KEY, t); };
       const logout = () => { setToken(""); localStorage.removeItem(STORAGE_KEY); };
       return token ? <AppShell token={token} onLogout={logout} /> : <Login onAuth={onAuth} />;
