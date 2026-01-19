@@ -124,7 +124,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useEffect, useMemo, useRef, useState } = React;
+    const { useEffect, useMemo, useRef, useState, useLayoutEffect } = React;
 
     /* =========================================================
        API CONFIG
@@ -252,6 +252,13 @@
         const d = new Date(iso);
         return d.toLocaleString("pl-PL");
       } catch { return String(iso); }
+    };
+    
+    // FIX: Helper to force icon refresh
+    const refreshIcons = () => {
+        if(window.lucide && window.lucide.createIcons) {
+            window.lucide.createIcons();
+        }
     };
 
     /* =======================
@@ -428,6 +435,14 @@
       const flashRef = useRef(null);
       const { start, stop, ensure } = useBeep();
 
+      // FIX: Aggressive icon refresh when overlay is open/flashing
+      useEffect(() => {
+        if(open) {
+             setTimeout(refreshIcons, 0);
+             setTimeout(refreshIcons, 50); // Double check for laggy rendering
+        }
+      }, [open, flash]);
+
       useEffect(() => {
         if (!open) {
           setFlash(false);
@@ -438,7 +453,7 @@
         }
         setFlash(false);
         if (flashRef.current) clearInterval(flashRef.current);
-        flashRef.current = setInterval(() => setFlash(f => !f), 100);
+        flashRef.current = setInterval(() => setFlash(f => !f), 500); // Slower flash to save performance
         start();
         return () => {
           if (flashRef.current) clearInterval(flashRef.current);
@@ -446,8 +461,6 @@
           stop();
         };
       }, [open]);
-
-      useEffect(() => { window.lucide?.createIcons?.(); }, [open, flash]);
 
       if (!open) return null;
 
@@ -718,7 +731,7 @@
 
       useEffect(() => { load(); }, []);
       useEffect(() => { if(refreshSignal) load({silent: true}); }, [refreshSignal]);
-      useEffect(() => { window.lucide?.createIcons?.(); });
+      useEffect(() => { refreshIcons(); });
 
       return (
         <div className="p-4 md:p-6 pb-24">
@@ -766,7 +779,8 @@
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
       }, [open, onClose]);
-      useEffect(() => { window.lucide?.createIcons?.(); }, [open]);
+      
+      useEffect(() => { refreshIcons(); }, [open]);
 
       if (!open) return null;
 
@@ -803,7 +817,6 @@
       </div>
     );
 
-    // ✅ UPDATED: Added Delivery Calculation & Status Change
     const OrderDetails = ({ order, token, onRefresh }) => {
       const toast = useToast();
       const [updating, setUpdating] = useState(false);
@@ -813,7 +826,7 @@
       const totalPLN = getOrderTotalPLN(order);
       const pay = resolvePayment(order);
 
-      // ✅ Calculate delivery for display
+      // Delivery logic
       const productsValue = cart.reduce((sum, item) => {
          return sum + (getItemUnitPricePLN(item) * (item.qty || 1));
       }, 0);
@@ -847,7 +860,7 @@
       return (
         <div className="space-y-5 pb-10">
           
-          {/* ✅ AKCJE - ZMIANA STATUSU */}
+          {/* AKCJE - ZMIANA STATUSU */}
           <div className="bg-white border border-gray-200 rounded-3xl p-5 shadow-sm">
             <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold mb-3">Akcje (Zmień status)</div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -931,7 +944,7 @@
               })}
             </div>
 
-            {/* ✅ DELIVERY SUMMARY */}
+            {/* DELIVERY SUMMARY */}
             <div className="mt-4 pt-3 border-t border-gray-100 space-y-1 text-sm text-gray-700">
                 <div className="flex justify-between">
                     <span>Wartość produktów:</span>
@@ -1031,7 +1044,6 @@
 
           const newest = list[0];
           if (newest) {
-            // ✅ FIX: Use simple ID key check
             const newestKey = String(newest.extOrderId);
             const rawAck = localStorage.getItem(STORAGE_LAST_ACK) || "";
             if (newestKey !== rawAck) {
@@ -1048,7 +1060,7 @@
 
       useEffect(() => { load(); }, []);
       useEffect(() => { if(refreshSignal) load({ silent: true }); }, [refreshSignal]); // Reload when signal changes
-      useEffect(() => { window.lucide?.createIcons?.(); });
+      useEffect(() => { refreshIcons(); });
 
       const rows = useMemo(() => {
         const q = query.trim().toLowerCase();
@@ -1151,7 +1163,7 @@
       const [body, setBody] = useState("");
       const [loading, setLoading] = useState(false);
 
-      useEffect(() => { window.lucide?.createIcons?.(); });
+      useEffect(() => { refreshIcons(); });
 
       const send = async () => {
         if (!body.trim()) return toast.show("error", "Push", "Brak treści.");
@@ -1237,7 +1249,7 @@
       };
 
       useEffect(() => { load(); }, []);
-      useEffect(() => { window.lucide?.createIcons?.(); });
+      useEffect(() => { refreshIcons(); });
 
       const add = async () => {
         if (!name.trim() || pin.length !== 4) return toast.show("error", "Obsługa", "Błędne dane.");
@@ -1328,7 +1340,7 @@
       const acknowledge = () => {
         const o = alertOrder;
         if (o) {
-          const key = String(o.extOrderId); // ✅ USE SIMPLE KEY
+          const key = String(o.extOrderId);
           localStorage.setItem(STORAGE_LAST_ACK, key);
         }
         setAlertOpen(false);
@@ -1339,57 +1351,39 @@
         toast.show("ok", "Powiadomienie", "Potwierdzono.");
       };
 
-      const handleNewOrder = (orderObj) => {
-        const o = orderObj || latestOrderRef.current;
-        if (!o) return;
-        
-        // ✅ Prevent duplicate open
-        if (alertOpen) return;
-
-        const key = String(o.extOrderId);
-        const lastAck = localStorage.getItem(STORAGE_LAST_ACK) || "";
-        
-        // ✅ Only open if key is different AND ID exists
-        if (key && key !== lastAck) {
-           setAlertOrder(o);
-           setAlertOpen(true);
-        }
-      };
-
-      // ✅ SSE Live Updates
+      // SSE Live Updates - UPDATED for reliable auto-refresh
       useEffect(() => {
         if (!token) return;
         let es = null;
 
         try {
-          // Connect to /api/admin/stream?token=...
           const url = `${API.events}?token=${token}`;
           es = new EventSource(url);
           
           es.onopen = () => console.log("SSE Connected");
           
-          // ✅ FIX: Use addEventListener for specific event type "new_order"
           es.addEventListener("new_order", (e) => {
-             const d = JSON.parse(e.data);
-             // Signal refresh for background components
-             setRefreshSignal(Date.now());
-             
-             // Construct minimal order for alert
-             const miniOrder = {
-                 extOrderId: d.extOrderId,
-                 totalPLN: d.totalPLN,
-                 customer: { imieNazwisko: d.customer },
-                 status: d.status,
-                 paymentMethod: d.paymentMethod,
-                 createdAt: new Date().toISOString() 
-             };
-             latestOrderRef.current = miniOrder;
-             handleNewOrder(miniOrder);
+              const d = JSON.parse(e.data);
+              
+              // 1. Force refresh of data
+              setRefreshSignal(Date.now());
+              
+              // 2. Force Alert Open (Directly set state, no ref logic here needed to force UI)
+              const miniOrder = {
+                  extOrderId: d.extOrderId,
+                  totalPLN: d.totalPLN,
+                  customer: { imieNazwisko: d.customer },
+                  status: d.status,
+                  paymentMethod: d.paymentMethod,
+                  createdAt: new Date().toISOString() 
+              };
+              
+              setAlertOrder(miniOrder);
+              setAlertOpen(true);
           });
 
           es.addEventListener("order_update", (e) => {
-             // Just refresh list on status change
-             setRefreshSignal(Date.now());
+              setRefreshSignal(Date.now());
           });
           
           es.onerror = () => { console.log("SSE Error"); es.close(); };
@@ -1403,7 +1397,7 @@
         };
       }, [token]);
 
-      useEffect(() => { window.lucide?.createIcons?.(); }, [tab, ordersCount]);
+      useEffect(() => { refreshIcons(); }, [tab, ordersCount]);
 
       return (
         <div className="min-h-screen pb-[env(safe-area-inset-bottom)]">
@@ -1428,7 +1422,7 @@
                </div>
             </aside>
 
-            {/* Mobile/Tablet Tab Bar (Top) - can be moved to bottom if preferred */}
+            {/* Mobile/Tablet Tab Bar (Top) */}
             <div className="lg:hidden px-4 pt-4 pb-0">
                <div className="bg-white/90 border border-white/60 shadow-soft rounded-2xl p-2 grid grid-cols-4 gap-1 backdrop-blur-md">
                  {[
@@ -1460,7 +1454,7 @@
                     <Orders 
                         token={token} 
                         setOrdersCount={setOrdersCount} 
-                        onNewOrderDetected={(o) => { latestOrderRef.current=o; handleNewOrder(o); }} 
+                        onNewOrderDetected={(o) => { /* handled by SSE now but kept for legacy checks */ }} 
                         refreshSignal={refreshSignal}
                     />
                 )}
