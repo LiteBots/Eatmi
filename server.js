@@ -1,4 +1,3 @@
-
 import express from "express";
 import path from "path";
 import crypto from "crypto";
@@ -194,7 +193,7 @@ const OrderSchema = new mongoose.Schema(
     paymentMethod: { type: String, default: "payu", index: true },
     isOffline: { type: Boolean, default: false, index: true },
 
-    totalAmount: { type: Number, required: true }, // grosze
+    totalAmount: { type: Number, required: true }, // grosze (produkty + dostawa)
     totalPLN: { type: Number, required: true }, // zł
 
     customer: { type: Object, default: {} },
@@ -576,9 +575,20 @@ function validateAndBuildCart(cart) {
   return normalized;
 }
 
-// ✅ UPDATED: calcTotalAmount uses unitEffectivePrice
-function calcTotalAmount(cartNorm) {
+// ✅ UPDATED: calcTotalProductsValue uses unitEffectivePrice (sum of products ONLY)
+function calcTotalProductsValue(cartNorm) {
   return cartNorm.reduce((sum, i) => sum + i.unitEffectivePrice * i.qty, 0);
+}
+
+// ✅ NEW: Calculate Delivery Cost based on thresholds
+// 0-49.99 PLN -> 10 PLN
+// 50-79.99 PLN -> 5 PLN
+// 80+ PLN -> 0 PLN
+// Values in grosze!
+function calcDeliveryCost(cartValue) {
+  if (cartValue < 5000) return 1000; // 10.00 PLN
+  if (cartValue < 8000) return 500;  // 5.00 PLN
+  return 0; // Free delivery
 }
 
 async function getPayuToken() {
@@ -637,7 +647,7 @@ async function upsertOrderMongo(patch) {
 }
 
 // ===============================
-// ✅ Offline order (karta/gotówka przy odbiorze)
+// ✅ Offline order (karta/gotówka przy odbiorze) - WITH DELIVERY
 // ===============================
 app.post("/api/order/offline", async (req, res) => {
   try {
@@ -655,7 +665,11 @@ app.post("/api/order/offline", async (req, res) => {
     }
 
     const cartNorm = validateAndBuildCart(req.body?.cart);
-    const totalAmount = calcTotalAmount(cartNorm);
+    
+    // ✅ Calculate delivery
+    const productsValue = calcTotalProductsValue(cartNorm);
+    const deliveryCost = calcDeliveryCost(productsValue);
+    const totalAmount = productsValue + deliveryCost;
 
     const extOrderId = `eatmi-offline-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
@@ -725,7 +739,7 @@ app.get("/api/orders/:extOrderId", async (req, res) => {
 });
 
 // ===============================
-// PayU: Create order
+// PayU: Create order - WITH DELIVERY
 // ===============================
 app.post("/api/payu/order", async (req, res) => {
   try {
@@ -752,10 +766,23 @@ app.post("/api/payu/order", async (req, res) => {
       };
     });
 
-    const totalAmount = products.reduce(
+    // ✅ Calculate totals
+    const productsTotal = products.reduce(
       (sum, p) => sum + Number(p.unitPrice) * Number(p.quantity),
       0
     );
+
+    const deliveryCost = calcDeliveryCost(productsTotal);
+    const totalAmount = productsTotal + deliveryCost;
+
+    // ✅ Add delivery to PayU products list if > 0
+    if (deliveryCost > 0) {
+      products.push({
+        name: "Dostawa",
+        unitPrice: String(deliveryCost),
+        quantity: "1"
+      });
+    }
 
     const { access_token } = await getPayuToken();
 
@@ -1083,8 +1110,8 @@ app.delete("/api/admin/staff/:id", requireAdminOnly, async (req, res) => {
 // ==========================================================
 // ✅ MANAGEMENT PANEL API (users + orders) — NEW
 // 2-step auth:
-//   POST /api/management/login-step1 {password} -> sets httpOnly cookie (ts)
-//   POST /api/management/login-step2 {pin}      -> checks cookie age>=5s, returns token
+//    POST /api/management/login-step1 {password} -> sets httpOnly cookie (ts)
+//    POST /api/management/login-step2 {pin}      -> checks cookie age>=5s, returns token
 //
 // Token is HMAC-signed and short-lived (default 2h).
 // ==========================================================
@@ -1521,4 +1548,3 @@ app.get("*", (req, res) => {
 app.listen(process.env.PORT || 3000, () => {
   console.log("Server running on port", process.env.PORT || 3000);
 });
-
