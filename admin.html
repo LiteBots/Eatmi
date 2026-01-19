@@ -128,7 +128,7 @@
 
     /* =========================================================
        API CONFIG
-       ========================================================= */
+       ======================================================== */
 
     const API = {
       login: "/api/admin/login",
@@ -253,13 +253,6 @@
         return d.toLocaleString("pl-PL");
       } catch { return String(iso); }
     };
-    
-    // FIX: Helper to force icon refresh
-    const refreshIcons = () => {
-        if(window.lucide && window.lucide.createIcons) {
-            window.lucide.createIcons();
-        }
-    };
 
     /* =======================
        Toast
@@ -317,8 +310,30 @@
     };
 
     /* =======================
-       Components: Shell
+       Components: Shell & Improved Icon
        ======================= */
+    
+    // ✅ ROBUST ICON COMPONENT
+    // Uses useLayoutEffect to ensure Lucide processes the icon immediately after React renders it.
+    // This fixes the "disappearing icon" issue during state updates/re-renders.
+    const Icon = ({ name, className="" }) => {
+      const ref = useRef(null);
+      
+      useLayoutEffect(() => {
+        if (ref.current && window.lucide && window.lucide.createIcons) {
+           // We target the parent to find this specific icon, or let it scan.
+           // Since we are in a component, the most reliable way without building custom SVG logic
+           // is to let createIcons scan the specific element's parent or just run global scan efficiently.
+           // Here we trigger a scan rooted at the parent to catch this new <i> tag.
+           window.lucide.createIcons({
+             root: ref.current.parentNode
+           });
+        }
+      });
+
+      return <i ref={ref} data-lucide={name} className={className}></i>;
+    };
+
     const Logo = () => (
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-2xl bg-white border border-gray-200 shadow-soft grid place-items-center overflow-hidden shrink-0">
@@ -346,10 +361,6 @@
 
     const Skeleton = ({ className="" }) => (
       <div className={`animate-pulse bg-gray-200/70 rounded-xl ${className}`} />
-    );
-
-    const Icon = ({ name, className="" }) => (
-      <i data-lucide={name} className={className}></i>
     );
 
     const PaymentPill = ({ order }) => {
@@ -435,14 +446,6 @@
       const flashRef = useRef(null);
       const { start, stop, ensure } = useBeep();
 
-      // FIX: Aggressive icon refresh when overlay is open/flashing
-      useEffect(() => {
-        if(open) {
-             setTimeout(refreshIcons, 0);
-             setTimeout(refreshIcons, 50); // Double check for laggy rendering
-        }
-      }, [open, flash]);
-
       useEffect(() => {
         if (!open) {
           setFlash(false);
@@ -453,7 +456,7 @@
         }
         setFlash(false);
         if (flashRef.current) clearInterval(flashRef.current);
-        flashRef.current = setInterval(() => setFlash(f => !f), 500); // Slower flash to save performance
+        flashRef.current = setInterval(() => setFlash(f => !f), 500); // Flashing
         start();
         return () => {
           if (flashRef.current) clearInterval(flashRef.current);
@@ -731,7 +734,6 @@
 
       useEffect(() => { load(); }, []);
       useEffect(() => { if(refreshSignal) load({silent: true}); }, [refreshSignal]);
-      useEffect(() => { refreshIcons(); });
 
       return (
         <div className="p-4 md:p-6 pb-24">
@@ -780,10 +782,6 @@
         return () => window.removeEventListener("keydown", onKey);
       }, [open, onClose]);
       
-      useEffect(() => { refreshIcons(); }, [open]);
-
-      if (!open) return null;
-
       return (
         <div className="fixed inset-0 z-[160] flex justify-end">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={onClose} aria-hidden="true"></div>
@@ -1060,7 +1058,6 @@
 
       useEffect(() => { load(); }, []);
       useEffect(() => { if(refreshSignal) load({ silent: true }); }, [refreshSignal]); // Reload when signal changes
-      useEffect(() => { refreshIcons(); });
 
       const rows = useMemo(() => {
         const q = query.trim().toLowerCase();
@@ -1163,8 +1160,6 @@
       const [body, setBody] = useState("");
       const [loading, setLoading] = useState(false);
 
-      useEffect(() => { refreshIcons(); });
-
       const send = async () => {
         if (!body.trim()) return toast.show("error", "Push", "Brak treści.");
         setLoading(true);
@@ -1249,7 +1244,6 @@
       };
 
       useEffect(() => { load(); }, []);
-      useEffect(() => { refreshIcons(); });
 
       const add = async () => {
         if (!name.trim() || pin.length !== 4) return toast.show("error", "Obsługa", "Błędne dane.");
@@ -1325,7 +1319,6 @@
       const [alertOpen, setAlertOpen] = useState(false);
       const [alertOrder, setAlertOrder] = useState(null);
       const [refreshSignal, setRefreshSignal] = useState(0); // For auto-refresh
-      const latestOrderRef = useRef(null);
 
       // Title Logic
       const titleData = {
@@ -1396,8 +1389,6 @@
           if (es) es.close();
         };
       }, [token]);
-
-      useEffect(() => { refreshIcons(); }, [tab, ordersCount]);
 
       return (
         <div className="min-h-screen pb-[env(safe-area-inset-bottom)]">
