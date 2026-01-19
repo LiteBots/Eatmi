@@ -972,8 +972,9 @@ app.get("/api/admin/stats", requireStaff, async (req, res) => {
 
     const ordersToday = await Order.countDocuments({ createdAt: { $gte: start, $lte: end } });
 
+    // ✅ UPDATED: Include "Zrealizowane" in revenue calculation
     const revenueAgg = await Order.aggregate([
-      { $match: { status: { $in: ["PAID", "COMPLETED"] } } },
+      { $match: { status: { $in: ["PAID", "COMPLETED", "Zrealizowane"] } } },
       { $group: { _id: null, sum: { $sum: "$totalPLN" } } }
     ]);
 
@@ -1031,6 +1032,7 @@ app.patch("/api/admin/orders/:extOrderId/status", requireStaff, async (req, res)
 
     // Broadcast to Admin Panels
     sseBroadcast("order_update", {
+      type: "order_update", // explicit type for client
       extOrderId,
       status
     });
