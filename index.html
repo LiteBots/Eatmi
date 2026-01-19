@@ -169,7 +169,6 @@
        MENU
     ======================= */
 
-    // ✅ każdy wpis ma osobne image: "..."
     const PRODUCT_CATEGORIES = [
       { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open', description: 'Małe, średnie i duże zestawy. Także VEGE.', image: 'https://i.imgur.com/qtZTWY1.jpeg' },
       { id: 'lunche', name: 'Lunche', icon: 'utensils-crossed', description: 'Lunch tygodnia, miesiąca i vege (12:00–16:00).', image: 'https://i.imgur.com/sn5VMfS.jpeg' },
@@ -654,13 +653,23 @@
         return (base + addOns) * (i.qty || 1);
       };
 
-      const total  = useMemo(() => cart.reduce((s,i)=> s + lineTotal(i), 0), [cart]);
+      // ✅ Zmodyfikowana logika total + delivery
+      const cartValue = useMemo(() => cart.reduce((s,i)=> s + lineTotal(i), 0), [cart]);
+      
+      const deliveryCost = useMemo(() => {
+        if (cartValue === 0) return 0;
+        if (cartValue < 50) return 10;
+        if (cartValue < 80) return 5;
+        return 0;
+      }, [cartValue]);
+
+      const total  = useMemo(() => cartValue + deliveryCost, [cartValue, deliveryCost]);
       const count  = useMemo(() => cart.reduce((s,i)=> s + (i.qty||1), 0), [cart]);
 
       return (
         <CartContext.Provider value={{
           cart, add, remove, updateItem, setQty, incQty, decQty, clear,
-          lineTotal, total, count,
+          lineTotal, total, cartValue, deliveryCost, count,
           addonsTotalPerUnit
         }}>
           {children}
@@ -1280,7 +1289,7 @@
             <div className="max-w-6xl mx-auto px-4">
               <a href="#kategorie" className="mt-2 inline-flex items-center justify-center gap-2 text-lg font-extrabold text-gray-900 bg-brand-yellow/20 border border-brand-yellow/30 rounded-2xl px-5 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/40 transition">
                     <i data-lucide="arrow-left" className="w-5 h-5"></i>
-                        Wróć do menu
+                         Wróć do menu
               </a>
 
               <div className="mt-4 flex items-center gap-3">
@@ -1327,7 +1336,7 @@
     ======================= */
 
     const Koszyk = () => {
-      const { cart, remove, clear, total, incQty, decQty, setQty, lineTotal, add, addonsTotalPerUnit } = useCart();
+      const { cart, remove, clear, total, cartValue, deliveryCost, incQty, decQty, setQty, lineTotal, add, addonsTotalPerUnit } = useCart();
       const goToCheckout = () => window.location.hash = '#/zamowienie';
 
       return (
@@ -1420,10 +1429,23 @@
                   </div>
 
                   <aside className="bg-white border border-gray-200 rounded-2xl p-5 sticky top-[84px]">
+                    
+                    <div className="space-y-2 text-sm text-gray-600 border-b border-gray-100 pb-3 mb-3">
+                        <div className="flex items-center justify-between">
+                            <span>Wartość koszyka</span>
+                            <span className="font-semibold text-gray-900">{currency(cartValue)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span>Koszt dostawy</span>
+                            <span className="font-semibold text-gray-900">{currency(deliveryCost)}</span>
+                        </div>
+                    </div>
+
                     <div className="flex items-center justify-between">
                       <span className="font-semibold">Suma</span>
-                      <span className="font-extrabold">{currency(total)}</span>
+                      <span className="font-extrabold text-xl">{currency(total)}</span>
                     </div>
+
                     <div className="mt-4 grid gap-2">
                       <button
                         onClick={goToCheckout}
@@ -1480,7 +1502,7 @@
     ======================= */
 
     const Zamowienie = () => {
-      const { cart, total, lineTotal, clear, addonsTotalPerUnit } = useCart();
+      const { cart, total, cartValue, deliveryCost, lineTotal, clear, addonsTotalPerUnit } = useCart();
       const { user } = useAuth();
       const { saveOrder } = useActiveOrder();
       const toast = useToast();
@@ -1573,7 +1595,7 @@
               qty: i.qty || 1,
               addons: Array.isArray(i.addons) ? i.addons.map(a => ({ id: a.id, label: a.label, price: a.price })) : []
             })),
-            total: total
+            total: total // ✅ To teraz zawiera koszt dostawy
           };
 
           // --- PŁATNOŚĆ ONLINE (PAYU) ---
@@ -1858,6 +1880,17 @@
                       </div>
                     );
                   })}
+                </div>
+                
+                <div className="mt-4 pt-3 border-t border-gray-100 space-y-2 text-sm">
+                    <div className="flex justify-between text-gray-600">
+                        <span>Produkty</span>
+                        <span>{currency(cartValue)}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-600">
+                        <span>Dostawa</span>
+                        <span className="font-semibold">{currency(deliveryCost)}</span>
+                    </div>
                 </div>
 
                 <div className="mt-4 bg-gray-50 border border-gray-200 rounded-2xl p-3">
