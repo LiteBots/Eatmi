@@ -130,7 +130,7 @@
       orders: "/api/admin/orders",
       push: "/api/admin/push",
       staff: "/api/admin/staff",
-      events: "/api/admin/stream", // ✅ Correct endpoint for SSE
+      events: "/api/admin/stream", // Endpoint SSE
     };
 
     /* =======================
@@ -680,19 +680,20 @@
     /* =======================
        Dashboard
        ======================= */
-    const Dashboard = ({ token }) => {
+    const Dashboard = ({ token, refreshSignal }) => {
       const toast = useToast();
       const [loading, setLoading] = useState(true);
       const [stats, setStats] = useState({ ordersTotal: 0, ordersToday: 0, revenueTotal: 0 });
 
-      const load = async () => {
-        setLoading(true);
+      const load = async (opts={}) => {
+        const { silent=false } = opts;
+        if(!silent) setLoading(true);
         try {
           const r = await fetch(API.stats, { headers: { ...authHeader(token) } });
           const data = await safeJson(r);
           if (!r.ok) {
-            toast.show("error", "Dashboard", data.error || "Błąd pobierania danych.");
-            setLoading(false);
+            if(!silent) toast.show("error", "Dashboard", data.error || "Błąd pobierania danych.");
+            if(!silent) setLoading(false);
             return;
           }
           const revenuePLN = toPLNFromMaybeGrosze(data.revenueTotal || 0, "revenueTotal");
@@ -703,13 +704,14 @@
           });
         } catch (e) {
           console.log(e);
-          toast.show("error", "Dashboard", "Błąd połączenia.");
+          if(!silent) toast.show("error", "Dashboard", "Błąd połączenia.");
         } finally {
-          setLoading(false);
+          if(!silent) setLoading(false);
         }
       };
 
       useEffect(() => { load(); }, []);
+      useEffect(() => { if(refreshSignal) load({silent: true}); }, [refreshSignal]);
       useEffect(() => { window.lucide?.createIcons?.(); });
 
       return (
@@ -718,7 +720,7 @@
             <div className="text-xs md:text-sm text-gray-600">Szybki podgląd dnia.</div>
             <button
               type="button"
-              onClick={load}
+              onClick={() => load({silent:false})}
               className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-3 py-2 md:px-4 md:py-3 shadow-soft active:scale-95 transition font-extrabold text-xs md:text-sm"
             >
               <Icon name="refresh-cw" className="w-3 h-3 md:w-4 md:h-4" /> Odśwież
@@ -1357,30 +1359,29 @@
           
           es.onopen = () => console.log("SSE Connected");
           
-          es.onmessage = (e) => {
+          // ✅ FIX: Use addEventListener for specific event type "new_order"
+          es.addEventListener("new_order", (e) => {
              const d = JSON.parse(e.data);
-             // If order update or new order, refresh lists
-             if(d.type === 'new_order' || d.type === 'order_update') {
-                 setRefreshSignal(Date.now()); // This triggers reload in Orders component
-                 
-                 // If new, show alert
-                 if(d.type === 'new_order') {
-                     // We need order details for the alert. 
-                     // We can construct a minimal object or wait for the list reload.
-                     // Here we construct minimal object for alert display:
-                     const miniOrder = {
-                         extOrderId: d.extOrderId,
-                         totalPLN: d.totalPLN,
-                         customer: { imieNazwisko: d.customer },
-                         status: d.status,
-                         paymentMethod: d.paymentMethod,
-                         createdAt: new Date().toISOString() 
-                     };
-                     latestOrderRef.current = miniOrder;
-                     handleNewOrder(miniOrder);
-                 }
-             }
-          };
+             // Signal refresh for background components
+             setRefreshSignal(Date.now());
+             
+             // Construct minimal order for alert
+             const miniOrder = {
+                 extOrderId: d.extOrderId,
+                 totalPLN: d.totalPLN,
+                 customer: { imieNazwisko: d.customer },
+                 status: d.status,
+                 paymentMethod: d.paymentMethod,
+                 createdAt: new Date().toISOString() 
+             };
+             latestOrderRef.current = miniOrder;
+             handleNewOrder(miniOrder);
+          });
+
+          es.addEventListener("order_update", (e) => {
+             // Just refresh list on status change
+             setRefreshSignal(Date.now());
+          });
           
           es.onerror = () => { console.log("SSE Error"); es.close(); };
 
@@ -1445,7 +1446,7 @@
             <main className="lg:ml-[var(--sidebar-w)] transition-all duration-300">
               <Topbar title={curT.t} subtitle={curT.s} onLogout={onLogout} />
               <div className="animate-fadeIn">
-                {tab === "dashboard" && <Dashboard token={token} />}
+                {tab === "dashboard" && <Dashboard token={token} refreshSignal={refreshSignal} />}
                 {tab === "orders" && (
                     <Orders 
                         token={token} 
