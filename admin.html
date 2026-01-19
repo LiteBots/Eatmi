@@ -130,7 +130,7 @@
       orders: "/api/admin/orders",
       push: "/api/admin/push",
       staff: "/api/admin/staff",
-      events: "/api/admin/stream", // Endpoint SSE
+      events: "/api/admin/stream",
     };
 
     /* =======================
@@ -175,7 +175,7 @@
 
     const authHeader = (token) => token ? { Authorization: `Bearer ${token}` } : {};
 
-    const pickOrderId = (o, idx=0) => o?.id || o?.orderId || o?.extOrderId || o?._id || `row-${idx}`;
+    const pickOrderId = (o, idx=0) => o?.extOrderId || o?.id || o?.orderId || o?._id || `row-${idx}`;
     const pickCreatedAt = (o) => o?.createdAt || o?.created_at || o?.date || o?.timestamp || o?.orderDate || null;
 
     const getOrderTotalPLN = (order) => {
@@ -988,7 +988,7 @@
       );
     };
 
-    const STORAGE_LAST_ACK = "eatmi-admin-last-ack";
+    const STORAGE_LAST_ACK = "eatmi-admin-last-ack-v2";
 
     const Orders = ({ token, onNewOrderDetected, setOrdersCount, refreshSignal }) => {
       const toast = useToast();
@@ -1025,11 +1025,10 @@
 
           const newest = list[0];
           if (newest) {
-            const newestKey = `${pickOrderId(newest, 0)}|${pickCreatedAt(newest)}`;
+            // ✅ FIX: Use simple ID key check
+            const newestKey = String(newest.extOrderId);
             const rawAck = localStorage.getItem(STORAGE_LAST_ACK) || "";
-            let ack = null;
-            try { ack = rawAck ? JSON.parse(rawAck) : null; } catch { ack = null; }
-            if (newestKey && newestKey !== ack?.lastSeenKey) {
+            if (newestKey !== rawAck) {
               onNewOrderDetected?.(newest);
             }
           }
@@ -1300,6 +1299,7 @@
        App Shell & Logic
        ======================= */
     const STORAGE_KEY = "eatmi-admin-token";
+    const STORAGE_LAST_ACK = "eatmi-admin-last-ack-v2";
 
     const AppShell = ({ token, onLogout }) => {
       const toast = useToast();
@@ -1323,8 +1323,8 @@
       const acknowledge = () => {
         const o = alertOrder;
         if (o) {
-          const key = `${pickOrderId(o, 0)}|${pickCreatedAt(o) || ""}`;
-          localStorage.setItem(STORAGE_LAST_ACK, JSON.stringify({ lastSeenKey: key, ts: Date.now() }));
+          const key = String(o.extOrderId); // ✅ USE SIMPLE KEY
+          localStorage.setItem(STORAGE_LAST_ACK, key);
         }
         setAlertOpen(false);
         setAlertOrder(null);
@@ -1337,11 +1337,15 @@
       const handleNewOrder = (orderObj) => {
         const o = orderObj || latestOrderRef.current;
         if (!o) return;
+        
+        // ✅ Prevent duplicate open
         if (alertOpen) return;
-        const key = `${pickOrderId(o, 0)}|${pickCreatedAt(o)}`;
-        const raw = localStorage.getItem(STORAGE_LAST_ACK);
-        const last = raw ? JSON.parse(raw).lastSeenKey : "";
-        if (key !== last) {
+
+        const key = String(o.extOrderId);
+        const lastAck = localStorage.getItem(STORAGE_LAST_ACK) || "";
+        
+        // ✅ Only open if key is different AND ID exists
+        if (key && key !== lastAck) {
            setAlertOrder(o);
            setAlertOpen(true);
         }
