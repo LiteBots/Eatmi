@@ -106,12 +106,18 @@
       ::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 4px; }
       ::-webkit-scrollbar-thumb:hover { background: #D1D5DB; }
     }
+    
+    /* Animations */
+    @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    .animate-slideInRight { animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
   </style>
 
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.min.js"></script>
 </head>
 
 <body class="bg-soft text-gray-900 selection:bg-brand-yellow/30">
@@ -1129,7 +1135,7 @@
             </div>
           </div>
 
-          <Drawer open={!!selected} onClose={() => setSelected(null)} title={selected ? `Zamówienie` : ""}>
+          <Drawer open={!!selected} onClose={() => setSelected(null)} title={selected ? "Zamówienie" : ""}>
              {selected && <OrderDetails order={selected} token={token} onRefresh={() => load({ silent: true })} />}
           </Drawer>
         </div>
@@ -1299,7 +1305,6 @@
        App Shell & Logic
        ======================= */
     const STORAGE_KEY = "eatmi-admin-token";
-    const STORAGE_LAST_ACK = "eatmi-admin-last-ack-v2";
 
     const AppShell = ({ token, onLogout }) => {
       const toast = useToast();
@@ -1476,7 +1481,9 @@
       return token ? <AppShell token={token} onLogout={logout} /> : <Login onAuth={onAuth} />;
     };
 
-    ReactDOM.createRoot(document.getElementById("root")).render(
+    const container = document.getElementById("root");
+    const root = ReactDOM.createRoot(container);
+    root.render(
       <ToastProvider>
         <Root />
       </ToastProvider>
