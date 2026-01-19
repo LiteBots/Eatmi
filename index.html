@@ -169,7 +169,6 @@
        MENU
     ======================= */
 
-    // ✅ każdy wpis ma osobne image: "..."
     const PRODUCT_CATEGORIES = [
       { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open', description: 'Małe, średnie i duże zestawy. Także VEGE.', image: 'https://i.imgur.com/qtZTWY1.jpeg' },
       { id: 'lunche', name: 'Lunche', icon: 'utensils-crossed', description: 'Lunch tygodnia, miesiąca i vege (12:00–16:00).', image: 'https://i.imgur.com/sn5VMfS.jpeg' },
@@ -426,9 +425,6 @@
        ACTIVE ORDER CONTEXT
        (Widget na dole)
     ======================= */
-    /* =======================
-       ACTIVE ORDER CONTEXT (Z POPRAWKĄ LIVE UPDATE)
-       ======================= */
     const ActiveOrderContext = createContext();
     const useActiveOrder = () => useContext(ActiveOrderContext);
 
@@ -669,7 +665,7 @@
     };
 
     /* =======================
-       ORDER TRACKER WIDGET
+       TRACKER WIDGET
     ======================= */
     const OrderTrackerWidget = () => {
       const { activeOrder } = useActiveOrder();
@@ -765,9 +761,8 @@
       );
     };
 
-
     /* =======================
-       TOP INFO BAR
+       COMPONENTS
     ======================= */
 
     const TopInfoBar = () => (
@@ -799,17 +794,18 @@
       </a>
     );
 
+    // ✅ ZMIANA 1: KOSZYK - ŻÓŁTY
     const CartButton = () => {
       const { total, count } = useCart();
       return (
         <a
           href="#/koszyk"
-          className="relative inline-flex items-center justify-center gap-2 border border-gray-200 bg-white px-3 py-2 rounded-xl shadow-soft hover:shadow-md transition hover:ring-2 hover:ring-brand-yellow/50"
+          className="relative inline-flex items-center justify-center gap-2 bg-brand-yellow text-gray-900 border border-brand-yellow/50 px-3 py-2 rounded-xl shadow-soft hover:shadow-md transition hover:ring-2 hover:ring-brand-yellow/50"
           aria-label="Koszyk"
         >
           <i data-lucide="shopping-cart" className="w-5 h-5"></i>
           <span className="hidden sm:inline text-sm font-semibold">{currency(total)}</span>
-          <span className="absolute -top-2 -right-2 bg-brand-yellow text-gray-900 text-xs font-extrabold w-6 h-6 rounded-full grid place-items-center ring-2 ring-white">
+          <span className="absolute -top-2 -right-2 bg-white text-gray-900 text-xs font-extrabold w-6 h-6 rounded-full grid place-items-center ring-2 ring-brand-yellow">
             {count}
           </span>
         </a>
@@ -1049,6 +1045,7 @@
               </div>
             </div>
 
+            {/* ✅ ZMIANA 2: PRZYCISK DODAJ - ŻÓŁTY */}
             <button
               type="button"
               onClick={() => onAdd(item)}
@@ -1200,17 +1197,18 @@
             </div>
 
             <div className="mt-4 grid gap-2">
+              {/* ✅ PRZYCISK DODAJ DODATKI - ŻÓŁTY */}
               <button
                 type="button"
                 onClick={apply}
-                className="w-full bg-gray-900 text-white font-extrabold rounded-xl px-4 py-3 min-h-[44px] hover:ring-2 hover:ring-brand-yellow/30"
+                className="w-full bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 min-h-[44px] hover:ring-2 hover:ring-brand-yellow/40"
               >
                 Dodaj wybrane dodatki
               </button>
               <button
                 type="button"
                 onClick={skip}
-                className="w-full bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 min-h-[44px] hover:ring-2 hover:ring-brand-yellow/40"
+                className="w-full bg-gray-100 text-gray-700 font-extrabold rounded-xl px-4 py-3 min-h-[44px] hover:ring-2 hover:ring-brand-yellow/20"
               >
                 Pomiń
               </button>
@@ -1280,7 +1278,7 @@
             <div className="max-w-6xl mx-auto px-4">
               <a href="#kategorie" className="mt-2 inline-flex items-center justify-center gap-2 text-lg font-extrabold text-gray-900 bg-brand-yellow/20 border border-brand-yellow/30 rounded-2xl px-5 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/40 transition">
                     <i data-lucide="arrow-left" className="w-5 h-5"></i>
-                       Wróć do menu
+                        Wróć do menu
               </a>
 
               <div className="mt-4 flex items-center gap-3">
@@ -1425,6 +1423,7 @@
                       <span className="font-extrabold">{currency(total)}</span>
                     </div>
                     <div className="mt-4 grid gap-2">
+                      {/* ✅ ZMIANA 3: PRZYCISK PRZEJDŹ DO ZAMÓWIENIA - ŻÓŁTY */}
                       <button
                         onClick={goToCheckout}
                         className="w-full bg-brand-yellow text-gray-900 font-extrabold rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/40 min-h-[44px]"
@@ -1553,7 +1552,7 @@
         return true;
       };
 
-     const placeOrder = async (method) => {
+      const placeOrder = async (method) => {
         if (!validateBeforeOrder()) return;
 
         if (remember) {
@@ -1590,12 +1589,6 @@
               return;
             }
 
-            // ✅ WAŻNE: Zapisujemy extOrderId z serwera przed przekierowaniem
-            // (choć przy redirect to może być trudne, bo strona się przeładuje,
-            //  ale PayU po powrocie powinno obsłużyć status - to temat na osobny wątek "powrót z PayU").
-            //  W prostym scenariuszu PayU: status sprawdzimy po powrocie na stronę Success (jeśli taką zrobisz).
-            //  Tutaj skupiamy się na redirect.
-            
             if (data.redirectUri) {
                window.location.href = data.redirectUri;
             } else {
@@ -1619,9 +1612,8 @@
              throw new Error(data2.error || "Błąd zamówienia");
           }
 
-          // ✅ KLUCZOWA ZMIANA: Używamy extOrderId zwróconego przez serwer
           saveOrder({
-             extOrderId: data2.extOrderId, // <--- TO JEST KLUCZ DO ŚLEDZENIA
+             extOrderId: data2.extOrderId,
              customer: form,
              items: cart,
              total: total,
@@ -1691,11 +1683,11 @@
               </div>
             </div>
 
-            {/* ✅ wybór metody płatności */}
+            {/* ✅ ZMIANA 4: WYBÓR PŁATNOŚCI - ŻÓŁTE TŁO GDY AKTYWNE */}
             <div className="mt-4 bg-white border border-gray-200 rounded-2xl p-4 shadow-soft">
               <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Metoda płatności</div>
               <div className="mt-3 grid md:grid-cols-3 gap-3">
-                <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft hover:ring-2 hover:ring-brand-yellow/30 transition ${paymentMethod==="payu" ? "border-brand-yellow ring-2 ring-brand-yellow/30" : "border-gray-200"}`}>
+                <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft hover:ring-2 hover:ring-brand-yellow/30 transition ${paymentMethod==="payu" ? "bg-brand-yellow border-brand-yellow ring-2 ring-brand-yellow/30" : "border-gray-200 bg-white"}`}>
                   <input
                     type="radio"
                     name="payment"
@@ -1705,7 +1697,7 @@
                     className="hidden"
                   />
                   <div className="flex items-start gap-3">
-                    <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30 shrink-0">
+                    <div className={`w-11 h-11 rounded-2xl grid place-items-center shrink-0 ${paymentMethod==="payu" ? "bg-white/30" : "bg-brand-yellow/20 ring-1 ring-brand-yellow/30"}`}>
                       <i data-lucide="credit-card" className="w-5 h-5 text-gray-900"></i>
                     </div>
                     <div className="min-w-0">
@@ -1715,7 +1707,7 @@
                   </div>
                 </label>
 
-                <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft hover:ring-2 hover:ring-brand-yellow/30 transition ${paymentMethod==="card" ? "border-brand-yellow ring-2 ring-brand-yellow/30" : "border-gray-200"}`}>
+                <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft hover:ring-2 hover:ring-brand-yellow/30 transition ${paymentMethod==="card" ? "bg-brand-yellow border-brand-yellow ring-2 ring-brand-yellow/30" : "border-gray-200 bg-white"}`}>
                   <input
                     type="radio"
                     name="payment"
@@ -1725,7 +1717,7 @@
                     className="hidden"
                   />
                   <div className="flex items-start gap-3">
-                    <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30 shrink-0">
+                    <div className={`w-11 h-11 rounded-2xl grid place-items-center shrink-0 ${paymentMethod==="card" ? "bg-white/30" : "bg-brand-yellow/20 ring-1 ring-brand-yellow/30"}`}>
                       <i data-lucide="credit-card" className="w-5 h-5 text-gray-900"></i>
                     </div>
                     <div className="min-w-0">
@@ -1735,7 +1727,7 @@
                   </div>
                 </label>
 
-                <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft hover:ring-2 hover:ring-brand-yellow/30 transition ${paymentMethod==="cash" ? "border-brand-yellow ring-2 ring-brand-yellow/30" : "border-gray-200"}`}>
+                <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft hover:ring-2 hover:ring-brand-yellow/30 transition ${paymentMethod==="cash" ? "bg-brand-yellow border-brand-yellow ring-2 ring-brand-yellow/30" : "border-gray-200 bg-white"}`}>
                   <input
                     type="radio"
                     name="payment"
@@ -1745,7 +1737,7 @@
                     className="hidden"
                   />
                   <div className="flex items-start gap-3">
-                    <div className="w-11 h-11 rounded-2xl bg-brand-yellow/20 grid place-items-center ring-1 ring-brand-yellow/30 shrink-0">
+                    <div className={`w-11 h-11 rounded-2xl grid place-items-center shrink-0 ${paymentMethod==="cash" ? "bg-white/30" : "bg-brand-yellow/20 ring-1 ring-brand-yellow/30"}`}>
                       <i data-lucide="banknote" className="w-5 h-5 text-gray-900"></i>
                     </div>
                     <div className="min-w-0">
@@ -1874,6 +1866,7 @@
                   <span className="font-extrabold">{currency(total)}</span>
                 </div>
 
+                {/* ✅ ZMIANA 5: PRZYCISK FINALIZACJI - ŻÓŁTY */}
                 <button
                   onClick={() => placeOrder(paymentMethod)}
                   disabled={busyPay}
@@ -2141,7 +2134,7 @@
     };
 
     /* =======================
-       HOME (bez formularza kontaktowego)
+       HOME / ROUTER
     ======================= */
 
     const Home = () => (
@@ -2158,10 +2151,6 @@
         </section>
       </>
     );
-
-    /* =======================
-       Router (hash) — FIX (route split '?')
-    ======================= */
 
     const Router = () => {
       const [route, setRoute] = useState(window.location.hash || '#/');
@@ -2186,7 +2175,7 @@
     };
 
     /* =======================
-       Mobile components
+       MOBILE & APP
     ======================= */
 
     const CategorySheet = ({ open, onClose }) => {
@@ -2352,10 +2341,11 @@
           style={{ bottom: "calc(var(--tabbar-h) + var(--safe-b) + 10px)" }}
         >
           <div className="mx-auto w-full max-w-2xl px-3">
+            {/* ✅ PRZYCISK FLOATING CTA - ŻÓŁTY */}
             <button
               type="button"
               onClick={() => { window.location.hash = "#/koszyk"; }}
-              className="w-full bg-gray-900 text-white font-extrabold rounded-2xl px-4 py-4 shadow-glass hover:ring-2 hover:ring-brand-yellow/40 flex items-center justify-between gap-3 min-h-[56px]"
+              className="w-full bg-brand-yellow text-gray-900 font-extrabold rounded-2xl px-4 py-4 shadow-glass hover:ring-2 hover:ring-brand-yellow/40 flex items-center justify-between gap-3 min-h-[56px]"
             >
               <span className="flex items-center gap-2">
                 <i data-lucide="receipt" className="w-5 h-5"></i>
@@ -2447,45 +2437,45 @@
                     <li>
                       <span className="font-semibold">Firma przedsiębiorcy:</span>{" "}
                       MARCIN CHOJNACKI MILKSHAKE BAR
-            </li>
-          </ul>
-    
-          <div className="mt-4">
-            <div className="font-semibold text-gray-700">
-              Adres prowadzenia działalności:
-            </div>
-            <div className="text-gray-600">
-              ul. Szczecińska 17, 76-200 Słupsk, pow. Słupsk, gm. Słupsk,
-              woj. POMORSKIE, Polska
-            </div>
-          </div>
-    
-          <div className="mt-6 font-semibold text-gray-700">
-            © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
-          </div>
-    
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-sm">
-            <a
-              href="/rule.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-4"
-            >
-              Regulamin
-            </a>
-            <span className="text-gray-300">•</span>
-            <a
-              href="/rule.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-4"
-            >
-              Polityka prywatności
-            </a>
-          </div>
-        </div>
-      </div>
-    </footer>
+                    </li>
+                  </ul>
+                  
+                  <div className="mt-4">
+                    <div className="font-semibold text-gray-700">
+                      Adres prowadzenia działalności:
+                    </div>
+                    <div className="text-gray-600">
+                      ul. Szczecińska 17, 76-200 Słupsk, pow. Słupsk, gm. Słupsk,
+                      woj. POMORSKIE, Polska
+                    </div>
+                  </div>
+                  
+                  <div className="mt-6 font-semibold text-gray-700">
+                    © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
+                  </div>
+                  
+                  <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-sm">
+                    <a
+                      href="/rule.html"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-4"
+                    >
+                      Regulamin
+                    </a>
+                    <span className="text-gray-300">•</span>
+                    <a
+                      href="/rule.html"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-4"
+                    >
+                      Polityka prywatności
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </footer>
 
           </main>
 
