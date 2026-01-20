@@ -50,6 +50,8 @@
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
 
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
   <style>
     :root{
       --safe-b: env(safe-area-inset-bottom, 20px);
@@ -117,7 +119,6 @@
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.min.js"></script>
 </head>
 
 <body class="bg-soft text-gray-900 selection:bg-brand-yellow/30">
@@ -254,11 +255,51 @@
       } catch { return String(iso); }
     };
     
-    // FIX: Helper to force icon refresh
-    const refreshIcons = () => {
-        if(window.lucide && window.lucide.createIcons) {
-            window.lucide.createIcons();
-        }
+    /* =======================
+       Icons (Font Awesome Adapter)
+       ======================= */
+    
+    const ICON_MAP = {
+        // Navigation & General
+        "layout-dashboard": "fa-table-columns",
+        "clipboard-list": "fa-clipboard-list",
+        "megaphone": "fa-bullhorn",
+        "users": "fa-users",
+        "log-out": "fa-right-from-bracket",
+        "search": "fa-magnifying-glass",
+        "refresh-cw": "fa-rotate",
+        "check": "fa-check",
+        "x": "fa-xmark",
+        "eye": "fa-eye",
+        "trash-2": "fa-trash",
+        "send": "fa-paper-plane",
+        "chevron-right": "fa-chevron-right",
+        "user-plus": "fa-user-plus",
+        "bell-ring": "fa-bell",
+        
+        // Cards
+        "shopping-bag": "fa-bag-shopping",
+        "calendar": "fa-calendar-days",
+        "wallet": "fa-wallet",
+        
+        // Payment
+        "banknote": "fa-money-bill-wave",
+        
+        // Statuses
+        "circle-dashed": "fa-circle-notch", // or fa-spinner
+        "check-circle-2": "fa-circle-check",
+        "check-circle": "fa-circle-check",
+        "clock-3": "fa-clock",
+        "x-circle": "fa-circle-xmark",
+        "bike": "fa-bicycle",
+        
+        // Actions
+        "chef-hat": "fa-utensils", // FA Free doesn't have a chef hat, utensils is a good semantic match
+    };
+
+    const Icon = ({ name, className="" }) => {
+      const faClass = ICON_MAP[name] || "fa-circle-question";
+      return <i className={`fa-solid ${faClass} ${className}`}></i>;
     };
 
     /* =======================
@@ -348,10 +389,6 @@
       <div className={`animate-pulse bg-gray-200/70 rounded-xl ${className}`} />
     );
 
-    const Icon = ({ name, className="" }) => (
-      <i data-lucide={name} className={className}></i>
-    );
-
     const PaymentPill = ({ order }) => {
       const p = resolvePayment(order);
       const kind = p.kind;
@@ -434,14 +471,6 @@
       const [flash, setFlash] = useState(false);
       const flashRef = useRef(null);
       const { start, stop, ensure } = useBeep();
-
-      // FIX: Aggressive icon refresh when overlay is open/flashing
-      useEffect(() => {
-        if(open) {
-              setTimeout(refreshIcons, 0);
-              setTimeout(refreshIcons, 50); // Double check for laggy rendering
-        }
-      }, [open, flash]);
 
       useEffect(() => {
         if (!open) {
@@ -731,7 +760,6 @@
 
       useEffect(() => { load(); }, []);
       useEffect(() => { if(refreshSignal) load({silent: true}); }, [refreshSignal]);
-      useEffect(() => { refreshIcons(); });
 
       return (
         <div className="p-4 md:p-6 pb-24">
@@ -787,8 +815,6 @@
         return () => window.removeEventListener("keydown", onKey);
       }, [open, onClose]);
       
-      useEffect(() => { refreshIcons(); }, [open]);
-
       if (!open) return null;
 
       return (
@@ -1067,7 +1093,6 @@
 
       useEffect(() => { load(); }, []);
       useEffect(() => { if(refreshSignal) load({ silent: true }); }, [refreshSignal]); // Reload when signal changes
-      useEffect(() => { refreshIcons(); });
 
       const rows = useMemo(() => {
         const q = query.trim().toLowerCase();
@@ -1170,8 +1195,6 @@
       const [body, setBody] = useState("");
       const [loading, setLoading] = useState(false);
 
-      useEffect(() => { refreshIcons(); });
-
       const send = async () => {
         if (!body.trim()) return toast.show("error", "Push", "Brak treści.");
         setLoading(true);
@@ -1256,7 +1279,6 @@
       };
 
       useEffect(() => { load(); }, []);
-      useEffect(() => { refreshIcons(); });
 
       const add = async () => {
         if (!name.trim() || pin.length !== 4) return toast.show("error", "Obsługa", "Błędne dane.");
@@ -1403,8 +1425,6 @@
           if (es) es.close();
         };
       }, [token]);
-
-      useEffect(() => { refreshIcons(); }, [tab, ordersCount]);
 
       return (
         <div className="min-h-screen pb-[env(safe-area-inset-bottom)]">
