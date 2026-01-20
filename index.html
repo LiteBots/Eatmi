@@ -1327,7 +1327,7 @@
             cartItemId={addonsCartItemId}
             title={addonsTitle}
           />
-        <>
+        </>
       );
     };
 
@@ -1508,6 +1508,31 @@
       const toast = useToast();
       const showToast = toast?.show;
 
+      // ✅ WALIDACJA CZASU NA UI (NOWOŚĆ)
+      // Odświeżaj czas co minutę, aby przycisk odblokował się sam, gdy wybije godzina.
+      const [now, setNow] = useState(new Date());
+      
+      useEffect(() => {
+        const interval = setInterval(() => setNow(new Date()), 1000 * 60); // co minutę
+        return () => clearInterval(interval);
+      }, []);
+
+      const plString = now.toLocaleString("en-US", {timeZone: "Europe/Warsaw"});
+      const plHour = new Date(plString).getHours();
+
+      // Logika dostępności
+      const isShopOpen = plHour >= 8 && plHour < 16;
+      const isLunchItem = (id) => LUNCHES.some(l => l.id === id);
+      const hasLunch = cart.some(item => isLunchItem(item.productId));
+      const isLunchTime = plHour >= 12;
+      
+      // Czy można zamawiać lunch (jeśli jest w koszyku)
+      const canOrderLunch = !hasLunch || isLunchTime;
+
+      // Czy formularz jest zablokowany
+      const isBlocked = !isShopOpen || !canOrderLunch;
+
+
       const emptyForm = {
         imieNazwisko:'', telefon:'', email:'', miasto:'', kod:'', ulica:'', nrBud:'', pietro:'', lokal:'', uwagi:'', faktura:false, nip:'', firma:''
       };
@@ -1533,6 +1558,8 @@
           return next;
         });
       }, [user]);
+
+      useEffect(() => { window.lucide?.createIcons?.(); }, [isBlocked]); // odśwież ikony jak zmieni się status
 
       const [remember, setRemember] = useState(true);
       const [hadSaved, setHadSaved] = useState(() => !!loadSavedCustomer());
@@ -1569,36 +1596,14 @@
         const missing = cart.find(i => !i.productId);
         if (missing) {
           alert("W koszyku jest pozycja bez productId. Dodaj produkt ponownie.");
-          console.log("Missing productId item:", missing);
           return false;
         }
         return true;
       };
 
      const placeOrder = async (method) => {
-
-        // ✅ WALIDACJA CZASU (NOWOŚĆ)
-        // 1. Pobieramy aktualny czas w Polsce
-        const now = new Date();
-        const plString = now.toLocaleString("en-US", {timeZone: "Europe/Warsaw"});
-        const plTime = new Date(plString);
-        const hour = plTime.getHours();
-
-        // 2. Sprawdzamy godziny otwarcia (8-16)
-        if (hour < 8 || hour >= 16) {
-             alert("Godziny otwarcia to 8.00 - 16.00");
-             return;
-        }
-
-        // 3. Sprawdzamy czy w koszyku jest lunch i czy jest odpowiednia godzina (12-16)
-        const isLunchItem = (id) => LUNCHES.some(l => l.id === id);
-        const hasLunch = cart.some(item => isLunchItem(item.productId));
-
-        if (hasLunch && hour < 12) {
-             alert("Lunche dostępne od 12.00 - 16.00");
-             return;
-        }
-
+        // Dodatkowe zabezpieczenie, choć przycisk jest disabled
+        if (isBlocked) return;
 
         if (!validateBeforeOrder()) return;
 
@@ -1635,12 +1640,6 @@
               alert("Błąd serwera: " + (data.error || r.status));
               return;
             }
-
-            // ✅ WAŻNE: Zapisujemy extOrderId z serwera przed przekierowaniem
-            // (choć przy redirect to może być trudne, bo strona się przeładuje,
-            //  ale PayU po powrocie powinno obsłużyć status - to temat na osobny wątek "powrót z PayU").
-            //  W prostym scenariuszu PayU: status sprawdzimy po powrocie na stronę Success (jeśli taką zrobisz).
-            //  Tutaj skupiamy się na redirect.
             
             if (data.redirectUri) {
                window.location.href = data.redirectUri;
@@ -1931,10 +1930,26 @@
                   <span className="font-extrabold">{currency(total)}</span>
                 </div>
 
+                {/* ✅ KOMUNIKATY O ZAMKNIĘCIU LUB LUNCHACH */}
+                {isBlocked && (
+                  <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm">
+                    <div className="font-bold flex items-center gap-2">
+                        <i data-lucide="clock" className="w-4 h-4"/>
+                        { !isShopOpen ? "Restauracja jest teraz zamknięta" : "Pora na lunch jeszcze nie nadeszła" }
+                    </div>
+                    <div className="mt-1">
+                        { !isShopOpen 
+                            ? "Zapraszamy do składania zamówień w godzinach 8:00 – 16:00."
+                            : "Dania lunchowe dostępne są wyłącznie w godzinach 12:00 – 16:00."
+                        }
+                    </div>
+                  </div>
+                )}
+
                 <button
                   onClick={() => placeOrder(paymentMethod)}
-                  disabled={busyPay}
-                  className={`w-full mt-4 font-extrabold rounded-xl px-4 py-3 min-h-[44px] hover:ring-2 hover:ring-brand-yellow/40 ${busyPay ? "bg-gray-200 text-gray-600 cursor-not-allowed" : "bg-brand-yellow text-gray-900"}`}
+                  disabled={busyPay || isBlocked}
+                  className={`w-full mt-4 font-extrabold rounded-xl px-4 py-3 min-h-[44px] hover:ring-2 hover:ring-brand-yellow/40 ${busyPay || isBlocked ? "bg-gray-200 text-gray-600 cursor-not-allowed" : "bg-brand-yellow text-gray-900"}`}
                 >
                   <span className="inline-flex items-center justify-center gap-2">
                     {busyPay && <i data-lucide="loader" className="w-4 h-4 spin"></i>}
@@ -2504,46 +2519,45 @@
                     <li>
                       <span className="font-semibold">Firma przedsiębiorcy:</span>{" "}
                       MARCIN CHOJNACKI MILKSHAKE BAR
-            </li>
-          </ul>
+                    </li>
+                  </ul>
     
-          <div className="mt-4">
-            <div className="font-semibold text-gray-700">
-              Adres prowadzenia działalności:
-            </div>
-            <div className="text-gray-600">
-              ul. Szczecińska 17, 76-200 Słupsk, pow. Słupsk, gm. Słupsk,
-              woj. POMORSKIE, Polska
-            </div>
-          </div>
-    
-          <div className="mt-6 font-semibold text-gray-700">
-            © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
-          </div>
-    
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-sm">
-            <a
-              href="/rule.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-4"
-            >
-              Regulamin
-            </a>
-            <span className="text-gray-300">•</span>
-            <a
-              href="/rule.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-4"
-            >
-              Polityka prywatności
-            </a>
-          </div>
-        </div>
-      </div>
-    </footer>
-
+                  <div className="mt-4">
+                    <div className="font-semibold text-gray-700">
+                      Adres prowadzenia działalności:
+                    </div>
+                    <div className="text-gray-600">
+                      ul. Szczecińska 17, 76-200 Słupsk, pow. Słupsk, gm. Słupsk,
+                      woj. POMORSKIE, Polska
+                    </div>
+                  </div>
+            
+                  <div className="mt-6 font-semibold text-gray-700">
+                    © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
+                  </div>
+            
+                  <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-sm">
+                    <a
+                      href="/rule.html"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-4"
+                    >
+                      Regulamin
+                    </a>
+                    <span className="text-gray-300">•</span>
+                    <a
+                      href="/rule.html"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-gray-700 hover:text-gray-900 underline underline-offset-4"
+                    >
+                      Polityka prywatności
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </footer>
           </main>
 
           <AuthModal
