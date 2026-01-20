@@ -1291,7 +1291,7 @@
       const [addonsOpen, setAddonsOpen] = useState(false);
       const [addonsCartItemId, setAddonsCartItemId] = useState("");
       const [addonsTitle, setAddonsTitle] = useState("");
-       
+        
       // ✅ stan do powiększania zdjęć
       const [zoomedImage, setZoomedImage] = useState(null);
 
@@ -1376,7 +1376,7 @@
             cartItemId={addonsCartItemId}
             title={addonsTitle}
           />
-           
+            
           <ImageModal 
             src={zoomedImage}
             onClose={() => setZoomedImage(null)}
@@ -1565,7 +1565,7 @@
       // ✅ WALIDACJA CZASU NA UI (NOWOŚĆ)
       // Odświeżaj czas co minutę, aby przycisk odblokował się sam, gdy wybije godzina.
       const [now, setNow] = useState(new Date());
-       
+        
       useEffect(() => {
         const interval = setInterval(() => setNow(new Date()), 1000 * 60); // co minutę
         return () => clearInterval(interval);
@@ -1579,7 +1579,7 @@
       const isLunchItem = (id) => LUNCHES.some(l => l.id === id);
       const hasLunch = cart.some(item => isLunchItem(item.productId));
       const isLunchTime = plHour >= 12;
-       
+        
       // Czy można zamawiać lunch (jeśli jest w koszyku)
       const canOrderLunch = !hasLunch || isLunchTime;
 
@@ -1635,6 +1635,8 @@
 
       const clearRemembered = () => {
         clearSavedCustomer();
+        setHadSaved(false);
+        setForm({ ...emptyForm });
         setHadSaved(false);
       };
 
@@ -1707,6 +1709,20 @@
            }
              
            if (data.redirectUri) {
+              // 🔴 FIX: Zapisujemy stan ZANIM przekierujemy
+              saveOrder({
+                  extOrderId: data.extOrderId, // Musi przyjść z backendu w odpowiedzi PayU!
+                  customer: form,
+                  items: cart,
+                  total: total,
+                  paymentMethod: method,
+                  status: 'OCZEKIWANIE NA PŁATNOŚĆ'
+              });
+              
+              // Czyścimy koszyk lokalnie, bo "poszło"
+              clear();
+
+              // Przekierowanie
               window.location.href = data.redirectUri;
            } else {
               alert("Błąd: Brak linku do płatności");
@@ -1749,309 +1765,309 @@
        }
      };
 
-     const paymentLabel =
-       paymentMethod === "payu" ? "Płatność online (PayU)" :
-       paymentMethod === "card" ? "Złóż zamówienie (karta przy odbiorze)" :
-       "Złóż zamówienie (gotówka przy odbiorze)";
+      const paymentLabel =
+        paymentMethod === "payu" ? "Płatność online (PayU)" :
+        paymentMethod === "card" ? "Złóż zamówienie (karta przy odbiorze)" :
+        "Złóż zamówienie (gotówka przy odbiorze)";
 
-     return (
-       <section className="py-8 md:py-10">
-         <div className="max-w-6xl mx-auto px-4">
-           <a href="#/koszyk" className="inline-flex items-center gap-2 text-sm text-gray-600">
-             <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do koszyka
-           </a>
-           <h2 className="text-2xl font-extrabold mt-3">Zamówienie</h2>
+      return (
+        <section className="py-8 md:py-10">
+          <div className="max-w-6xl mx-auto px-4">
+            <a href="#/koszyk" className="inline-flex items-center gap-2 text-sm text-gray-600">
+              <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do koszyka
+            </a>
+            <h2 className="text-2xl font-extrabold mt-3">Zamówienie</h2>
 
-           {/* ✅ NOWY KOMUNIKAT O ZASIĘGU DOSTAWY */}
-           <div className="mt-4 p-4 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm flex items-start gap-3 shadow-sm">
-             <i data-lucide="info" className="w-5 h-5 shrink-0 mt-0.5"></i>
-             <div>
-               <div className="font-bold">Zasięg dostawy</div>
-               <p className="mt-1">
-                 Zamówienia obsługujemy w powiecie słupskim. W razie chęci zamówienia poza granice miasta Słupsk prosimy o kontakt telefoniczny:{" "}
-                 <a href="tel:+48780065750" className="font-bold underline text-yellow-900 hover:text-black">
-                   +48 780 065 750
-                 </a>.
-               </p>
-             </div>
-           </div>
+            {/* ✅ NOWY KOMUNIKAT O ZASIĘGU DOSTAWY */}
+            <div className="mt-4 p-4 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm flex items-start gap-3 shadow-sm">
+              <i data-lucide="info" className="w-5 h-5 shrink-0 mt-0.5"></i>
+              <div>
+                <div className="font-bold">Zasięg dostawy</div>
+                <p className="mt-1">
+                  Zamówienia obsługujemy w powiecie słupskim. W razie chęci zamówienia poza granice miasta Słupsk prosimy o kontakt telefoniczny:{" "}
+                  <a href="tel:+48780065750" className="font-bold underline text-yellow-900 hover:text-black">
+                    +48 780 065 750
+                  </a>.
+                </p>
+              </div>
+            </div>
 
-           {!user && (
-             <div className="mt-4 bg-white border border-gray-200 rounded-2xl p-4 shadow-soft">
-               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                 <div>
-                   <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Konto (opcjonalnie)</div>
-                   <div className="font-extrabold text-gray-900">Zaloguj się, żeby szybciej uzupełniać dane</div>
-                   <div className="text-sm text-gray-600 mt-1">Email i imię/nazwisko mogą uzupełnić się automatycznie.</div>
-                 </div>
-               </div>
-             </div>
-           )}
+            {!user && (
+              <div className="mt-4 bg-white border border-gray-200 rounded-2xl p-4 shadow-soft">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Konto (opcjonalnie)</div>
+                    <div className="font-extrabold text-gray-900">Zaloguj się, żeby szybciej uzupełniać dane</div>
+                    <div className="text-sm text-gray-600 mt-1">Email i imię/nazwisko mogą uzupełnić się automatycznie.</div>
+                  </div>
+                </div>
+              </div>
+            )}
 
-           <div className="mt-4 bg-white border border-gray-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-soft">
-             <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-               <input
-                 type="checkbox"
-                 checked={remember}
-                 onChange={(e)=>setRemember(e.target.checked)}
-               />
-               Zapamiętaj dane na przyszłość
-             </label>
+            <div className="mt-4 bg-white border border-gray-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-soft">
+              <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e)=>setRemember(e.target.checked)}
+                />
+                Zapamiętaj dane na przyszłość
+              </label>
 
-             <div className="flex items-center gap-2">
-               {hadSaved && (
-                 <div className="text-xs text-gray-500">
-                   Mamy zapisane dane — formularz uzupełnia się automatycznie.
-                 </div>
-               )}
-               <button
-                 type="button"
-                 onClick={clearRemembered}
-                 className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-sm font-semibold hover:ring-2 hover:ring-brand-yellow/20"
-               >
-                 <i data-lucide="trash-2" className="w-4 h-4"></i>
-                 Wyczyść zapamiętane dane
-               </button>
-             </div>
-           </div>
+              <div className="flex items-center gap-2">
+                {hadSaved && (
+                  <div className="text-xs text-gray-500">
+                    Mamy zapisane dane — formularz uzupełnia się automatycznie.
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={clearRemembered}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-sm font-semibold hover:ring-2 hover:ring-brand-yellow/20"
+                >
+                  <i data-lucide="trash-2" className="w-4 h-4"></i>
+                  Wyczyść zapamiętane dane
+                </button>
+              </div>
+            </div>
 
-           {/* ✅ WYBÓR PŁATNOŚCI Z PODŚWIETLENIEM */}
-           <div className="mt-4 bg-white border border-gray-200 rounded-2xl p-4 shadow-soft">
-             <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Metoda płatności</div>
-             <div className="mt-3 grid md:grid-cols-3 gap-3">
-               <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft transition ${paymentMethod==="payu" ? "bg-brand-yellow border-brand-yellow ring-2 ring-brand-yellow/50" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
-                 <input
-                   type="radio"
-                   name="payment"
-                   value="payu"
-                   checked={paymentMethod==="payu"}
-                   onChange={() => setPaymentMethod("payu")}
-                   className="hidden"
-                 />
-                 <div className="flex items-start gap-3">
-                   <div className={`w-11 h-11 rounded-2xl grid place-items-center ring-1 ring-black/10 shrink-0 ${paymentMethod==="payu" ? "bg-white" : "bg-brand-yellow/20"}`}>
-                     <i data-lucide="credit-card" className="w-5 h-5 text-gray-900"></i>
-                   </div>
-                   <div className="min-w-0">
-                     <div className="font-extrabold text-gray-900">Online (PayU)</div>
-                     <div className="text-xs text-gray-700 mt-0.5">Zapłać od razu i przejdź do PayU.</div>
-                   </div>
-                 </div>
-               </label>
+            {/* ✅ WYBÓR PŁATNOŚCI Z PODŚWIETLENIEM */}
+            <div className="mt-4 bg-white border border-gray-200 rounded-2xl p-4 shadow-soft">
+              <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Metoda płatności</div>
+              <div className="mt-3 grid md:grid-cols-3 gap-3">
+                <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft transition ${paymentMethod==="payu" ? "bg-brand-yellow border-brand-yellow ring-2 ring-brand-yellow/50" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
+                  <input
+                    type="radio"
+                    name="payment"
+                    value="payu"
+                    checked={paymentMethod==="payu"}
+                    onChange={() => setPaymentMethod("payu")}
+                    className="hidden"
+                  />
+                  <div className="flex items-start gap-3">
+                    <div className={`w-11 h-11 rounded-2xl grid place-items-center ring-1 ring-black/10 shrink-0 ${paymentMethod==="payu" ? "bg-white" : "bg-brand-yellow/20"}`}>
+                      <i data-lucide="credit-card" className="w-5 h-5 text-gray-900"></i>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-extrabold text-gray-900">Online (PayU)</div>
+                      <div className="text-xs text-gray-700 mt-0.5">Zapłać od razu i przejdź do PayU.</div>
+                    </div>
+                  </div>
+                </label>
 
-               <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft transition ${paymentMethod==="card" ? "bg-brand-yellow border-brand-yellow ring-2 ring-brand-yellow/50" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
-                 <input
-                   type="radio"
-                   name="payment"
-                   value="card"
-                   checked={paymentMethod==="card"}
-                   onChange={() => setPaymentMethod("card")}
-                   className="hidden"
-                 />
-                 <div className="flex items-start gap-3">
-                   <div className={`w-11 h-11 rounded-2xl grid place-items-center ring-1 ring-black/10 shrink-0 ${paymentMethod==="card" ? "bg-white" : "bg-brand-yellow/20"}`}>
-                     <i data-lucide="credit-card" className="w-5 h-5 text-gray-900"></i>
-                   </div>
-                   <div className="min-w-0">
-                     <div className="font-extrabold text-gray-900">Karta przy odbiorze</div>
-                     <div className="text-xs text-gray-700 mt-0.5">Zapłacisz kartą na miejscu.</div>
-                   </div>
-                 </div>
-               </label>
+                <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft transition ${paymentMethod==="card" ? "bg-brand-yellow border-brand-yellow ring-2 ring-brand-yellow/50" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
+                  <input
+                    type="radio"
+                    name="payment"
+                    value="card"
+                    checked={paymentMethod==="card"}
+                    onChange={() => setPaymentMethod("card")}
+                    className="hidden"
+                  />
+                  <div className="flex items-start gap-3">
+                    <div className={`w-11 h-11 rounded-2xl grid place-items-center ring-1 ring-black/10 shrink-0 ${paymentMethod==="card" ? "bg-white" : "bg-brand-yellow/20"}`}>
+                      <i data-lucide="credit-card" className="w-5 h-5 text-gray-900"></i>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-extrabold text-gray-900">Karta przy odbiorze</div>
+                      <div className="text-xs text-gray-700 mt-0.5">Zapłacisz kartą na miejscu.</div>
+                    </div>
+                  </div>
+                </label>
 
-               <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft transition ${paymentMethod==="cash" ? "bg-brand-yellow border-brand-yellow ring-2 ring-brand-yellow/50" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
-                 <input
-                   type="radio"
-                   name="payment"
-                   value="cash"
-                   checked={paymentMethod==="cash"}
-                   onChange={() => setPaymentMethod("cash")}
-                   className="hidden"
-                 />
-                 <div className="flex items-start gap-3">
-                   <div className={`w-11 h-11 rounded-2xl grid place-items-center ring-1 ring-black/10 shrink-0 ${paymentMethod==="cash" ? "bg-white" : "bg-brand-yellow/20"}`}>
-                     <i data-lucide="banknote" className="w-5 h-5 text-gray-900"></i>
-                   </div>
-                   <div className="min-w-0">
-                     <div className="font-extrabold text-gray-900">Gotówka przy odbiorze</div>
-                     <div className="text-xs text-gray-700 mt-0.5">Zapłacisz gotówką na miejscu.</div>
-                   </div>
-                 </div>
-               </label>
-             </div>
-           </div>
+                <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft transition ${paymentMethod==="cash" ? "bg-brand-yellow border-brand-yellow ring-2 ring-brand-yellow/50" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
+                  <input
+                    type="radio"
+                    name="payment"
+                    value="cash"
+                    checked={paymentMethod==="cash"}
+                    onChange={() => setPaymentMethod("cash")}
+                    className="hidden"
+                  />
+                  <div className="flex items-start gap-3">
+                    <div className={`w-11 h-11 rounded-2xl grid place-items-center ring-1 ring-black/10 shrink-0 ${paymentMethod==="cash" ? "bg-white" : "bg-brand-yellow/20"}`}>
+                      <i data-lucide="banknote" className="w-5 h-5 text-gray-900"></i>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-extrabold text-gray-900">Gotówka przy odbiorze</div>
+                      <div className="text-xs text-gray-700 mt-0.5">Zapłacisz gotówką na miejscu.</div>
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
 
-           <div className="mt-6 grid lg:grid-cols-3 gap-6 items-start">
-             <div className="lg:col-span-2 bg-white border border-gray-200 rounded-2xl p-5">
-               <div className="grid md:grid-cols-2 gap-4">
-                 <div>
-                   <label className="text-xs uppercase tracking-wider text-gray-500">Imię i nazwisko *</label>
-                   <input value={form.imieNazwisko} onChange={e=>handle('imieNazwisko', e.target.value)}
-                     className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-                 </div>
-                 <div>
-                   <label className="text-xs uppercase tracking-wider text-gray-500">Nr telefonu *</label>
-                   <input value={form.telefon} onChange={e=>handle('telefon', e.target.value)}
-                     className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-                 </div>
-                 <div>
-                   <label className="text-xs uppercase tracking-wider text-gray-500">Adres email</label>
-                   <input value={form.email} onChange={e=>handle('email', e.target.value)}
-                     className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-                 </div>
-                 <div>
-                   <label className="text-xs uppercase tracking-wider text-gray-500">Miasto *</label>
-                   <input value={form.miasto} onChange={e=>handle('miasto', e.target.value)}
-                     className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-                 </div>
+            <div className="mt-6 grid lg:grid-cols-3 gap-6 items-start">
+              <div className="lg:col-span-2 bg-white border border-gray-200 rounded-2xl p-5">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Imię i nazwisko *</label>
+                    <input value={form.imieNazwisko} onChange={e=>handle('imieNazwisko', e.target.value)}
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Nr telefonu *</label>
+                    <input value={form.telefon} onChange={e=>handle('telefon', e.target.value)}
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Adres email</label>
+                    <input value={form.email} onChange={e=>handle('email', e.target.value)}
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Miasto *</label>
+                    <input value={form.miasto} onChange={e=>handle('miasto', e.target.value)}
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                  </div>
 
-                 {/* ✅ POLE KODU Z WALIDACJĄ */}
-                 <div>
-                   <label className="text-xs uppercase tracking-wider text-gray-500">Kod pocztowy</label>
-                   <input 
-                      value={form.kod} 
-                      onChange={e=>handle('kod', e.target.value)}
-                      placeholder="76-200"
-                      className={`input-focus w-full border rounded-xl px-4 py-3 bg-white min-h-[44px] transition-colors ${isZipError ? 'border-red-500 bg-red-50 text-red-900 focus:border-red-600 focus:ring-red-200' : 'border-gray-200'}`}
-                   />
-                   {isZipError && (
-                     <div className="text-red-600 font-bold text-xs mt-1.5 flex items-center gap-1">
-                        <i data-lucide="alert-circle" className="w-3 h-3"></i> Nie obsługujemy twojego miasta
-                     </div>
-                   )}
-                 </div>
+                  {/* ✅ POLE KODU Z WALIDACJĄ */}
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Kod pocztowy</label>
+                    <input 
+                       value={form.kod} 
+                       onChange={e=>handle('kod', e.target.value)}
+                       placeholder="76-200"
+                       className={`input-focus w-full border rounded-xl px-4 py-3 bg-white min-h-[44px] transition-colors ${isZipError ? 'border-red-500 bg-red-50 text-red-900 focus:border-red-600 focus:ring-red-200' : 'border-gray-200'}`}
+                    />
+                    {isZipError && (
+                      <div className="text-red-600 font-bold text-xs mt-1.5 flex items-center gap-1">
+                         <i data-lucide="alert-circle" className="w-3 h-3"></i> Nie obsługujemy twojego miasta
+                      </div>
+                    )}
+                  </div>
 
-                 <div>
-                   <label className="text-xs uppercase tracking-wider text-gray-500">Ulica *</label>
-                   <input value={form.ulica} onChange={e=>handle('ulica', e.target.value)}
-                     className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-                 </div>
-                 <div>
-                   <label className="text-xs uppercase tracking-wider text-gray-500">Nr budynku</label>
-                   <input value={form.nrBud} onChange={e=>handle('nrBud', e.target.value)}
-                     className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-                 </div>
-                 <div>
-                   <label className="text-xs uppercase tracking-wider text-gray-500">Piętro</label>
-                   <input value={form.pietro} onChange={e=>handle('pietro', e.target.value)}
-                     className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-                 </div>
-                 <div>
-                   <label className="text-xs uppercase tracking-wider text-gray-500">Nr lokalu</label>
-                   <input value={form.lokal} onChange={e=>handle('lokal', e.target.value)}
-                     className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-                 </div>
-                 <div className="md:col-span-2">
-                   <label className="text-xs uppercase tracking-wider text-gray-500">Uwagi do zamówienia</label>
-                   <textarea value={form.uwagi} onChange={e=>handle('uwagi', e.target.value)}
-                     className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 min-h-[120px] bg-white"></textarea>
-                 </div>
-               </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Ulica *</label>
+                    <input value={form.ulica} onChange={e=>handle('ulica', e.target.value)}
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Nr budynku</label>
+                    <input value={form.nrBud} onChange={e=>handle('nrBud', e.target.value)}
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Piętro</label>
+                    <input value={form.pietro} onChange={e=>handle('pietro', e.target.value)}
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                  </div>
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Nr lokalu</label>
+                    <input value={form.lokal} onChange={e=>handle('lokal', e.target.value)}
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-xs uppercase tracking-wider text-gray-500">Uwagi do zamówienia</label>
+                    <textarea value={form.uwagi} onChange={e=>handle('uwagi', e.target.value)}
+                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 min-h-[120px] bg-white"></textarea>
+                  </div>
+                </div>
 
-               <div className="mt-4">
-                 <label className="flex items-center gap-2 text-sm">
-                   <input type="checkbox" checked={form.faktura} onChange={e=>handle('faktura', e.target.checked)} />
-                   Chcę dane do faktury
-                 </label>
-                 {form.faktura && (
-                   <div className="grid md:grid-cols-2 gap-4 mt-3">
-                     <div>
-                       <label className="text-xs uppercase tracking-wider text-gray-500">NIP</label>
-                       <input value={form.nip} onChange={e=>handle('nip', e.target.value)}
-                         className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-                     </div>
-                     <div>
-                       <label className="text-xs uppercase tracking-wider text-gray-500">Nazwa firmy</label>
-                       <input value={form.firma} onChange={e=>handle('firma', e.target.value)}
-                         className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-                     </div>
-                   </div>
-                 )}
-               </div>
-             </div>
+                <div className="mt-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={form.faktura} onChange={e=>handle('faktura', e.target.checked)} />
+                    Chcę dane do faktury
+                  </label>
+                  {form.faktura && (
+                    <div className="grid md:grid-cols-2 gap-4 mt-3">
+                      <div>
+                        <label className="text-xs uppercase tracking-wider text-gray-500">NIP</label>
+                        <input value={form.nip} onChange={e=>handle('nip', e.target.value)}
+                          className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                      </div>
+                      <div>
+                        <label className="text-xs uppercase tracking-wider text-gray-500">Nazwa firmy</label>
+                        <input value={form.firma} onChange={e=>handle('firma', e.target.value)}
+                          className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
 
-             <aside className="bg-white border border-gray-200 rounded-2xl p-5 sticky top-[84px]">
-               <div className="font-semibold">Podsumowanie</div>
-               <div className="mt-3 space-y-3 max-h-64 overflow-auto pr-2">
-                 {cart.map(i => {
-                   const addSum = addonsTotalPerUnit(i);
-                   return (
-                     <div key={i.id} className="text-sm">
-                       <div className="flex items-center justify-between gap-3">
-                         <span className="font-medium">{i.name} × {i.qty||1}</span>
-                         <span className="font-bold">{currency(lineTotal(i))}</span>
-                       </div>
+              <aside className="bg-white border border-gray-200 rounded-2xl p-5 sticky top-[84px]">
+                <div className="font-semibold">Podsumowanie</div>
+                <div className="mt-3 space-y-3 max-h-64 overflow-auto pr-2">
+                  {cart.map(i => {
+                    const addSum = addonsTotalPerUnit(i);
+                    return (
+                      <div key={i.id} className="text-sm">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-medium">{i.name} × {i.qty||1}</span>
+                          <span className="font-bold">{currency(lineTotal(i))}</span>
+                        </div>
 
-                       {Array.isArray(i.addons) && i.addons.length > 0 && (
-                         <div className="mt-1 flex flex-wrap gap-1">
-                           {i.addons.map((a) => (
-                             <span key={a.id} className="text-[10px] font-extrabold px-2 py-1 rounded-full bg-brand-yellow/15 border border-brand-yellow/30">
-                               + {a.label}
-                             </span>
-                           ))}
-                         </div>
-                       )}
-                     </div>
-                   );
-                 })}
-               </div>
-                 
-               <div className="mt-4 pt-3 border-t border-gray-100 space-y-2 text-sm">
-                   <div className="flex justify-between text-gray-600">
-                       <span>Produkty</span>
-                       <span>{currency(cartValue)}</span>
-                   </div>
-                   <div className="flex justify-between text-gray-600">
-                       <span>Dostawa</span>
-                       <span className="font-semibold">{currency(deliveryCost)}</span>
-                   </div>
-               </div>
+                        {Array.isArray(i.addons) && i.addons.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {i.addons.map((a) => (
+                              <span key={a.id} className="text-[10px] font-extrabold px-2 py-1 rounded-full bg-brand-yellow/15 border border-brand-yellow/30">
+                                + {a.label}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                  
+                <div className="mt-4 pt-3 border-t border-gray-100 space-y-2 text-sm">
+                    <div className="flex justify-between text-gray-600">
+                        <span>Produkty</span>
+                        <span>{currency(cartValue)}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-600">
+                        <span>Dostawa</span>
+                        <span className="font-semibold">{currency(deliveryCost)}</span>
+                    </div>
+                </div>
 
-               <div className="mt-4 bg-gray-50 border border-gray-200 rounded-2xl p-3">
-                 <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Wybrana płatność</div>
-                 <div className="mt-1 font-extrabold text-gray-900">
-                   {paymentMethod === "payu" && "Online (PayU)"}
-                   {paymentMethod === "card" && "Karta przy odbiorze"}
-                   {paymentMethod === "cash" && "Gotówka przy odbiorze"}
-                 </div>
-               </div>
+                <div className="mt-4 bg-gray-50 border border-gray-200 rounded-2xl p-3">
+                  <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Wybrana płatność</div>
+                  <div className="mt-1 font-extrabold text-gray-900">
+                    {paymentMethod === "payu" && "Online (PayU)"}
+                    {paymentMethod === "card" && "Karta przy odbiorze"}
+                    {paymentMethod === "cash" && "Gotówka przy odbiorze"}
+                  </div>
+                </div>
 
-               <div className="flex items-center justify-between mt-4 text-lg">
-                 <span className="font-bold">Do zapłaty</span>
-                 <span className="font-extrabold">{currency(total)}</span>
-               </div>
+                <div className="flex items-center justify-between mt-4 text-lg">
+                  <span className="font-bold">Do zapłaty</span>
+                  <span className="font-extrabold">{currency(total)}</span>
+                </div>
 
-               {/* ✅ KOMUNIKATY O ZAMKNIĘCIU LUB LUNCHACH */}
-               {isBlocked && (
-                 <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm">
-                   <div className="font-bold flex items-center gap-2">
-                       <i data-lucide="clock" className="w-4 h-4"/>
-                       { !isShopOpen ? "Restauracja jest teraz zamknięta" : "Pora na lunch jeszcze nie nadeszła" }
-                   </div>
-                   <div className="mt-1">
-                       { !isShopOpen 
-                           ? "Zapraszamy do składania zamówień w godzinach 8:00 – 16:00."
-                           : "Dania lunchowe dostępne są wyłącznie w godzinach 12:00 – 16:00."
-                       }
-                   </div>
-                 </div>
-               )}
+                {/* ✅ KOMUNIKATY O ZAMKNIĘCIU LUB LUNCHACH */}
+                {isBlocked && (
+                  <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm">
+                    <div className="font-bold flex items-center gap-2">
+                        <i data-lucide="clock" className="w-4 h-4"/>
+                        { !isShopOpen ? "Restauracja jest teraz zamknięta" : "Pora na lunch jeszcze nie nadeszła" }
+                    </div>
+                    <div className="mt-1">
+                        { !isShopOpen 
+                            ? "Zapraszamy do składania zamówień w godzinach 8:00 – 16:00."
+                            : "Dania lunchowe dostępne są wyłącznie w godzinach 12:00 – 16:00."
+                        }
+                    </div>
+                  </div>
+                )}
 
-               <button
-                 onClick={() => placeOrder(paymentMethod)}
-                 disabled={busyPay || isBlocked}
-                 className={`w-full mt-4 font-extrabold rounded-xl px-4 py-3 min-h-[44px] hover:ring-2 hover:ring-brand-yellow/40 ${busyPay || isBlocked ? "bg-gray-200 text-gray-600 cursor-not-allowed" : "bg-brand-yellow text-gray-900"}`}
-               >
-                 <span className="inline-flex items-center justify-center gap-2">
-                   {busyPay && <i data-lucide="loader" className="w-4 h-4 spin"></i>}
-                   {paymentLabel}
-                 </span>
-               </button>
-             </aside>
-           </div>
-         </div>
-       </section>
-     );
+                <button
+                  onClick={() => placeOrder(paymentMethod)}
+                  disabled={busyPay || isBlocked}
+                  className={`w-full mt-4 font-extrabold rounded-xl px-4 py-3 min-h-[44px] hover:ring-2 hover:ring-brand-yellow/40 ${busyPay || isBlocked ? "bg-gray-200 text-gray-600 cursor-not-allowed" : "bg-brand-yellow text-gray-900"}`}
+                >
+                  <span className="inline-flex items-center justify-center gap-2">
+                    {busyPay && <i data-lucide="loader" className="w-4 h-4 spin"></i>}
+                    {paymentLabel}
+                  </span>
+                </button>
+              </aside>
+            </div>
+          </div>
+        </section>
+      );
     };
 
     /* =======================
@@ -2612,7 +2628,7 @@
                       MARCIN CHOJNACKI MILKSHAKE BAR
                     </li>
                   </ul>
-      
+       
                   <div className="mt-4">
                     <div className="font-semibold text-gray-700">
                       Adres prowadzenia działalności:
