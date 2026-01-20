@@ -1815,11 +1815,11 @@
              </div>
            </div>
 
-           {/* ✅ wybór metody płatności */}
+           {/* ✅ WYBÓR PŁATNOŚCI Z PODŚWIETLENIEM */}
            <div className="mt-4 bg-white border border-gray-200 rounded-2xl p-4 shadow-soft">
              <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Metoda płatności</div>
              <div className="mt-3 grid md:grid-cols-3 gap-3">
-               <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft transition ${paymentMethod==="payu" ? "bg-brand-yellow border-brand-yellow" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
+               <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft transition ${paymentMethod==="payu" ? "bg-brand-yellow border-brand-yellow ring-2 ring-brand-yellow/50" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
                  <input
                    type="radio"
                    name="payment"
@@ -1839,7 +1839,7 @@
                  </div>
                </label>
 
-               <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft transition ${paymentMethod==="card" ? "bg-brand-yellow border-brand-yellow" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
+               <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft transition ${paymentMethod==="card" ? "bg-brand-yellow border-brand-yellow ring-2 ring-brand-yellow/50" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
                  <input
                    type="radio"
                    name="payment"
@@ -1859,7 +1859,7 @@
                  </div>
                </label>
 
-               <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft transition ${paymentMethod==="cash" ? "bg-brand-yellow border-brand-yellow" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
+               <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft transition ${paymentMethod==="cash" ? "bg-brand-yellow border-brand-yellow ring-2 ring-brand-yellow/50" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
                  <input
                    type="radio"
                    name="payment"
