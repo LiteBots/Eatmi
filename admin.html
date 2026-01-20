@@ -141,7 +141,7 @@
 
     /* =======================
        Utils
-       ======================= */
+       ========================================================= */
 
     const toNumber = (v) => {
       if (v === null || v === undefined) return 0;
@@ -438,8 +438,8 @@
       // FIX: Aggressive icon refresh when overlay is open/flashing
       useEffect(() => {
         if(open) {
-             setTimeout(refreshIcons, 0);
-             setTimeout(refreshIcons, 50); // Double check for laggy rendering
+              setTimeout(refreshIcons, 0);
+              setTimeout(refreshIcons, 50); // Double check for laggy rendering
         }
       }, [open, flash]);
 
@@ -1008,7 +1008,7 @@
             <PaymentPill order={o} />
           </div>
           <div className="absolute right-4 bottom-4 opacity-0 group-hover:opacity-100 transition-opacity hidden lg:block text-brand-yellow">
-             <Icon name="chevron-right" className="w-6 h-6" />
+              <Icon name="chevron-right" className="w-6 h-6" />
           </div>
         </div>
       );
