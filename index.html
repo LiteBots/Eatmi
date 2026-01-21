@@ -100,14 +100,6 @@
 
     .no-overscroll { overscroll-behavior: none; }
 
-    /* Info bar (top) */
-    .info-bar {
-      background: rgba(17, 24, 39, 0.92);
-      backdrop-filter: blur(10px);
-      color: #fff;
-      border-bottom: 1px solid rgba(255,255,255,0.12);
-    }
-
     /* Simple spinner */
     @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
     .spin { animation: spin 1s linear infinite; }
@@ -774,20 +766,6 @@
       );
     };
 
-
-    /* =======================
-       TOP INFO BAR
-    ======================= */
-
-    const TopInfoBar = () => (
-      <div className="info-bar">
-        <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-center gap-2 text-sm font-semibold">
-          <i data-lucide="info" className="w-4 h-4"></i>
-          <span>UWAGA! Serwis EATMI.PL aktualnie jest w fazie testów, wszystkie niedogodności podczas korzystania z platformy prosimy zgłaszać pod numerem <span className="font-extrabold">+48 780 065 750</span></span>
-        </div>
-      </div>
-    );
-
     /* =======================
        HEADER / LOGO / CART BTN
     ======================= */
@@ -1337,7 +1315,7 @@
             <div className="max-w-6xl mx-auto px-4">
               <a href="#kategorie" className="mt-2 inline-flex items-center justify-center gap-2 text-lg font-extrabold text-gray-900 bg-brand-yellow/20 border border-brand-yellow/30 rounded-2xl px-5 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/40 transition">
                     <i data-lucide="arrow-left" className="w-5 h-5"></i>
-                          Wróć do menu
+                           Wróć do menu
               </a>
 
               <div className="mt-4 flex items-center gap-3">
@@ -2615,7 +2593,6 @@
 
       return (
         <div className="min-h-screen no-overscroll">
-          <TopInfoBar />
           <Header onOpenAuth={() => { setAuthInitialStep("login"); setAuthOpen(true); }} />
 
           <main className={`app-content-pad ${showCTA ? "has-cta" : ""} ${activeOrder ? "has-tracker" : ""}`}>
@@ -2649,11 +2626,11 @@
                       woj. POMORSKIE, Polska
                     </div>
                   </div>
-            
+           
                   <div className="mt-6 font-semibold text-gray-700">
                     © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
                   </div>
-            
+           
                   <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-sm">
                     <a
                       href="/rule.html"
