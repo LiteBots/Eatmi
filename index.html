@@ -1562,6 +1562,14 @@
       const toast = useToast();
       const showToast = toast?.show;
 
+      // ✅ DEFINICJA OBSŁUGIWANYCH KODÓW POCZTOWYCH
+      const ALLOWED_ZIPS = [
+        '76-200', 
+        '76-217', 
+        '76-245', 
+        '76-251'
+      ];
+
       // ✅ WALIDACJA CZASU NA UI (NOWOŚĆ)
       // Odświeżaj czas co minutę, aby przycisk odblokował się sam, gdy wybije godzina.
       const [now, setNow] = useState(new Date());
@@ -1641,8 +1649,8 @@
       };
 
       // ✅ Helper do sprawdzania kodu pocztowego
-      // Uznajemy za błąd, jeśli coś jest wpisane, ma min. 6 znaków (np. 76-300) i nie jest to 76-200
-      const isZipError = form.kod && form.kod.length >= 6 && form.kod !== '76-200';
+      // Uznajemy za błąd, jeśli coś jest wpisane, ma min. 6 znaków i NIE JEST na liście dozwolonych
+      const isZipError = form.kod && form.kod.length >= 6 && !ALLOWED_ZIPS.includes(form.kod);
 
       const validateBeforeOrder = () => {
         if(!form.imieNazwisko || !form.telefon || !form.miasto || !form.ulica) {
@@ -1651,8 +1659,8 @@
         }
         
         // ✅ WALIDACJA KODU
-        if (form.kod !== '76-200') {
-           alert('Przykro nam, ale dostarczamy zamówienia tylko na terenie Słupska (kod 76-200).');
+        if (!ALLOWED_ZIPS.includes(form.kod)) {
+           alert(`Przykro nam, ale dostarczamy zamówienia tylko do kodów: ${ALLOWED_ZIPS.join(', ')}.`);
            return false;
         }
 
@@ -1784,7 +1792,11 @@
               <div>
                 <div className="font-bold">Zasięg dostawy</div>
                 <p className="mt-1">
-                  Zamówienia obsługujemy w powiecie słupskim. W razie chęci zamówienia poza granice miasta Słupsk prosimy o kontakt telefoniczny:{" "}
+                  Zamówienia obsługujemy w: <strong>Słupsk, Redzikowo, Bierkowo, Łosiono, Krępa Słupska, Głobino, Włynkówko, Siemianice, Kobylnica</strong>.
+                  <br/>
+                  Obsługiwane kody pocztowe: <strong>76-200, 76-217, 76-245, 76-251</strong>.
+                  <br/>
+                  W razie chęci zamówienia poza ten obszar prosimy o kontakt:{" "}
                   <a href="tel:+48780065750" className="font-bold underline text-yellow-900 hover:text-black">
                     +48 780 065 750
                   </a>.
@@ -1932,7 +1944,7 @@
                     />
                     {isZipError && (
                       <div className="text-red-600 font-bold text-xs mt-1.5 flex items-center gap-1">
-                         <i data-lucide="alert-circle" className="w-3 h-3"></i> Nie obsługujemy twojego miasta
+                          <i data-lucide="alert-circle" className="w-3 h-3"></i> Nie obsługujemy tego kodu pocztowego
                       </div>
                     )}
                   </div>
