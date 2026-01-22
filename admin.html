@@ -167,7 +167,8 @@
         h.includes("payu");
 
       if (looksLikePayUGrosze) return n / 100;
-      if (Number.isInteger(n) && n >= 1000 && n <= 200000) return n / 100;
+      // FIX: Zakomentowano "zgadywanie", bo psuło kwoty typu 1091 PLN -> 10.91 PLN
+      // if (Number.isInteger(n) && n >= 1000 && n <= 200000) return n / 100;
       return n;
     };
 
@@ -246,7 +247,7 @@
 
     /* =======================
        Global Helpers for Components
-       ======================= */
+       ========================================================= */
     const fmtDate = (iso) => {
       if (!iso) return "—";
       try {
@@ -257,7 +258,7 @@
     
     /* =======================
        Icons (Font Awesome Adapter)
-       ======================= */
+       ========================================================= */
     
     const ICON_MAP = {
         // Navigation & General
@@ -304,7 +305,7 @@
 
     /* =======================
        Toast
-       ======================= */
+       ========================================================= */
     const ToastContext = React.createContext();
     const useToast = () => React.useContext(ToastContext);
 
@@ -359,7 +360,7 @@
 
     /* =======================
        Components: Shell
-       ======================= */
+       ========================================================= */
     const Logo = () => (
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-2xl bg-white border border-gray-200 shadow-soft grid place-items-center overflow-hidden shrink-0">
@@ -410,7 +411,7 @@
 
     /* =======================
        New Order ALERT
-       ======================= */
+       ========================================================= */
     const useBeep = () => {
       const audioRef = useRef({ ctx: null, master: null, timer: null, running: false });
 
@@ -554,7 +555,7 @@
 
     /* =======================
        Login
-       ======================= */
+       ========================================================= */
     const Key = ({ label, onClick, variant="default" }) => {
       const base = "w-full h-16 sm:h-14 rounded-2xl border shadow-soft font-extrabold text-xl active:scale-[0.95] transition touch-manipulation";
       const styles =
@@ -663,7 +664,7 @@
 
     /* =======================
        Layout
-       ======================= */
+       ========================================================= */
     const NavItem = ({ active, icon, label, onClick, badge }) => (
       <button
         type="button"
@@ -727,11 +728,17 @@
 
     /* =======================
        Dashboard
-       ======================= */
+       ========================================================= */
     const Dashboard = ({ token, refreshSignal }) => {
       const toast = useToast();
       const [loading, setLoading] = useState(true);
-      const [stats, setStats] = useState({ ordersTotal: 0, ordersToday: 0, revenueTotal: 0 });
+      const [stats, setStats] = useState({ 
+          ordersTotal: 0, 
+          ordersToday: 0, 
+          revenueTotal: 0,
+          revenueToday: 0, 
+          usersTotal: 0 
+      });
 
       const load = async (opts={}) => {
         const { silent=false } = opts;
@@ -745,10 +752,14 @@
             return;
           }
           const revenuePLN = toPLNFromMaybeGrosze(data.revenueTotal || 0, "revenueTotal");
+          const revenueTodayPLN = toPLNFromMaybeGrosze(data.revenueToday || 0, "revenueToday");
+          
           setStats({
             ordersTotal: Number(data.ordersTotal || 0),
             ordersToday: Number(data.ordersToday || 0),
             revenueTotal: Number(revenuePLN || 0),
+            revenueToday: Number(revenueTodayPLN || 0),
+            usersTotal: Number(data.usersTotal || 0),
           });
         } catch (e) {
           console.log(e);
@@ -777,6 +788,9 @@
             <Card title="Zamówienia łącznie" value={stats.ordersTotal.toLocaleString("pl-PL")} icon="shopping-bag" loading={loading} hint="Suma zamówień (all time)." />
             <Card title="Zamówienia dziś" value={stats.ordersToday.toLocaleString("pl-PL")} icon="calendar" loading={loading} hint="Licznik zerowany o północy." />
             <Card title="Zarobek" value={currency(stats.revenueTotal)} icon="wallet" loading={loading} hint="Szacunkowy przychód." />
+            
+            <Card title="Użytkownicy" value={stats.usersTotal.toLocaleString("pl-PL")} icon="users" loading={loading} hint="Zarejestrowani." />
+            <Card title="Utarg dziś" value={currency(stats.revenueToday)} icon="banknote" loading={loading} hint="Zerowany o 00:00." />
           </div>
         </div>
       );
@@ -784,7 +798,7 @@
 
     /* =======================
        Orders & Details
-       ======================= */
+       ========================================================= */
     const StatusPill = ({ status }) => {
       const s = String(status || "").toLowerCase();
       const cls =
@@ -1188,7 +1202,7 @@
 
     /* =======================
        Push
-       ======================= */
+       ========================================================= */
     const Push = ({ token }) => {
       const toast = useToast();
       const [title, setTitle] = useState("");
@@ -1260,7 +1274,7 @@
 
     /* =======================
        Staff
-       ======================= */
+       ========================================================= */
     const Staff = ({ token }) => {
       const toast = useToast();
       const [list, setList] = useState([]);
@@ -1344,7 +1358,7 @@
 
     /* =======================
        App Shell & Logic
-       ======================= */
+       ========================================================= */
     const STORAGE_KEY = "eatmi-admin-token";
 
     const AppShell = ({ token, onLogout }) => {
