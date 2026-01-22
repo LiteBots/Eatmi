@@ -962,25 +962,50 @@ app.get("/api/admin/stream", requireStaffForStream, (req, res) => {
   });
 });
 
+// ==========================================
+// ✅ FIX: USER COUNT + REVENUE TODAY
+// ==========================================
 app.get("/api/admin/stats", requireStaff, async (req, res) => {
   try {
+    // 1. Liczba wszystkich zamówień
     const ordersTotal = await Order.countDocuments({});
 
+    // 2. Liczba zamówień dzisiaj
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
     const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-
     const ordersToday = await Order.countDocuments({ createdAt: { $gte: start, $lte: end } });
 
-    // ✅ UPDATED: Include "Zrealizowane" in revenue calculation
+    // 3. Całkowity przychód
     const revenueAgg = await Order.aggregate([
       { $match: { status: { $in: ["PAID", "COMPLETED", "Zrealizowane"] } } },
       { $group: { _id: null, sum: { $sum: "$totalPLN" } } }
     ]);
-
     const revenueTotal = Number(revenueAgg?.[0]?.sum || 0);
 
-    res.json({ ordersTotal, ordersToday, revenueTotal });
+    // 4. Utarg DZISIAJ (NOWE)
+    const revenueTodayAgg = await Order.aggregate([
+      { 
+        $match: { 
+          status: { $in: ["PAID", "COMPLETED", "Zrealizowane"] },
+          createdAt: { $gte: start, $lte: end }
+        } 
+      },
+      { $group: { _id: null, sum: { $sum: "$totalPLN" } } }
+    ]);
+    const revenueToday = Number(revenueTodayAgg?.[0]?.sum || 0);
+
+    // 5. Liczba użytkowników (NAPRAWIONE)
+    const usersTotal = await User.countDocuments({});
+
+    res.json({ 
+        ordersTotal, 
+        ordersToday, 
+        revenueTotal, 
+        revenueToday, 
+        usersTotal 
+    });
+
   } catch (e) {
     console.log("ADMIN STATS ERROR:", e?.message, e);
     res.status(500).json({ error: e?.message || "Server error" });
