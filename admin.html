@@ -789,7 +789,7 @@
             <Card title="Zamówienia dziś" value={stats.ordersToday.toLocaleString("pl-PL")} icon="calendar" loading={loading} hint="Licznik zerowany o północy." />
             <Card title="Zarobek" value={currency(stats.revenueTotal)} icon="wallet" loading={loading} hint="Szacunkowy przychód." />
             
-            <Card title="Użytkownicy" value={stats.usersTotal.toLocaleString("pl-PL")} icon="users" loading={loading} hint="Zarejestrowani." />
+            <Card title="Użytkownicy" value={stats.usersTotal.toLocaleString("pl-PL")} icon="users" loading={loading} hint="Zarejestrowani. - Nie mylić z kupującymi" />
             <Card title="Utarg dziś" value={currency(stats.revenueToday)} icon="banknote" loading={loading} hint="Zerowany o 00:00." />
           </div>
         </div>
