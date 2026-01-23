@@ -167,8 +167,6 @@
         h.includes("payu");
 
       if (looksLikePayUGrosze) return n / 100;
-      // FIX: Zakomentowano "zgadywanie", bo psuło kwoty typu 1091 PLN -> 10.91 PLN
-      // if (Number.isInteger(n) && n >= 1000 && n <= 200000) return n / 100;
       return n;
     };
 
@@ -410,10 +408,27 @@
     };
 
     /* =======================
-       New Order ALERT
+       New Order ALERT (FIXED AUDIO)
        ========================================================= */
     const useBeep = () => {
       const audioRef = useRef({ ctx: null, master: null, timer: null, running: false });
+
+      // FIX: Add global "unlock" listener to ensure AudioContext is resumed on first interaction
+      useEffect(() => {
+        const unlock = () => {
+            const st = audioRef.current;
+            if (st.ctx && st.ctx.state === 'suspended') {
+                st.ctx.resume().catch(() => {});
+            }
+        };
+        // Listen to any click/touch on the page to unblock audio
+        window.addEventListener('click', unlock, { capture: true, once: false });
+        window.addEventListener('touchstart', unlock, { capture: true, once: false });
+        return () => {
+            window.removeEventListener('click', unlock);
+            window.removeEventListener('touchstart', unlock);
+        };
+      }, []);
 
       const ensure = async () => {
         const st = audioRef.current;
@@ -440,18 +455,20 @@
         const tick = () => {
           const s = audioRef.current;
           if (!s.running || !s.ctx || !s.master) return;
-          const osc = s.ctx.createOscillator();
-          const g = s.ctx.createGain();
-          osc.type = "square";
-          osc.frequency.value = 1400;
-          const now = s.ctx.currentTime;
-          g.gain.setValueAtTime(0.0001, now);
-          g.gain.exponentialRampToValueAtTime(0.9, now + 0.01);
-          g.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
-          osc.connect(g);
-          g.connect(s.master);
-          osc.start(now);
-          osc.stop(now + 0.10);
+          try {
+              const osc = s.ctx.createOscillator();
+              const g = s.ctx.createGain();
+              osc.type = "square";
+              osc.frequency.value = 1400;
+              const now = s.ctx.currentTime;
+              g.gain.setValueAtTime(0.0001, now);
+              g.gain.exponentialRampToValueAtTime(0.9, now + 0.01);
+              g.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+              osc.connect(g);
+              g.connect(s.master);
+              osc.start(now);
+              osc.stop(now + 0.10);
+          } catch(e) { console.error("Audio tick error", e); }
         };
         tick();
         st.timer = setInterval(tick, 180);
@@ -483,7 +500,8 @@
         }
         setFlash(false);
         if (flashRef.current) clearInterval(flashRef.current);
-        flashRef.current = setInterval(() => setFlash(f => !f), 500); // Slower flash to save performance
+        flashRef.current = setInterval(() => setFlash(f => !f), 500); 
+        // Trigger audio
         start();
         return () => {
           if (flashRef.current) clearInterval(flashRef.current);
@@ -1406,23 +1424,31 @@
           es.onopen = () => console.log("SSE Connected");
           
           es.addEventListener("new_order", (e) => {
-              const d = JSON.parse(e.data);
-              
-              // 1. Force refresh of data
-              setRefreshSignal(Date.now());
-              
-              // 2. Force Alert Open (Directly set state, no ref logic here needed to force UI)
-              const miniOrder = {
-                  extOrderId: d.extOrderId,
-                  totalPLN: d.totalPLN,
-                  customer: { imieNazwisko: d.customer },
-                  status: d.status,
-                  paymentMethod: d.paymentMethod,
-                  createdAt: new Date().toISOString() 
-              };
-              
-              setAlertOrder(miniOrder);
-              setAlertOpen(true);
+              // Wrap in try-catch to ensure one bad parse doesn't crash the listener
+              try {
+                  const d = JSON.parse(e.data);
+                  
+                  // 1. Force refresh of data
+                  setRefreshSignal(Date.now());
+                  
+                  // 2. Force Alert Open 
+                  // Safe customer name extraction
+                  const custName = (typeof d.customer === 'object' ? d.customer.name : d.customer) || "Klient";
+
+                  const miniOrder = {
+                      extOrderId: d.extOrderId || "Nowe",
+                      totalPLN: d.totalPLN,
+                      customer: { imieNazwisko: custName },
+                      status: d.status,
+                      paymentMethod: d.paymentMethod,
+                      createdAt: new Date().toISOString() 
+                  };
+                  
+                  setAlertOrder(miniOrder);
+                  setAlertOpen(true);
+              } catch (err) {
+                  console.error("SSE Parse Error:", err, e.data);
+              }
           });
 
           es.addEventListener("order_update", (e) => {
