@@ -2042,17 +2042,22 @@
                     </div>
                   </div>
                 )}
-
-                <button
-                  onClick={() => placeOrder(paymentMethod)}
-                  disabled={busyPay || isBlocked}
-                  className={`w-full mt-4 font-extrabold rounded-xl px-4 py-3 min-h-[44px] hover:ring-2 hover:ring-brand-yellow/40 ${busyPay || isBlocked ? "bg-gray-200 text-gray-600 cursor-not-allowed" : "bg-brand-yellow text-gray-900"}`}
-                >
-                  <span className="inline-flex items-center justify-center gap-2">
-                    {busyPay && <i data-lucide="loader" className="w-4 h-4 spin"></i>}
-                    {paymentLabel}
-                  </span>
-                </button>
+                          <button
+                onClick={() => placeOrder(paymentMethod)}
+                disabled={busyPay || isBlocked}
+                style={{
+                  backgroundColor: "#FFC107",
+                  color: "#111827",
+                  opacity: (busyPay || isBlocked) ? 0.6 : 1,
+                  cursor: (busyPay || isBlocked) ? "not-allowed" : "pointer"
+                }}
+                className="w-full mt-4 font-extrabold rounded-xl px-4 py-3 min-h-[44px] hover:ring-2 hover:ring-brand-yellow/40"
+              >
+                <span className="inline-flex items-center justify-center gap-2">
+                  {busyPay && <i data-lucide="loader" className="w-4 h-4 spin"></i>}
+                  {paymentLabel}
+                </span>
+              </button>
               </aside>
             </div>
           </div>
