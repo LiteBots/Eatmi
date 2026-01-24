@@ -1549,7 +1549,7 @@
         '76-251'
       ];
 
-      // ✅ WALIDACJA CZASU NA UI (NOWOŚĆ)
+      // ✅ WALIDACJA CZASU NA UI
       // Odświeżaj czas co minutę, aby przycisk odblokował się sam, gdy wybije godzina.
       const [now, setNow] = useState(new Date());
         
@@ -1559,15 +1559,20 @@
       }, []);
 
       const plString = now.toLocaleString("en-US", {timeZone: "Europe/Warsaw"});
-      const plHour = new Date(plString).getHours();
+      const dateObj = new Date(plString);
+      const plHour = dateObj.getHours();
+      const plDay = dateObj.getDay(); // 0 = Niedziela, 6 = Sobota
 
       // Logika dostępności
-      const isShopOpen = plHour >= 8 && plHour < 16;
+      // Sklep otwarty 8-16, tylko w dni robocze (1-5, czyli Pon-Pt)
+      const isWeekend = plDay === 0 || plDay === 6;
+      const isShopOpen = !isWeekend && (plHour >= 8 && plHour < 16);
+
       const isLunchItem = (id) => LUNCHES.some(l => l.id === id);
       const hasLunch = cart.some(item => isLunchItem(item.productId));
       const isLunchTime = plHour >= 12;
         
-      // Czy można zamawiać lunch (jeśli jest w koszyku)
+      // Czy można zamawiać lunch (jeśli jest w koszyku) - wymaga też otwartego sklepu
       const canOrderLunch = !hasLunch || isLunchTime;
 
       // Czy formularz jest zablokowany
@@ -2032,12 +2037,19 @@
                   <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm">
                     <div className="font-bold flex items-center gap-2">
                         <i data-lucide="clock" className="w-4 h-4"/>
-                        { !isShopOpen ? "Restauracja jest teraz zamknięta" : "Pora na lunch jeszcze nie nadeszła" }
+                        { isWeekend 
+                            ? "Restauracja jest zamknięta w weekendy" 
+                            : !isShopOpen 
+                              ? "Restauracja jest teraz zamknięta" 
+                              : "Pora na lunch jeszcze nie nadeszła" 
+                        }
                     </div>
                     <div className="mt-1">
-                        { !isShopOpen 
-                            ? "Zapraszamy do składania zamówień w godzinach 8:00 – 16:00."
-                            : "Dania lunchowe dostępne są wyłącznie w godzinach 12:00 – 16:00."
+                        { isWeekend
+                            ? "Zapraszamy od poniedziałku do piątku w godzinach 8:00 – 16:00."
+                            : !isShopOpen 
+                                ? "Zapraszamy do składania zamówień w godzinach 8:00 – 16:00 (Pon–Pt)."
+                                : "Dania lunchowe dostępne są wyłącznie w godzinach 12:00 – 16:00."
                         }
                     </div>
                   </div>
@@ -2318,20 +2330,36 @@
        HOME (bez formularza kontaktowego)
     ======================= */
 
-    const Home = () => (
-      <>
-        <Hero />
+    const Home = () => {
+      // Sprawdzamy, czy jest weekend, aby wyświetlić komunikat
+      const now = new Date();
+      const plString = now.toLocaleString("en-US", {timeZone: "Europe/Warsaw"});
+      const dateObj = new Date(plString);
+      const day = dateObj.getDay(); // 0=Sun, 6=Sat
+      const isWeekend = day === 0 || day === 6;
 
-        <section id="kategorie" className="py-12 md:py-20 bg-gradient-to-b from-white to-brand-light">
-          <div className="max-w-6xl mx-auto px-4">
-            <SectionTitle eyebrow="Menu" title="Wybierz z Menu" subtitle="Najpierw wybierz kategorię, potem dodawaj pozycje do koszyka — w kilka kliknięć!" />
-            <div className="mt-8 grid gap-5 md:grid-cols-3 md:gap-6">
-              {PRODUCT_CATEGORIES.map(cat => <CategoryCard key={cat.id} category={cat} />)}
+      return (
+        <>
+          {/* Komunikat o weekendzie */}
+          {isWeekend && (
+            <div className="bg-red-600 text-white text-center py-2 px-4 text-sm font-bold shadow-md relative z-10">
+              Zamówienia przyjmujemy od poniedziałku do piątku
             </div>
-          </div>
-        </section>
-      </>
-    );
+          )}
+
+          <Hero />
+
+          <section id="kategorie" className="py-12 md:py-20 bg-gradient-to-b from-white to-brand-light">
+            <div className="max-w-6xl mx-auto px-4">
+              <SectionTitle eyebrow="Menu" title="Wybierz z Menu" subtitle="Najpierw wybierz kategorię, potem dodawaj pozycje do koszyka — w kilka kliknięć!" />
+              <div className="mt-8 grid gap-5 md:grid-cols-3 md:gap-6">
+                {PRODUCT_CATEGORIES.map(cat => <CategoryCard key={cat.id} category={cat} />)}
+              </div>
+            </div>
+          </section>
+        </>
+      );
+    };
 
     /* =======================
        Router (hash) — FIX (route split '?')
@@ -2632,11 +2660,11 @@
                       woj. POMORSKIE, Polska
                     </div>
                   </div>
-           
+            
                   <div className="mt-6 font-semibold text-gray-700">
                     © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
                   </div>
-           
+            
                   <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-sm">
                     <a
                       href="/rule.html"
