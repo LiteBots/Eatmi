@@ -66,11 +66,11 @@
     }
 
     .liquid { background: rgba(255,255,255,.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
-     
+      
     /* Input focus ring adjustment */
     .input-focus { outline: none; transition: box-shadow 0.2s; font-size: 16px; /* Prevents iOS zoom */ }
     .input-focus:focus { box-shadow: 0 0 0 3px rgba(255,193,7,.35); border-color: rgba(255,193,7,.75); }
-     
+      
     .toast-enter { animation: toastIn .25s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
     @keyframes toastIn { from { transform: translateY(20px) scale(0.95); opacity: 0 } to { transform: translateY(0) scale(1); opacity: 1 } }
 
@@ -88,8 +88,8 @@
     .drawer-scroll { max-height: calc(100vh - 80px); overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: calc(20px + var(--safe-b)); }
 
     /* Flashing alert */
-    .flash-yellow { background: #FFC107; transition: background 0.1s; }
-    .flash-white { background: #ffffff; transition: background 0.1s; }
+    .flash-yellow { background: #FFC107; transition: background 0.2s ease-in-out; }
+    .flash-white { background: #ffffff; transition: background 0.2s ease-in-out; }
     .no-interact { pointer-events: none; user-select: none; filter: blur(2px); }
 
     /* iOS/Safari fixed centering helpers */
@@ -108,7 +108,7 @@
       ::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 4px; }
       ::-webkit-scrollbar-thumb:hover { background: #D1D5DB; }
     }
-     
+      
     /* Animations */
     @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
     .animate-slideInRight { animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
@@ -125,7 +125,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useEffect, useMemo, useRef, useState, useLayoutEffect } = React;
+    const { useEffect, useMemo, useRef, useState, useLayoutEffect, useCallback } = React;
 
     /* =========================================================
        API CONFIG
@@ -204,7 +204,7 @@
       const o = order || {};
       const pmRaw = o.paymentMethod || o.paymentType || o.method || null;
       const pm = String(pmRaw || "").trim().toLowerCase();
-       
+        
       if (pm.includes("cash") || pm === "gotowka" || pm === "gotówka") {
         return { kind: "offline_cash", label: "Gotówka przy odbiorze", badge: "GOTÓWKA" };
       }
@@ -253,11 +253,11 @@
         return d.toLocaleString("pl-PL");
       } catch { return String(iso); }
     };
-     
+      
     /* =======================
        Icons (Font Awesome Adapter)
        ========================================================= */
-     
+      
     const ICON_MAP = {
         // Navigation & General
         "layout-dashboard": "fa-table-columns",
@@ -276,15 +276,15 @@
         "user-plus": "fa-user-plus",
         "bell-ring": "fa-bell",
         "calendar-clock": "fa-calendar-plus",
-         
+          
         // Cards
         "shopping-bag": "fa-bag-shopping",
         "calendar": "fa-calendar-days",
         "wallet": "fa-wallet",
-         
+          
         // Payment
         "banknote": "fa-money-bill-wave",
-         
+          
         // Statuses
         "circle-dashed": "fa-circle-notch", // or fa-spinner
         "check-circle-2": "fa-circle-check",
@@ -292,7 +292,7 @@
         "clock-3": "fa-clock",
         "x-circle": "fa-circle-xmark",
         "bike": "fa-bicycle",
-         
+          
         // Actions
         "chef-hat": "fa-utensils", // FA Free doesn't have a chef hat, utensils is a good semantic match
     };
@@ -409,87 +409,99 @@
     };
 
     /* =======================
-       New Order ALERT (FIXED AUDIO)
+       Improved Audio Alert (ROBUST)
        ========================================================= */
     const useBeep = () => {
-      const audioRef = useRef({ ctx: null, master: null, timer: null, running: false });
+      // Store the AudioContext in a Ref to persist across renders
+      const audioRef = useRef(null);
 
-      // FIX: Add global "unlock" listener to ensure AudioContext is resumed on first interaction
+      // Initialize AudioContext once on mount
       useEffect(() => {
-        const unlock = () => {
-            const st = audioRef.current;
-            if (st.ctx && st.ctx.state === 'suspended') {
-                st.ctx.resume().catch(() => {});
-            }
-        };
-        // Listen to any click/touch on the page to unblock audio
-        window.addEventListener('click', unlock, { capture: true, once: false });
-        window.addEventListener('touchstart', unlock, { capture: true, once: false });
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        const ctx = new Ctx();
+        const master = ctx.createGain();
+        master.connect(ctx.destination);
+        // Initial silent unlock attempt
+        if (ctx.state === 'suspended') {
+            const unlock = () => ctx.resume().then(() => {
+                window.removeEventListener('click', unlock);
+                window.removeEventListener('touchstart', unlock);
+            });
+            window.addEventListener('click', unlock);
+            window.addEventListener('touchstart', unlock);
+        }
+        audioRef.current = { ctx, master, interval: null };
+
         return () => {
-            window.removeEventListener('click', unlock);
-            window.removeEventListener('touchstart', unlock);
+          if (audioRef.current) {
+            if (audioRef.current.interval) clearInterval(audioRef.current.interval);
+            audioRef.current.ctx.close().catch(() => {});
+          }
         };
       }, []);
 
-      const ensure = async () => {
-        const st = audioRef.current;
-        if (st.ctx && st.ctx.state === "suspended") {
-          try { await st.ctx.resume(); } catch {}
-        }
-        if (!st.ctx) {
-          const Ctx = window.AudioContext || window.webkitAudioContext;
-          if (!Ctx) return;
-          st.ctx = new Ctx();
-          st.master = st.ctx.createGain();
-          st.master.gain.value = 0.9;
-          st.master.connect(st.ctx.destination);
-        }
-      };
+      const start = useCallback(() => {
+        const s = audioRef.current;
+        if (!s) return;
+        
+        // Ensure not already running
+        if (s.interval) return;
 
-      const start = async () => {
-        const st = audioRef.current;
-        if (st.running) return;
-        await ensure();
-        if (!st.ctx || !st.master) return;
-        st.running = true;
+        // AGGRESSIVE UNLOCK: Try to resume context immediately
+        if (s.ctx.state === 'suspended') {
+           s.ctx.resume().catch(e => console.error("Audio resume failed", e));
+        }
 
-        const tick = () => {
-          const s = audioRef.current;
-          if (!s.running || !s.ctx || !s.master) return;
+        const playTone = () => {
           try {
-              const osc = s.ctx.createOscillator();
-              const g = s.ctx.createGain();
-              osc.type = "square";
-              osc.frequency.value = 1400;
-              const now = s.ctx.currentTime;
-              g.gain.setValueAtTime(0.0001, now);
-              g.gain.exponentialRampToValueAtTime(0.9, now + 0.01);
-              g.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
-              osc.connect(g);
-              g.connect(s.master);
-              osc.start(now);
-              osc.stop(now + 0.10);
-          } catch(e) { console.error("Audio tick error", e); }
+            // Re-check resume in loop just in case
+            if (s.ctx.state === 'suspended') s.ctx.resume();
+
+            const osc = s.ctx.createOscillator();
+            const g = s.ctx.createGain();
+            
+            // SAWTOOTH is louder and more annoying (better for alerts)
+            osc.type = "sawtooth"; 
+            osc.frequency.value = 880; // A5
+            
+            const now = s.ctx.currentTime;
+            
+            g.gain.setValueAtTime(0, now);
+            g.gain.linearRampToValueAtTime(0.5, now + 0.05);
+            g.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+
+            osc.connect(g);
+            g.connect(s.master);
+
+            osc.start(now);
+            osc.stop(now + 0.5);
+          } catch(e) { console.error("Tone error", e); }
         };
-        tick();
-        st.timer = setInterval(tick, 180);
-      };
 
-      const stop = () => {
-        const st = audioRef.current;
-        st.running = false;
-        if (st.timer) clearInterval(st.timer);
-        st.timer = null;
-      };
+        playTone();
+        // Beep every 800ms
+        s.interval = setInterval(playTone, 800);
+      }, []);
 
-      useEffect(() => () => stop(), []);
-      return { start, stop, ensure };
+      const stop = useCallback(() => {
+        const s = audioRef.current;
+        if (s && s.interval) {
+          clearInterval(s.interval);
+          s.interval = null;
+        }
+      }, []);
+
+      return { start, stop };
     };
 
+    /* =======================
+       New Order Overlay (FIXED)
+       ========================================================= */
     const NewOrderOverlay = ({ open, orderPreview, onAcknowledge }) => {
       const [flash, setFlash] = useState(false);
       const flashRef = useRef(null);
-      const { start, stop, ensure } = useBeep();
+      const { start, stop } = useBeep();
 
       useEffect(() => {
         if (!open) {
@@ -497,19 +509,33 @@
           if (flashRef.current) clearInterval(flashRef.current);
           flashRef.current = null;
           stop();
+          document.title = "eatmi.pl — Panel Administratora";
           return;
         }
+
+        // 1. Start Visual Flash
         setFlash(false);
         if (flashRef.current) clearInterval(flashRef.current);
-        flashRef.current = setInterval(() => setFlash(f => !f), 500); 
-        // Trigger audio
+        // Faster flash (300ms) for more urgency
+        flashRef.current = setInterval(() => {
+            setFlash(f => !f);
+            // Title Flash
+            document.title = document.title.includes("🔔") ? "NOWE ZAMÓWIENIE!" : "🔔 (1) NOWE ZAMÓWIENIE";
+        }, 300); 
+
+        // 2. Start Audio
         start();
+
+        // 3. Vibrate (Mobile)
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+
         return () => {
           if (flashRef.current) clearInterval(flashRef.current);
           flashRef.current = null;
           stop();
+          document.title = "eatmi.pl — Panel Administratora";
         };
-      }, [open]);
+      }, [open, start, stop]);
 
       if (!open) return null;
 
@@ -520,10 +546,10 @@
       const pay = resolvePayment(orderPreview);
 
       return (
-        <div className={`ios-fixed z-[999] ${bgClass}`}>
+        <div className={`ios-fixed z-[9999] ${bgClass}`}>
           <div className="absolute inset-0"></div>
           <div className="relative h-full w-full flex items-center justify-center px-4 py-6">
-            <div className="w-full max-w-2xl bg-white/95 border border-black/10 shadow-kiosk rounded-3xl p-6 md:p-8 backdrop-blur-xl">
+            <div className="w-full max-w-2xl bg-white/95 border border-black/10 shadow-kiosk rounded-3xl p-6 md:p-8 backdrop-blur-xl animate-fadeIn">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="text-xs uppercase tracking-[0.18em] font-black text-gray-700">NOWE ZAMÓWIENIE</div>
@@ -535,7 +561,7 @@
                   </div>
                 </div>
                 <div className="w-14 h-14 rounded-3xl bg-brand-yellow/30 border border-black/10 grid place-items-center shrink-0">
-                  <Icon name="bell-ring" className="w-8 h-8 text-gray-900" />
+                  <Icon name="bell-ring" className="w-8 h-8 text-gray-900 animate-bounce" />
                 </div>
               </div>
 
@@ -557,7 +583,7 @@
               <div className="mt-8">
                 <button
                   type="button"
-                  onClick={async () => { await ensure(); onAcknowledge?.(); }}
+                  onClick={onAcknowledge}
                   className="w-full inline-flex items-center justify-center gap-3 bg-gray-900 text-white font-black rounded-2xl px-8 py-5 shadow-glass hover:ring-4 hover:ring-black/10 active:scale-[0.98] transition text-xl"
                 >
                   <Icon name="check" className="w-6 h-6" /> OK, PRZYJMUJĘ
@@ -797,7 +823,7 @@
           }
           const revenuePLN = toPLNFromMaybeGrosze(data.revenueTotal || 0, "revenueTotal");
           const revenueTodayPLN = toPLNFromMaybeGrosze(data.revenueToday || 0, "revenueToday");
-           
+            
           setStats({
             ordersTotal: Number(data.ordersTotal || 0),
             ordersToday: Number(data.ordersToday || 0),
@@ -832,7 +858,7 @@
             <Card title="Zamówienia łącznie" value={stats.ordersTotal.toLocaleString("pl-PL")} icon="shopping-bag" loading={loading} hint="Suma zamówień (all time)." />
             <Card title="Zamówienia dziś" value={stats.ordersToday.toLocaleString("pl-PL")} icon="calendar" loading={loading} hint="Licznik zerowany o północy." />
             <Card title="Zarobek" value={currency(stats.revenueTotal)} icon="wallet" loading={loading} hint="Szacunkowy przychód." />
-             
+              
             <Card title="Użytkownicy" value={stats.usersTotal.toLocaleString("pl-PL")} icon="users" loading={loading} hint="Zarejestrowani. - Nie mylić z kupującymi" />
             <Card title="Utarg dziś" value={currency(stats.revenueToday)} icon="banknote" loading={loading} hint="Zerowany o 00:00." />
           </div>
@@ -856,22 +882,22 @@
                     onClick={() => setSelectedSchedule(item)}
                     className="bg-white border border-gray-200 rounded-2xl p-4 shadow-soft active:scale-[0.98] transition cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4 group"
                   >
-                     <div className="flex flex-col gap-1">
-                        <div className="font-extrabold text-lg text-gray-900">{item.customer.imieNazwisko}</div>
-                        <div className="text-sm text-gray-500 font-medium">{item.customer.telefon}</div>
-                     </div>
+                      <div className="flex flex-col gap-1">
+                         <div className="font-extrabold text-lg text-gray-900">{item.customer.imieNazwisko}</div>
+                         <div className="text-sm text-gray-500 font-medium">{item.customer.telefon}</div>
+                      </div>
 
-                     <div className="flex items-center gap-4">
-                        <div className="bg-brand-yellow text-gray-900 font-black px-3 py-1 rounded-lg text-sm shadow-sm ring-2 ring-brand-yellow/30">
-                           {item.deliveryDate}
-                        </div>
-                        <div className="font-black text-xl text-right min-w-[80px]">
-                           {currency(item.totalPLN)}
-                        </div>
-                        <div className="text-gray-400 group-hover:text-brand-yellow transition">
-                            <Icon name="chevron-right" className="w-5 h-5" />
-                        </div>
-                     </div>
+                      <div className="flex items-center gap-4">
+                         <div className="bg-brand-yellow text-gray-900 font-black px-3 py-1 rounded-lg text-sm shadow-sm ring-2 ring-brand-yellow/30">
+                            {item.deliveryDate}
+                         </div>
+                         <div className="font-black text-xl text-right min-w-[80px]">
+                            {currency(item.totalPLN)}
+                         </div>
+                         <div className="text-gray-400 group-hover:text-brand-yellow transition">
+                             <Icon name="chevron-right" className="w-5 h-5" />
+                         </div>
+                      </div>
                   </div>
                ))}
             </div>
@@ -916,7 +942,7 @@
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
       }, [open, onClose]);
-       
+        
       if (!open) return null;
 
       return (
@@ -965,7 +991,7 @@
       const productsValue = cart.reduce((sum, item) => {
          return sum + (getItemUnitPricePLN(item) * (item.qty || 1));
       }, 0);
-       
+        
       let deliveryCost = 0;
       if (productsValue < 50) deliveryCost = 10;
       else if (productsValue < 80) deliveryCost = 5;
@@ -994,7 +1020,7 @@
 
       return (
         <div className="space-y-5 pb-10">
-           
+            
           {/* AKCJE - ZMIANA STATUSU */}
           <div className="bg-white border border-gray-200 rounded-3xl p-5 shadow-sm">
             <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold mb-3">Akcje (Zmień status)</div>
@@ -1053,12 +1079,12 @@
                 const name = resolveProductName(it);
                 const unitPricePLN = getItemUnitPricePLN(it);
                 const linePLN = unitPricePLN * qty;
-                 
+                  
                 return (
                   <div key={i} className="border border-gray-200 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="font-bold text-gray-900 text-sm leading-tight">{name}</div>
-                       
+                        
                       {Array.isArray(it.addons) && it.addons.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">
                           {it.addons.map((a, idx) => (
@@ -1473,7 +1499,6 @@
       const [alertOpen, setAlertOpen] = useState(false);
       const [alertOrder, setAlertOrder] = useState(null);
       const [refreshSignal, setRefreshSignal] = useState(0); // For auto-refresh
-      const latestOrderRef = useRef(null);
 
       // Title Logic
       const titleData = {
@@ -1500,7 +1525,7 @@
         toast.show("ok", "Powiadomienie", "Potwierdzono.");
       };
 
-      // SSE Live Updates - UPDATED for reliable auto-refresh
+      // SSE Live Updates
       useEffect(() => {
         if (!token) return;
         let es = null;
@@ -1508,20 +1533,18 @@
         try {
           const url = `${API.events}?token=${token}`;
           es = new EventSource(url);
-           
+            
           es.onopen = () => console.log("SSE Connected");
-           
+            
           es.addEventListener("new_order", (e) => {
-              // Wrap in try-catch to ensure one bad parse doesn't crash the listener
               try {
                   const d = JSON.parse(e.data);
-                   
+                  
                   // 1. Force refresh of data
                   setRefreshSignal(Date.now());
-                   
+                  
                   // 2. Force Alert Open 
-                  // Safe customer name extraction
-                  const custName = (typeof d.customer === 'object' ? d.customer.name : d.customer) || "Klient";
+                  const custName = (d.customer && typeof d.customer === 'object' ? d.customer.name : d.customer) || "Klient";
 
                   const miniOrder = {
                       extOrderId: d.extOrderId || "Nowe",
@@ -1531,7 +1554,7 @@
                       paymentMethod: d.paymentMethod,
                       createdAt: new Date().toISOString() 
                   };
-                   
+                  
                   setAlertOrder(miniOrder);
                   setAlertOpen(true);
               } catch (err) {
@@ -1542,13 +1565,13 @@
           es.addEventListener("order_update", (e) => {
               setRefreshSignal(Date.now());
           });
-           
+            
           es.onerror = () => { console.log("SSE Error"); es.close(); };
 
         } catch (err) {
           console.error("SSE Setup Error", err);
         }
-         
+          
         return () => {
           if (es) es.close();
         };
@@ -1558,7 +1581,7 @@
         <div className="min-h-screen pb-[env(safe-area-inset-bottom)]">
           <NewOrderOverlay open={alertOpen} orderPreview={alertOrder} onAcknowledge={acknowledge} />
           <div className={alertOpen ? "no-interact blur-sm" : ""}>
-             
+              
             {/* Desktop Sidebar */}
             <aside className="hidden lg:block fixed inset-y-0 left-0 w-[var(--sidebar-w)] p-4 z-50">
                <div className="bg-white/90 border border-white/60 shadow-glass rounded-[2rem] h-full flex flex-col p-5 backdrop-blur-xl">
