@@ -1042,8 +1042,8 @@
           <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-brand-yellow via-amber-300 to-orange-400 opacity-70"></div>
 
           <div 
-             className="relative mt-3 h-36 w-full overflow-hidden rounded-2xl border border-gray-200 cursor-zoom-in"
-             onClick={() => onZoom && onZoom(item.image)}
+              className="relative mt-3 h-36 w-full overflow-hidden rounded-2xl border border-gray-200 cursor-zoom-in"
+              onClick={() => onZoom && onZoom(item.image)}
           >
             <img
               src={item.image}
@@ -1052,6 +1052,11 @@
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent"></div>
+            
+            {/* ✅ DODANE: Gwiazdka i napis "Zdjęcie poglądowe" */}
+            <div className="absolute bottom-1 right-2 z-10 text-[9px] font-medium text-white/90 drop-shadow-md flex items-center gap-0.5 opacity-80 pointer-events-none">
+                 <span>*</span> Zdjęcie poglądowe
+            </div>
           </div>
 
           <div className="text-[10px] text-gray-500 text-center mt-2 flex items-center justify-center gap-1 opacity-70">
@@ -1404,7 +1409,7 @@
               <div className="mt-10 flex justify-center">
                   <a href="#kategorie" className="inline-flex items-center justify-center gap-2 text-lg font-extrabold text-gray-900 bg-brand-yellow border border-black/5 rounded-2xl px-6 py-4 shadow-soft hover:scale-[1.02] active:scale-[0.98] transition hover:ring-2 hover:ring-brand-yellow/40 min-h-[56px]">
                         <i data-lucide="arrow-left" className="w-6 h-6"></i>
-                              Wróć do menu
+                               Wróć do menu
                 </a>
               </div>
             </div>
