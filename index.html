@@ -112,7 +112,7 @@
 
     /* =======================
        Left slide-in account nudge
-    ======================= */
+       ======================= */
     @keyframes nudgeIn {
       from { transform: translateX(-110%); opacity: 0; }
       to   { transform: translateX(0); opacity: 1; }
@@ -126,7 +126,7 @@
 
     /* =======================
        Add-ons modal (fade)
-    ======================= */
+       ======================= */
     @keyframes popIn {
       from { transform: translateY(10px) scale(.98); opacity: 0; }
       to   { transform: translateY(0) scale(1); opacity: 1; }
@@ -135,7 +135,7 @@
       
     /* =======================
        Order Tracker Animation
-    ======================= */
+       ======================= */
     @keyframes slideUp {
       from { transform: translateY(100%); opacity: 0; }
       to { transform: translateY(0); opacity: 1; }
@@ -145,7 +145,7 @@
     /* =======================
        PWA Header Fix
        Dodajemy extra padding od góry, aby ominąć zegarek/status bar
-    ======================= */
+       ======================= */
     .header-pwa-fix {
        padding-top: calc(env(safe-area-inset-top) + 12px);
     }
@@ -167,7 +167,7 @@
 
     /* =======================
        MENU - DEFINICJE KATEGORII
-    ======================= */
+       ======================= */
 
     const PRODUCT_CATEGORIES = [
       { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open', description: 'Małe, średnie i duże zestawy. Także VEGE.', image: 'https://i.imgur.com/qtZTWY1.jpeg' },
@@ -180,7 +180,7 @@
 
     /* =======================
        MENU - DANE STATYCZNE (Poza Lunchami)
-    ======================= */
+       ======================= */
 
     const BREAKFAST_BOXES = [
       { id:'bs-small-1', name:'Box śniadaniowy mały nr 1', price: 43, image:'https://i.imgur.com/eom3rVn.jpeg', subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Sok pomarańczowy 250 ml' },
@@ -261,7 +261,7 @@
 
     /* =======================
        MENU PROVIDER (DYNAMIC LUNCHES - ZMIANY)
-    ======================= */
+       ======================= */
     const MenuContext = createContext();
     const useMenu = () => useContext(MenuContext);
 
@@ -311,7 +311,7 @@
 
     /* =======================
        ADD-ONS (kawa/herbata)
-    ======================= */
+       ======================= */
 
     const DRINK_ADDONS = [
       { id: "milk-oat", label: "Mleko owsiane", price: 2 },
@@ -332,7 +332,7 @@
 
     /* =======================
        UTIL
-    ======================= */
+       ======================= */
 
     const useLocalStorage = (key, initial) => {
       const [state, setState] = useState(() => {
@@ -425,7 +425,7 @@
 
     /* =======================
        TOAST
-    ======================= */
+       ======================= */
 
     const ToastContext = createContext();
     const useToast = () => useContext(ToastContext);
@@ -479,7 +479,7 @@
     /* =======================
        ACTIVE ORDER CONTEXT
        (Widget na dole)
-    ======================= */
+       ======================= */
     const ActiveOrderContext = createContext();
     const useActiveOrder = () => useContext(ActiveOrderContext);
 
@@ -567,7 +567,7 @@
 
     /* =======================
        AUTH (CONTEXT)
-    ======================= */
+       ======================= */
 
     const AuthContext = createContext();
     const useAuth = () => useContext(AuthContext);
@@ -651,7 +651,7 @@
 
     /* =======================
        CART
-    ======================= */
+       ======================= */
 
     const CartContext = createContext();
     const useCart = () => useContext(CartContext);
@@ -731,7 +731,7 @@
 
     /* =======================
        ORDER TRACKER WIDGET
-    ======================= */
+       ======================= */
     const OrderTrackerWidget = () => {
       const { activeOrder } = useActiveOrder();
       const [expanded, setExpanded] = useState(false);
@@ -785,17 +785,17 @@
             {/* Body */}
             <div className="p-4 bg-white">
               <div className="flex items-start justify-between gap-3 text-sm">
-                 <div>
-                   <div className="font-semibold text-gray-900">Adres dostawy:</div>
-                   <div className="text-gray-600 text-xs mt-0.5">
-                     {activeOrder.customer.ulica} {activeOrder.customer.nrBud}
-                     {activeOrder.customer.lokal ? '/' + activeOrder.customer.lokal : ''}, {activeOrder.customer.miasto}
-                   </div>
-                 </div>
-                 <div className="text-right">
+                  <div>
+                    <div className="font-semibold text-gray-900">Adres dostawy:</div>
+                    <div className="text-gray-600 text-xs mt-0.5">
+                      {activeOrder.customer.ulica} {activeOrder.customer.nrBud}
+                      {activeOrder.customer.lokal ? '/' + activeOrder.customer.lokal : ''}, {activeOrder.customer.miasto}
+                    </div>
+                  </div>
+                  <div className="text-right">
                     <div className="font-semibold text-gray-900">Kwota:</div>
                     <div className="font-extrabold text-base">{currency(activeOrder.total)}</div>
-                 </div>
+                  </div>
               </div>
 
               {/* Items Toggle */}
@@ -811,10 +811,10 @@
                 {expanded && (
                   <div className="mt-2 space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
                     {activeOrder.items.map((item, idx) => (
-                       <div key={idx} className="flex justify-between text-xs text-gray-700">
+                        <div key={idx} className="flex justify-between text-xs text-gray-700">
                           <span>{item.qty}x {item.name}</span>
                           <span>{currency(item.price)}</span>
-                       </div>
+                        </div>
                     ))}
                   </div>
                 )}
@@ -828,7 +828,7 @@
 
     /* =======================
        HEADER / LOGO / CART BTN
-    ======================= */
+       ======================= */
 
     const Logo = () => (
       <a href="#/" className="flex items-center gap-3 group">
@@ -925,7 +925,7 @@
 
     /* =======================
        HERO / UI
-    ======================= */
+       ======================= */
 
     const Hero = () => (
       <section className="relative overflow-hidden">
@@ -1122,7 +1122,7 @@
 
     /* =======================
        MODAL: dodatki do kawy/herbaty
-    ======================= */
+       ======================= */
 
     const lockBodyScroll = (lock) => {
       const body = document.body;
@@ -1285,7 +1285,7 @@
 
     /* =======================
        ImageModal (FULLSCREEN)
-    ======================= */
+       ======================= */
     const ImageModal = ({ src, onClose }) => {
       useEffect(() => {
          if(src) {
@@ -1323,7 +1323,7 @@
 
     /* =======================
        CategoryPage
-    ======================= */
+       ======================= */
 
     const CategoryPage = ({ categoryId }) => {
       const { add } = useCart();
@@ -1432,7 +1432,7 @@
 
     /* =======================
        Koszyk
-    ======================= */
+       ======================= */
 
     const Koszyk = () => {
       const { cart, remove, clear, total, cartValue, deliveryCost, incQty, decQty, setQty, lineTotal, add, addonsTotalPerUnit } = useCart();
@@ -1599,7 +1599,7 @@
 
     /* =======================
        ZAMOWIENIE (3 metody płatności) + ACTIVE ORDER TRACKING
-    ======================= */
+       ======================= */
 
     const Zamowienie = () => {
       const { cart, total, cartValue, deliveryCost, lineTotal, clear, addonsTotalPerUnit } = useCart();
@@ -2147,7 +2147,7 @@
 
     /* =======================
        AUTH MODAL (bez kodów)
-    ======================= */
+       ======================= */
 
     const AuthModal = ({ open, onClose, initialStep }) => {
       const { user, login, register, logout } = useAuth();
@@ -2396,7 +2396,7 @@
 
     /* =======================
        HOME (bez formularza kontaktowego)
-    ======================= */
+       ======================= */
 
     const Home = () => {
       // Sprawdzamy, czy jest weekend, aby wyświetlić komunikat
@@ -2431,7 +2431,7 @@
 
     /* =======================
        Router (hash) — FIX (route split '?')
-    ======================= */
+       ======================= */
 
     const Router = () => {
       const [route, setRoute] = useState(window.location.hash || '#/');
@@ -2457,7 +2457,7 @@
 
     /* =======================
        Mobile components
-    ======================= */
+       ======================= */
 
     const CategorySheet = ({ open, onClose }) => {
       useEffect(() => {
@@ -2641,30 +2641,93 @@
     };
 
     /* =======================
-       PWA: SERVICE WORKER REGISTER
-    ======================= */
+       PWA & PUSH NOTIFICATIONS LOGIC
+       ======================= */
+
+    // Helper: Konwersja klucza VAPID z base64 na Uint8Array
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding)
+        .replace(/\-/g, '+')
+        .replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+      return outputArray;
+    }
 
     const registerSW = async () => {
-      if (!("serviceWorker" in navigator)) return;
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
       try {
+        // 1. Rejestracja SW
         const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+        console.log("[SW] Registered");
+
+        // 2. Obsługa aktualizacji SW
         reg.addEventListener("updatefound", () => {
-          const sw = reg.installing;
-          if (!sw) return;
-          sw.addEventListener("statechange", () => {
-            if (sw.state === "installed" && navigator.serviceWorker.controller) {
-              console.log("SW updated. Refresh page to get latest version.");
-            }
+          const newWorker = reg.installing;
+          newWorker.addEventListener("statechange", () => {
+             if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+               console.log("[SW] New version available");
+             }
           });
         });
+
+        // 3. Logika PUSH (tylko jeśli użytkownik nie zablokował)
+        if (Notification.permission === 'denied') {
+          console.log('[Push] Permission denied');
+          return;
+        }
+
+        // Sprawdzamy czy już jest subskrypcja
+        let subscription = await reg.pushManager.getSubscription();
+
+        if (!subscription) {
+          // Pobierz klucz publiczny z serwera
+          const response = await fetch('/api/push/vapid-public-key');
+          const data = await response.json();
+          const vapidPublicKey = data.publicKey;
+
+          if (vapidPublicKey) {
+            const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+            
+            // Poproś użytkownika o zgodę i zasubskrybuj
+            // To wywoła natywne okienko przeglądarki "Zezwól na powiadomienia"
+            subscription = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: convertedVapidKey
+            });
+
+            // Wyślij subskrypcję do backendu
+            await fetch('/api/push/subscribe', {
+              method: 'POST',
+              body: JSON.stringify(subscription),
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            });
+            console.log('[Push] Subscribed successfully!');
+          }
+        } else {
+           // Opcjonalnie: odśwież subskrypcję na serwerze, by mieć pewność że jest w bazie
+           await fetch('/api/push/subscribe', {
+              method: 'POST',
+              body: JSON.stringify(subscription),
+              headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
       } catch (e) {
-        console.log("SW register failed:", e);
+        console.log("SW/Push register failed:", e);
       }
     };
 
     /* =======================
        APP
-    ======================= */
+       ======================= */
 
     const App = () => {
       const [authOpen, setAuthOpen] = useState(false);
