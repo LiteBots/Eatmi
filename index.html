@@ -2678,6 +2678,7 @@
       const { activeOrder } = useActiveOrder();
 
       // ✅ AUTOMATYCZNA REJESTRACJA PUSH TYLKO W TRYBIE PWA
+      // Zmiana: nasłuchiwanie na pierwsze kliknięcie, aby ominąć blokadę przeglądarki
       useEffect(() => {
         const initPushInPWA = async () => {
           // 1. Sprawdź, czy jesteśmy w trybie STANDALONE (PWA)
@@ -2688,44 +2689,53 @@
              return; 
           }
 
-          // 2. Sprawdź wsparcie
+          // 2. Jeśli już mamy zgodę lub odmowę, nie robimy nic
+          if (Notification.permission !== 'default') return;
+
+          // 3. Jeśli 'default', musimy czekać na kliknięcie
           if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
 
-          // 3. Sprawdź status (nie spamuj, jeśli zablokowane)
-          if (Notification.permission === 'denied') return;
+          const handleFirstUserInteraction = async () => {
+              try {
+                  const permission = await Notification.requestPermission();
+                  if (permission === 'granted') {
+                      const reg = await navigator.serviceWorker.ready;
+                      
+                      // Get Key
+                      const response = await fetch('/api/push/vapid-public-key');
+                      if(!response.ok) return;
+                      const data = await response.json();
+                      const vapidKey = data.publicKey;
 
-          // 4. Spróbuj zasubskrybować
-          try {
-             const permission = await Notification.requestPermission();
-             if (permission === 'granted') {
-                 const reg = await navigator.serviceWorker.ready;
-                 
-                 // Get Key
-                 const response = await fetch('/api/push/vapid-public-key');
-                 if(!response.ok) return;
-                 const data = await response.json();
-                 const vapidKey = data.publicKey;
+                      if(!vapidKey) return;
 
-                 if(!vapidKey) return;
+                      // Subscribe
+                      const subscription = await reg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(vapidKey)
+                      });
 
-                 // Subscribe
-                 const subscription = await reg.pushManager.subscribe({
-                   userVisibleOnly: true,
-                   applicationServerKey: urlBase64ToUint8Array(vapidKey)
-                 });
+                      // Send to backend
+                      await fetch('/api/push/subscribe', {
+                        method: 'POST',
+                        body: JSON.stringify(subscription),
+                        headers: { 'Content-Type': 'application/json' }
+                      });
+                      
+                      console.log("PWA subscribed on click!");
+                  }
+              } catch (e) {
+                  console.error("PWA Auto-Subscribe Error:", e);
+              } finally {
+                  // Usuwamy listener po pierwszym kliknięciu (niezależnie od wyniku)
+                  window.removeEventListener('click', handleFirstUserInteraction);
+                  window.removeEventListener('touchstart', handleFirstUserInteraction);
+              }
+          };
 
-                 // Send to backend
-                 await fetch('/api/push/subscribe', {
-                   method: 'POST',
-                   body: JSON.stringify(subscription),
-                   headers: { 'Content-Type': 'application/json' }
-                 });
-                 
-                 console.log("PWA Auto-Subscribe Success");
-             }
-          } catch (e) {
-             console.error("PWA Auto-Subscribe Error:", e);
-          }
+          // Dodajemy nasłuch na całe okno
+          window.addEventListener('click', handleFirstUserInteraction);
+          window.addEventListener('touchstart', handleFirstUserInteraction); // Dla dotyku mobilnego
         };
 
         initPushInPWA();
