@@ -7,6 +7,7 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
+import webpush from "web-push"; // ✅ NOWOŚĆ: Biblioteka do Pushy
 
 console.log("NODE VERSION:", process.version);
 
@@ -51,7 +52,12 @@ const {
   MGMT_PASSWORD,
   MGMT_PIN,
   // osobny sekret tokenów panelu (jak nie ustawisz, poleci na ADMIN_TOKEN_SECRET)
-  MGMT_TOKEN_SECRET
+  MGMT_TOKEN_SECRET,
+
+  // ====== PUSH VAPID KEYS (NOWOŚĆ) ======
+  // Wygeneruj je komendą: npx web-push generate-vapid-keys
+  VAPID_PUBLIC_KEY,
+  VAPID_PRIVATE_KEY
 } = process.env;
 
 // Railway daje MONGO_URL (czasem ludzie mają MONGO_URI) — wspieramy oba
@@ -61,7 +67,19 @@ const PAYU_BASE =
   PAYU_ENV === "sandbox" ? "https://secure.snd.payu.com" : "https://secure.payu.com";
 
 function requireEnv(name, value) {
-  if (!value) throw new Error(`Missing env var: ${name}`);
+  if (!value) console.warn(`⚠️ Warning: Missing env var: ${name}`);
+}
+
+// ===============================
+// KONFIGURACJA WEB PUSH (VAPID)
+// ===============================
+const VAPID_EMAIL = "mailto:admin@eatmi.pl"; // Kontakt dla serwisu push
+
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  console.log("[PUSH] VAPID initialized ✅");
+} else {
+  console.warn("[PUSH] VAPID keys missing - notifications will not work! Generate them with 'npx web-push generate-vapid-keys'");
 }
 
 // ===============================
@@ -212,7 +230,7 @@ OrderSchema.index({ "customer.telefon": 1 });
 const Order = mongoose.models.Order || mongoose.model("Order", OrderSchema);
 
 // -------------------------------
-// ✅ PRODUCT (kolekcja: products) - NOWOŚĆ DLA LUNCH BOXÓW
+// PRODUCT (kolekcja: products) - NOWOŚĆ DLA LUNCH BOXÓW
 // -------------------------------
 const ProductSchema = new mongoose.Schema(
   {
@@ -227,6 +245,20 @@ const ProductSchema = new mongoose.Schema(
   { timestamps: true, collection: "products" }
 );
 const Product = mongoose.models.Product || mongoose.model("Product", ProductSchema);
+
+// -------------------------------
+// ✅ PUSH SUBSCRIPTION (kolekcja: push_subs) - NOWOŚĆ
+// -------------------------------
+const PushSubSchema = new mongoose.Schema({
+  endpoint: { type: String, required: true, unique: true },
+  keys: {
+    p256dh: { type: String, required: true },
+    auth: { type: String, required: true }
+  },
+  createdAt: { type: Date, default: Date.now }
+});
+const PushSubscription = mongoose.models.PushSubscription || mongoose.model("PushSubscription", PushSubSchema);
+
 
 // ===============================
 // AUTH HELPERS (USER)
@@ -738,6 +770,37 @@ async function upsertOrderMongo(patch) {
 }
 
 // ===============================
+// ✅ PUSH PUBLIC API (Subskrypcja)
+// ===============================
+
+// 1. Udostępnij klucz publiczny dla frontendu
+app.get("/api/push/vapid-public-key", (req, res) => {
+  res.json({ publicKey: VAPID_PUBLIC_KEY });
+});
+
+// 2. Zapisz subskrypcję użytkownika
+app.post("/api/push/subscribe", async (req, res) => {
+  try {
+    const subscription = req.body;
+    if (!subscription || !subscription.endpoint) {
+      return res.status(400).json({ error: "Invalid subscription" });
+    }
+
+    // Upsert: zapisz lub zaktualizuj, jeśli endpoint już istnieje
+    await PushSubscription.findOneAndUpdate(
+      { endpoint: subscription.endpoint },
+      subscription,
+      { upsert: true, new: true }
+    );
+
+    res.status(201).json({ ok: true });
+  } catch (e) {
+    console.error("PUSH SUBSCRIBE ERROR:", e);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ===============================
 // ✅ Offline order (karta/gotówka przy odbiorze) - WITH DELIVERY
 // ===============================
 app.post("/api/order/offline", async (req, res) => {
@@ -1163,13 +1226,46 @@ app.patch("/api/admin/orders/:extOrderId/status", requireStaff, async (req, res)
   }
 });
 
-app.post("/api/admin/push", requireStaff, (req, res) => {
-  const title = String(req.body?.title || "").trim();
-  const body = String(req.body?.body || "").trim();
-  if (!body) return res.status(400).json({ error: "Missing body" });
+// ✅ ZAKTUALIZOWANY ADMIN PUSH: Wysyłka przez web-push
+// Wysyła powiadomienie do wszystkich subskrybowanych urządzeń
+app.post("/api/admin/push", requireStaff, async (req, res) => {
+  try {
+    const title = String(req.body?.title || "").trim();
+    const body = String(req.body?.body || "").trim();
+    
+    if (!title || !body) return res.status(400).json({ error: "Missing title or body" });
 
-  console.log("ADMIN PUSH:", { from: req.admin?.name, title, body });
-  res.json({ ok: true });
+    // Pobierz wszystkie subskrypcje z bazy
+    const subscriptions = await PushSubscription.find({});
+    
+    console.log(`[PUSH] Wysyłam do ${subscriptions.length} urządzeń...`);
+
+    const notificationPayload = JSON.stringify({
+      title: title,
+      body: body,
+      icon: '/appicon.png', // ✅ Ikona zgodnie z życzeniem
+      url: "https://eatmi.pl/#/" // Kliknięcie otwiera appkę
+    });
+
+    const promises = subscriptions.map(sub => {
+      return webpush.sendNotification(sub, notificationPayload)
+        .catch(err => {
+          if (err.statusCode === 410 || err.statusCode === 404) {
+            // Subskrypcja wygasła/usunięta - usuwamy z bazy
+            console.log(`[PUSH] Usuwam martwą subskrypcję: ${sub._id}`);
+            return PushSubscription.deleteOne({ _id: sub._id });
+          }
+          console.error("[PUSH] Błąd wysyłki:", err.statusCode);
+        });
+    });
+
+    await Promise.all(promises);
+
+    res.json({ ok: true, count: subscriptions.length });
+  } catch (e) {
+    console.log("ADMIN PUSH ERROR:", e);
+    res.status(500).json({ error: e.message || "Server error" });
+  }
 });
 
 app.get("/api/admin/staff", requireAdminOnly, async (req, res) => {
