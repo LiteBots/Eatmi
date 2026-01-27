@@ -141,6 +141,14 @@
       to { transform: translateY(0); opacity: 1; }
     }
     .tracker-enter { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+    /* =======================
+       PWA Header Fix
+       Dodajemy extra padding od góry, aby ominąć zegarek/status bar
+    ======================= */
+    .header-pwa-fix {
+       padding-top: calc(env(safe-area-inset-top) + 12px);
+    }
   </style>
 
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
@@ -808,7 +816,7 @@
       useEffect(() => { window.lucide?.createIcons?.(); }, [user, loading]);
 
       return (
-        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-gray-200">
+        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-gray-200 header-pwa-fix">
           <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
             <Logo />
 
@@ -1920,11 +1928,11 @@
                   <div>
                     <label className="text-xs uppercase tracking-wider text-gray-500">Kod pocztowy</label>
                     <input 
-                       value={form.kod} 
-                       onChange={e=>handle('kod', e.target.value)}
-                       placeholder="76-200"
-                       className={`input-focus w-full border rounded-xl px-4 py-3 bg-white min-h-[44px] transition-colors ${isZipError ? 'border-red-500 bg-red-50 text-red-900 focus:border-red-600 focus:ring-red-200' : 'border-gray-200'}`}
-                    />
+                        value={form.kod} 
+                        onChange={e=>handle('kod', e.target.value)}
+                        placeholder="76-200"
+                        className={`input-focus w-full border rounded-xl px-4 py-3 bg-white min-h-[44px] transition-colors ${isZipError ? 'border-red-500 bg-red-50 text-red-900 focus:border-red-600 focus:ring-red-200' : 'border-gray-200'}`}
+                     />
                     {isZipError && (
                       <div className="text-red-600 font-bold text-xs mt-1.5 flex items-center gap-1">
                           <i data-lucide="alert-circle" className="w-3 h-3"></i> Nie obsługujemy tego kodu pocztowego
@@ -2660,11 +2668,11 @@
                       woj. POMORSKIE, Polska
                     </div>
                   </div>
-            
+           
                   <div className="mt-6 font-semibold text-gray-700">
                     © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
                   </div>
-            
+           
                   <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-sm">
                     <a
                       href="/rule.html"
