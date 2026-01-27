@@ -1069,7 +1069,7 @@
             
             {/* ✅ DODANE: Gwiazdka i napis "Zdjęcie poglądowe" */}
             <div className="absolute bottom-1 right-2 z-10 text-[9px] font-medium text-white/90 drop-shadow-md flex items-center gap-0.5 opacity-80 pointer-events-none">
-                 <span>*</span> Zdjęcie poglądowe
+                  <span>*</span> Zdjęcie poglądowe
             </div>
           </div>
 
@@ -1396,7 +1396,7 @@
             <div className="max-w-6xl mx-auto px-4">
               <a href="#kategorie" className="mt-2 inline-flex items-center justify-center gap-2 text-lg font-extrabold text-gray-900 bg-brand-yellow/20 border border-brand-yellow/30 rounded-2xl px-5 py-3 shadow-soft hover:ring-2 hover:ring-brand-yellow/40 transition">
                     <i data-lucide="arrow-left" className="w-5 h-5"></i>
-                           Wróć do menu
+                          Wróć do menu
               </a>
 
               <div className="mt-4 flex items-center gap-3">
@@ -1423,7 +1423,7 @@
               <div className="mt-10 flex justify-center">
                   <a href="#kategorie" className="inline-flex items-center justify-center gap-2 text-lg font-extrabold text-gray-900 bg-brand-yellow border border-black/5 rounded-2xl px-6 py-4 shadow-soft hover:scale-[1.02] active:scale-[0.98] transition hover:ring-2 hover:ring-brand-yellow/40 min-h-[56px]">
                         <i data-lucide="arrow-left" className="w-6 h-6"></i>
-                               Wróć do menu
+                                Wróć do menu
                 </a>
               </div>
             </div>
@@ -1742,102 +1742,102 @@
         return true;
       };
 
-     const placeOrder = async (method) => {
-       // Dodatkowe zabezpieczenie, choć przycisk jest disabled
-       if (isBlocked) return;
+       const placeOrder = async (method) => {
+         // Dodatkowe zabezpieczenie, choć przycisk jest disabled
+         if (isBlocked) return;
 
-       if (!validateBeforeOrder()) return;
+         if (!validateBeforeOrder()) return;
 
-       if (remember) {
-         saveCustomer({ ...form });
-         setHadSaved(true);
-       }
+         if (remember) {
+           saveCustomer({ ...form });
+           setHadSaved(true);
+         }
 
-       setBusyPay(true);
+         setBusyPay(true);
 
-       try {
-         const payload = {
-           customer: form,
-           cart: cart.map(i => ({
-             productId: i.productId,
-             name: i.name,
-             price: i.price,
-             qty: i.qty || 1,
-             addons: Array.isArray(i.addons) ? i.addons.map(a => ({ id: a.id, label: a.label, price: a.price })) : []
-           })),
-           total: total // ✅ To teraz zawiera koszt dostawy
-         };
+         try {
+           const payload = {
+             customer: form,
+             cart: cart.map(i => ({
+               productId: i.productId,
+               name: i.name,
+               price: i.price,
+               qty: i.qty || 1,
+               addons: Array.isArray(i.addons) ? i.addons.map(a => ({ id: a.id, label: a.label, price: a.price })) : []
+             })),
+             total: total // ✅ To teraz zawiera koszt dostawy
+           };
 
-         // --- PŁATNOŚĆ ONLINE (PAYU) ---
-         if (method === "payu") {
-           const r = await fetch("/api/payu/order", {
-             method: "POST",
-             headers: { "Content-Type": "application/json" },
-             body: JSON.stringify(payload),
-           });
+           // --- PŁATNOŚĆ ONLINE (PAYU) ---
+           if (method === "payu") {
+             const r = await fetch("/api/payu/order", {
+               method: "POST",
+               headers: { "Content-Type": "application/json" },
+               body: JSON.stringify(payload),
+             });
 
-           const data = await r.json().catch(() => ({}));
-           if (!r.ok) {
-             alert("Błąd serwera: " + (data.error || r.status));
+             const data = await r.json().catch(() => ({}));
+             if (!r.ok) {
+               alert("Błąd serwera: " + (data.error || r.status));
+               return;
+             }
+               
+             if (data.redirectUri) {
+                // 🔴 FIX: Zapisujemy stan ZANIM przekierujemy
+                saveOrder({
+                    extOrderId: data.extOrderId, // Musi przyjść z backendu w odpowiedzi PayU!
+                    customer: form,
+                    items: cart,
+                    total: total,
+                    paymentMethod: method,
+                    status: 'OCZEKIWANIE NA PŁATNOŚĆ'
+                });
+                
+                // Czyścimy koszyk lokalnie, bo "poszło"
+                clear();
+
+                // Przekierowanie
+                window.location.href = data.redirectUri;
+             } else {
+                alert("Błąd: Brak linku do płatności");
+             }
              return;
            }
-             
-           if (data.redirectUri) {
-              // 🔴 FIX: Zapisujemy stan ZANIM przekierujemy
-              saveOrder({
-                  extOrderId: data.extOrderId, // Musi przyjść z backendu w odpowiedzi PayU!
-                  customer: form,
-                  items: cart,
-                  total: total,
-                  paymentMethod: method,
-                  status: 'OCZEKIWANIE NA PŁATNOŚĆ'
-              });
-              
-              // Czyścimy koszyk lokalnie, bo "poszło"
-              clear();
 
-              // Przekierowanie
-              window.location.href = data.redirectUri;
-           } else {
-              alert("Błąd: Brak linku do płatności");
+           // --- PŁATNOŚĆ OFFLINE (PRZY ODBIORZE) ---
+           const offlinePayload = { ...payload, paymentMethod: method };
+
+           const r2 = await fetch("/api/order/offline", {
+             method: "POST",
+             headers: { "Content-Type": "application/json" },
+             body: JSON.stringify(offlinePayload),
+           });
+
+           const data2 = await r2.json();
+
+           if (!r2.ok) {
+               throw new Error(data2.error || "Błąd zamówienia");
            }
-           return;
+
+           // ✅ KLUCZOWA ZMIANA: Używamy extOrderId zwróconego przez serwer
+           saveOrder({
+               extOrderId: data2.extOrderId, // <--- TO JEST KLUCZ DO ŚLEDZENIA
+               customer: form,
+               items: cart,
+               total: total,
+               paymentMethod: method
+           });
+
+           showToast?.("Twoje zamówienie zostało przyjęte! 👨‍🍳");
+           clear();
+           window.location.hash = "#/";
+             
+         } catch (e) {
+           alert("Nie udało się złożyć zamówienia: " + e.message);
+         } finally {
+           setBusyPay(false);
          }
-
-         // --- PŁATNOŚĆ OFFLINE (PRZY ODBIORZE) ---
-         const offlinePayload = { ...payload, paymentMethod: method };
-
-         const r2 = await fetch("/api/order/offline", {
-           method: "POST",
-           headers: { "Content-Type": "application/json" },
-           body: JSON.stringify(offlinePayload),
-         });
-
-         const data2 = await r2.json();
-
-         if (!r2.ok) {
-             throw new Error(data2.error || "Błąd zamówienia");
-         }
-
-         // ✅ KLUCZOWA ZMIANA: Używamy extOrderId zwróconego przez serwer
-         saveOrder({
-             extOrderId: data2.extOrderId, // <--- TO JEST KLUCZ DO ŚLEDZENIA
-             customer: form,
-             items: cart,
-             total: total,
-             paymentMethod: method
-         });
-
-         showToast?.("Twoje zamówienie zostało przyjęte! 👨‍🍳");
-         clear();
-         window.location.hash = "#/";
-           
-       } catch (e) {
-         alert("Nie udało się złożyć zamówienia: " + e.message);
-       } finally {
-         setBusyPay(false);
-       }
-     };
+       };
 
       const paymentLabel =
         paymentMethod === "payu" ? "Płatność online (PayU)" :
@@ -2204,54 +2204,6 @@
 
       if (!open) return null;
 
-      /* === PUSH LOGIC (INSIDE AUTH MODAL) === */
-      const handleSubscribePush = async () => {
-         if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-             alert("Twoja przeglądarka nie obsługuje powiadomień.");
-             return;
-         }
-
-         // 1. Request Permission (Click Triggered)
-         const permission = await Notification.requestPermission();
-         if (permission !== 'granted') {
-             alert("Brak zgody na powiadomienia. Zmień ustawienia przeglądarki.");
-             return;
-         }
-
-         try {
-             const reg = await navigator.serviceWorker.ready;
-             
-             // 2. Get Public Key from Server
-             const response = await fetch('/api/push/vapid-public-key');
-             const data = await response.json();
-             const vapidKey = data.publicKey;
-
-             if(!vapidKey) {
-                 alert("Błąd serwera (brak klucza VAPID).");
-                 return;
-             }
-
-             // 3. Subscribe
-             const subscription = await reg.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(vapidKey)
-             });
-
-             // 4. Send to Backend
-             await fetch('/api/push/subscribe', {
-                method: 'POST',
-                body: JSON.stringify(subscription),
-                headers: { 'Content-Type': 'application/json' }
-             });
-
-             showToast?.("Powiadomienia włączone! 🔔");
-
-         } catch (e) {
-             console.error("Push Error:", e);
-             alert("Błąd zapisu powiadomień.");
-         }
-      };
-
       const submitLogin = async (e) => {
         e.preventDefault();
         setError("");
@@ -2334,16 +2286,6 @@
                   <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Użytkownik</div>
                   <div className="mt-1 font-extrabold text-gray-900">{user.fullName || "-"}</div>
                   <div className="mt-1 text-sm text-gray-700">{user.email || "-"}</div>
-                </div>
-
-                {/* ✅ PRZYCISK PUSH */}
-                <div className="mt-3">
-                   <button 
-                      onClick={handleSubscribePush}
-                      className="w-full flex items-center justify-center gap-2 bg-blue-50 text-blue-700 font-bold py-3 rounded-xl border border-blue-100 hover:bg-blue-100 transition"
-                   >
-                      <i data-lucide="bell" className="w-4 h-4"></i> Włącz powiadomienia PUSH
-                   </button>
                 </div>
 
                 <div className="mt-4 grid gap-2">
@@ -2734,6 +2676,60 @@
       const { count } = useCart();
       const { user, loading } = useAuth();
       const { activeOrder } = useActiveOrder();
+
+      // ✅ AUTOMATYCZNA REJESTRACJA PUSH TYLKO W TRYBIE PWA
+      useEffect(() => {
+        const initPushInPWA = async () => {
+          // 1. Sprawdź, czy jesteśmy w trybie STANDALONE (PWA)
+          const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+          
+          if (!isStandalone) {
+             console.log("Not in PWA/Standalone mode - skipping push auto-subscribe.");
+             return; 
+          }
+
+          // 2. Sprawdź wsparcie
+          if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+          // 3. Sprawdź status (nie spamuj, jeśli zablokowane)
+          if (Notification.permission === 'denied') return;
+
+          // 4. Spróbuj zasubskrybować
+          try {
+             const permission = await Notification.requestPermission();
+             if (permission === 'granted') {
+                 const reg = await navigator.serviceWorker.ready;
+                 
+                 // Get Key
+                 const response = await fetch('/api/push/vapid-public-key');
+                 if(!response.ok) return;
+                 const data = await response.json();
+                 const vapidKey = data.publicKey;
+
+                 if(!vapidKey) return;
+
+                 // Subscribe
+                 const subscription = await reg.pushManager.subscribe({
+                   userVisibleOnly: true,
+                   applicationServerKey: urlBase64ToUint8Array(vapidKey)
+                 });
+
+                 // Send to backend
+                 await fetch('/api/push/subscribe', {
+                   method: 'POST',
+                   body: JSON.stringify(subscription),
+                   headers: { 'Content-Type': 'application/json' }
+                 });
+                 
+                 console.log("PWA Auto-Subscribe Success");
+             }
+          } catch (e) {
+             console.error("PWA Auto-Subscribe Error:", e);
+          }
+        };
+
+        initPushInPWA();
+      }, []);
 
       useEffect(() => { window.lucide?.createIcons?.(); }, [authOpen, orderOpen, route, count, user, loading, activeOrder]);
 
