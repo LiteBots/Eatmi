@@ -166,7 +166,7 @@
     const { useState, useEffect, useMemo, createContext, useContext } = React;
 
     /* =======================
-       MENU
+       MENU - STATIC DATA (FALLBACK)
     ======================= */
 
     const PRODUCT_CATEGORIES = [
@@ -195,7 +195,9 @@
       { id:'bs-big-vege', name:'Box śniadaniowy duży VEGE', price: 87, image:'https://i.imgur.com/Gtl4J4b.jpeg', subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Vege club sandwich z camembert i awokado, majonez, sałata, pomidor • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Domowa granola z jogurtem greckim, owocami i miodem • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
     ];
 
-    const LUNCHES = [
+    // ✅ LUNCHES - DEFAULT (FALLBACK)
+    // To są dane, które się wyświetlą, jeśli serwer nie odpowie.
+    const DEFAULT_LUNCHES = [
       { id:'lunch-week', name:'Lunch tygodnia', price: 55, image:'https://i.imgur.com/sn5VMfS.jpeg', subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Corn Flake Chicken: panierowana w płatkach kukurydzianych pierś z kurczaka z ziemniaczanym puree i coleslawem • Domowa lemoniada 250 ml' },
       { id:'lunch-month', name:'Lunch miesiąca', price: 65, image:'https://i.imgur.com/xGCYJZQ.jpeg', subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Kurczak Supreme: pieczona pierś z kurczaka z ziemniaczanym puree, warzywami i sosem demi glace • Domowa lemoniada 250 ml' },
       { id:'lunch-vege', name:'Lunch VEGE', price: 55, image:'https://i.imgur.com/0hvAvxJ.jpeg', subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Tagliatelle z warzywami, oliwą z oliwek i pastą truflową • Domowa lemoniada 250 ml' },
@@ -238,20 +240,77 @@
       { id:'n-zimowa', name:'Zimowa herbata z miodem, cytrusami, goździkami i sokiem malinowym 300 ml', price: 16, image:'https://i.imgur.com/AbtHMCT.jpeg' },
     ];
 
-    // ✅ EXTRA też osobno
     const EXTRA_ITEMS = [
       { id:'extra-granola', name:'Domowa granola', price: 20, image:'https://i.imgur.com/qOZTV6Y.jpeg' },
       { id:'extra-lemoniada', name:'Domowa lemoniada', price: 13, image:'https://i.imgur.com/zKRceju.jpeg' },
       { id:'extra-deser', name:'Deser czekoladowy', price: 20, image:'https://i.imgur.com/mVjnusq.jpeg' },
     ];
 
-    const PRODUCTS = {
+    // ✅ STATIC_PRODUCTS - 'lunche' will be overwritten by dynamic data
+    const STATIC_PRODUCTS = {
       'boxy-sniadaniowe': BREAKFAST_BOXES,
-      'lunche': LUNCHES,
+      // 'lunche': will come from Context
       'kanapki': SANDWICHES,
       'zdrowe': HEALTHY,
       'slodkie': SWEETS,
       'napoje': DRINKS,
+    };
+
+    /* =======================
+       MENU PROVIDER (DYNAMIC LUNCHES)
+    ======================= */
+    const MenuContext = createContext();
+    const useMenu = () => useContext(MenuContext);
+
+    const MenuProvider = ({ children }) => {
+      const [lunches, setLunches] = useState(DEFAULT_LUNCHES);
+
+      useEffect(() => {
+        // Attempt to fetch dynamic lunches from server
+        // Endpoint: /api/admin/products/lunche (or a public equivalent if exists)
+        // If fetch fails (e.g. auth required or server error), we keep default lunches.
+        const fetchLunches = async () => {
+          try {
+            // NOTE: W idealnym świecie ten endpoint powinien być publiczny (/api/products/lunche).
+            // Tutaj próbujemy użyć tego, który mamy w serwerze.
+            const res = await fetch('/api/admin/products/lunche'); 
+            if (res.ok) {
+              const data = await res.json();
+              if (data.lunche && Array.isArray(data.lunche)) {
+                // Map Database format to UI format
+                const mapped = data.lunche.map(item => ({
+                  id: item.id,
+                  name: item.name,
+                  price: item.price / 100, // DB has grosze, UI needs PLN (float)
+                  image: item.image,
+                  subtitle: item.description // DB 'description' -> UI 'subtitle'
+                }));
+                
+                // Only update if we got data
+                if (mapped.length > 0) {
+                  setLunches(mapped);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("Could not fetch dynamic lunches, using defaults", e);
+          }
+        };
+
+        fetchLunches();
+      }, []);
+
+      // Merge dynamic lunches with static products
+      const productsMap = useMemo(() => ({
+        ...STATIC_PRODUCTS,
+        'lunche': lunches
+      }), [lunches]);
+
+      return (
+        <MenuContext.Provider value={productsMap}>
+          {children}
+        </MenuContext.Provider>
+      );
     };
 
     /* =======================
@@ -1270,8 +1329,10 @@
 
     const CategoryPage = ({ categoryId }) => {
       const { add } = useCart();
+      const productsMap = useMenu(); // ✅ Use dynamic menu context
+      
       const category = PRODUCT_CATEGORIES.find(c => c.id === categoryId);
-      const items = PRODUCTS[categoryId] || [];
+      const items = productsMap[categoryId] || [];
 
       // ✅ modal dodatków do kawy/herbaty
       const [addonsOpen, setAddonsOpen] = useState(false);
@@ -1576,7 +1637,8 @@
       const isWeekend = plDay === 0 || plDay === 6;
       const isShopOpen = !isWeekend && (plHour >= 8 && plHour < 16);
 
-      const isLunchItem = (id) => LUNCHES.some(l => l.id === id);
+      // Sprawdzamy czy w koszyku są lunche (z kontekstu globalnego, ale cart ma productId)
+      const isLunchItem = (id) => id.startsWith('lunch'); // Proste sprawdzenie po ID
       const hasLunch = cart.some(item => isLunchItem(item.productId));
       const isLunchTime = plHour >= 12;
         
@@ -1932,7 +1994,7 @@
                         onChange={e=>handle('kod', e.target.value)}
                         placeholder="76-200"
                         className={`input-focus w-full border rounded-xl px-4 py-3 bg-white min-h-[44px] transition-colors ${isZipError ? 'border-red-500 bg-red-50 text-red-900 focus:border-red-600 focus:ring-red-200' : 'border-gray-200'}`}
-                     />
+                      />
                     {isZipError && (
                       <div className="text-red-600 font-bold text-xs mt-1.5 flex items-center gap-1">
                           <i data-lucide="alert-circle" className="w-3 h-3"></i> Nie obsługujemy tego kodu pocztowego
@@ -2722,9 +2784,11 @@
       <ToastProvider>
         <AuthProvider>
           <ActiveOrderProvider>
-            <CartProvider>
-              <App />
-            </CartProvider>
+            <MenuProvider>
+                <CartProvider>
+                  <App />
+                </CartProvider>
+            </MenuProvider>
           </ActiveOrderProvider>
         </AuthProvider>
       </ToastProvider>
