@@ -11,7 +11,8 @@ import nodemailer from "nodemailer";
 console.log("NODE VERSION:", process.version);
 
 const app = express();
-app.use(express.json({ limit: "1mb" }));
+// ZWIĘKSZONY LIMIT DLA ZDJĘĆ BASE64 (ważne przy edycji lunchy)
+app.use(express.json({ limit: "10mb" }));
 
 // ====== Serve static files from ROOT ======
 const __filename = fileURLToPath(import.meta.url);
@@ -209,6 +210,23 @@ OrderSchema.index({ "customer.email": 1 });
 OrderSchema.index({ "customer.telefon": 1 });
 
 const Order = mongoose.models.Order || mongoose.model("Order", OrderSchema);
+
+// -------------------------------
+// ✅ PRODUCT (kolekcja: products) - NOWOŚĆ DLA LUNCH BOXÓW
+// -------------------------------
+const ProductSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true, unique: true }, // np. "lunch-week"
+    name: { type: String, required: true },
+    price: { type: Number, required: true }, // grosze
+    description: { type: String, default: "" },
+    image: { type: String, default: "" },
+    category: { type: String, default: "lunch" }, // 'lunch', 'breakfast' etc.
+    isVisible: { type: Boolean, default: true }
+  },
+  { timestamps: true, collection: "products" }
+);
+const Product = mongoose.models.Product || mongoose.model("Product", ProductSchema);
 
 // ===============================
 // AUTH HELPERS (USER)
@@ -422,7 +440,9 @@ function isPaidStatus(status) {
 
 const OFFLINE_PENDING_STATUS = "AWAITING_PICKUP_PAYMENT";
 
-// ====== PRICE LIST (server-side truth) ======
+// ====== PRICE LIST (FALLBACK / STATIC) ======
+// To służy jako FALLBACK dla rzeczy, których nie ma w bazie (np. kawy, napoje)
+// Lunche będą brane z bazy danych
 const PRICE_LIST = {
   "bs-small-1": 4300,
   "bs-small-2": 4500,
@@ -436,9 +456,11 @@ const PRICE_LIST = {
   "bs-big-2": 8900,
   "bs-big-3": 9200,
   "bs-big-vege": 8700,
+  // Domyślne ceny lunchy (gdyby baza była pusta):
   "lunch-week": 5500,
   "lunch-month": 6500,
   "lunch-vege": 5500,
+  // Karta:
   "k-jajecznica-bekon": 1800,
   "k-club-kurczak": 1800,
   "k-club-vege": 1800,
@@ -485,6 +507,7 @@ const ADDONS_NAME_LIST = {
   "honey-50": "Miód 50 ml"
 };
 
+// STATIC NAME LIST (FALLBACK)
 const NAME_LIST = {
   "bs-small-1": "Box śniadaniowy mały nr 1",
   "bs-small-2": "Box śniadaniowy mały nr 2",
@@ -531,46 +554,105 @@ const NAME_LIST = {
   "extra-deser": "Deser czekoladowy (extra)"
 };
 
-// ✅ UPDATED: validateAndBuildCart includes addon validation and calculation
-function validateAndBuildCart(cart) {
+// ===============================
+// ✅ PRODUCT INITIALIZATION (SEEDING)
+// ===============================
+async function seedLunche() {
+  try {
+    const count = await Product.countDocuments({ category: 'lunch' });
+    if (count === 0) {
+      console.log("Seeding initial lunches...");
+      await Product.create([
+        { 
+          id: "lunch-week", 
+          name: "Lunch tygodnia", 
+          price: 5500, 
+          description: "Schabowy, ziemniaki, surówka. Smacznego!",
+          image: "https://i.imgur.com/sn5VMfS.jpeg",
+          category: "lunch"
+        },
+        { 
+          id: "lunch-month", 
+          name: "Lunch miesiąca", 
+          price: 6500, 
+          description: "Rolada śląska, kluski i modra kapusta.",
+          image: "https://i.imgur.com/xGCYJZQ.jpeg",
+          category: "lunch"
+        },
+        { 
+          id: "lunch-vege", 
+          name: "Lunch VEGE", 
+          price: 5500, 
+          description: "Pierogi ruskie ze śmietaną.",
+          image: "https://i.imgur.com/0hvAvxJ.jpeg",
+          category: "lunch"
+        }
+      ]);
+      console.log("Lunches seeded!");
+    }
+  } catch(e) {
+    console.error("SEED ERROR:", e);
+  }
+}
+seedLunche();
+
+// ===============================
+// ✅ ASYNC CART VALIDATION (DB AWARE)
+// ===============================
+
+// Helper: Get product info from DB or fallback to static lists
+async function getProductInfo(id) {
+  // 1. Sprawdź bazę danych (głównie dla Lunchy)
+  const doc = await Product.findOne({ id }).lean();
+  if (doc) {
+    return { price: doc.price, name: doc.name };
+  }
+  // 2. Jeśli brak w bazie, użyj listy statycznej (kawy, śniadania itp.)
+  if (PRICE_LIST[id] !== undefined) {
+    return { price: PRICE_LIST[id], name: NAME_LIST[id] || "Produkt" };
+  }
+  return null;
+}
+
+// Zmienione na ASYNC, żeby móc pytać bazę danych
+async function validateAndBuildCart(cart) {
   const arr = Array.isArray(cart) ? cart : [];
   if (!arr.length) throw new Error("Empty cart");
 
-  const normalized = arr.map((i) => {
+  const normalized = [];
+  
+  for (const i of arr) {
     const productId = i?.productId;
     const qty = Number(i?.qty || 1);
 
-    if (!productId || !PRICE_LIST[productId]) {
+    // ✅ Pobieranie info (Cena/Nazwa) dynamicznie
+    const info = await getProductInfo(productId);
+    
+    if (!info) {
       throw new Error(`Unknown productId: ${productId}`);
     }
     if (!Number.isFinite(qty) || qty < 1 || qty > 50) {
       throw new Error(`Invalid qty for ${productId}`);
     }
 
-    // ✅ ADD-ONS Logic
-    let rawAddons = [];
-    if (Array.isArray(i.addons)) {
-      rawAddons = i.addons;
-    }
-
-    // Filter valid add-ons from server list
+    // Add-ons Logic
+    let rawAddons = Array.isArray(i.addons) ? i.addons : [];
     const validAddons = rawAddons.filter((a) => a && ADDONS_PRICE_LIST[a.id]);
-
-    // Calculate sum of add-ons for one unit
     const addonsCost = validAddons.reduce((sum, a) => sum + ADDONS_PRICE_LIST[a.id], 0);
 
-    const basePrice = PRICE_LIST[productId];
+    const basePrice = info.price; // cena z bazy lub statyczna
     const unitEffectivePrice = basePrice + addonsCost;
 
-    return {
+    normalized.push({
       productId,
+      name: info.name, // przechowujemy nazwę z momentu zakupu
       qty,
-      addons: validAddons, // Store sanitized list
+      addons: validAddons,
       unitBasePrice: basePrice,
       unitAddonsPrice: addonsCost,
-      unitEffectivePrice // Total price per unit
-    };
-  });
+      unitEffectivePrice
+    });
+  }
 
   return normalized;
 }
@@ -664,7 +746,8 @@ app.post("/api/order/offline", async (req, res) => {
       return res.status(400).json({ error: "Missing required customer fields" });
     }
 
-    const cartNorm = validateAndBuildCart(req.body?.cart);
+    // AWAIT here is crucial now
+    const cartNorm = await validateAndBuildCart(req.body?.cart);
     
     // ✅ Calculate delivery
     const productsValue = calcTotalProductsValue(cartNorm);
@@ -747,11 +830,13 @@ app.post("/api/payu/order", async (req, res) => {
     requireEnv("PAYU_NOTIFY_URL", PAYU_NOTIFY_URL);
     requireEnv("PAYU_CONTINUE_URL", PAYU_CONTINUE_URL);
 
-    const cartNorm = validateAndBuildCart(req.body?.cart);
+    // AWAIT validation
+    const cartNorm = await validateAndBuildCart(req.body?.cart);
 
     // ✅ UPDATED: Include add-ons in name and use calculated price
     const products = cartNorm.map((i) => {
-      let name = NAME_LIST[i.productId] || "Pozycja";
+      // Use name from normalized cart (fetched from DB or Static list)
+      let name = i.name || "Pozycja";
 
       // Append add-ons labels to name
       if (i.addons && i.addons.length > 0) {
@@ -804,7 +889,7 @@ app.post("/api/payu/order", async (req, res) => {
       totalAmount,
       totalPLN: totalAmount / 100,
       customer,
-      cart: cartNorm // Saves cart with addons
+      cart: cartNorm // Saves cart with addons AND proper names
     });
 
     const orderBody = {
@@ -1134,13 +1219,46 @@ app.delete("/api/admin/staff/:id", requireAdminOnly, async (req, res) => {
   }
 });
 
+// ==========================================
+// ✅ NOWOŚĆ: API DO ZARZĄDZANIA PRODUKTAMI (LUNCHE)
+// ==========================================
+
+// 1. GET (Pobierz lunche)
+app.get("/api/admin/products/lunche", requireStaff, async (req, res) => {
+  try {
+    // Pobierz wszystkie produkty z kategorii lunch
+    const products = await Product.find({ category: "lunch" }).lean();
+    res.json({ lunche: products });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// 2. PUT (Edytuj lunch)
+app.put("/api/admin/products/lunche/:id", requireStaff, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, price, description, image } = req.body;
+
+    // Walidacja
+    if (!name || typeof price !== 'number') return res.status(400).json({ error: "Błędne dane" });
+
+    const updated = await Product.findOneAndUpdate(
+      { id }, 
+      { name, price, description, image },
+      { new: true }
+    );
+
+    if (!updated) return res.status(404).json({ error: "Produkt nie znaleziony" });
+
+    res.json({ ok: true, product: updated });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ==========================================================
 // ✅ MANAGEMENT PANEL API (users + orders) — NEW
-// 2-step auth:
-//    POST /api/management/login-step1 {password} -> sets httpOnly cookie (ts)
-//    POST /api/management/login-step2 {pin}      -> checks cookie age>=5s, returns token
-//
-// Token is HMAC-signed and short-lived (default 2h).
 // ==========================================================
 
 const MGMT_SECRET_EFFECTIVE = MGMT_TOKEN_SECRET || ADMIN_TOKEN_SECRET;
