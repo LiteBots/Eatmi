@@ -166,7 +166,7 @@
     const { useState, useEffect, useMemo, createContext, useContext } = React;
 
     /* =======================
-       MENU - STATIC DATA (FALLBACK)
+       MENU - DEFINICJE KATEGORII
     ======================= */
 
     const PRODUCT_CATEGORIES = [
@@ -177,6 +177,10 @@
       { id: 'slodkie', name: 'Słodkie', icon: 'ice-cream', description: 'Desery, pancakes, tost francuski i smoothie.', image: 'https://i.imgur.com/yKYFN0z.jpeg' },
       { id: 'napoje', name: 'Napoje', icon: 'cup-soda', description: 'Kawy, herbaty, lemoniada i sok.', image: 'https://i.imgur.com/QiPsFDo.jpeg' },
     ];
+
+    /* =======================
+       MENU - DANE STATYCZNE (Poza Lunchami)
+    ======================= */
 
     const BREAKFAST_BOXES = [
       { id:'bs-small-1', name:'Box śniadaniowy mały nr 1', price: 43, image:'https://i.imgur.com/eom3rVn.jpeg', subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Sok pomarańczowy 250 ml' },
@@ -195,8 +199,7 @@
       { id:'bs-big-vege', name:'Box śniadaniowy duży VEGE', price: 87, image:'https://i.imgur.com/Gtl4J4b.jpeg', subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Vege club sandwich z camembert i awokado, majonez, sałata, pomidor • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Domowa granola z jogurtem greckim, owocami i miodem • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
     ];
 
-    // ✅ LUNCHES - DEFAULT (FALLBACK)
-    // To są dane, które się wyświetlą, jeśli serwer nie odpowie.
+    // ✅ DEFAULT LUNCHES (Fallback - używane jeśli serwer nie odpowie)
     const DEFAULT_LUNCHES = [
       { id:'lunch-week', name:'Lunch tygodnia', price: 55, image:'https://i.imgur.com/sn5VMfS.jpeg', subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Corn Flake Chicken: panierowana w płatkach kukurydzianych pierś z kurczaka z ziemniaczanym puree i coleslawem • Domowa lemoniada 250 ml' },
       { id:'lunch-month', name:'Lunch miesiąca', price: 65, image:'https://i.imgur.com/xGCYJZQ.jpeg', subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Kurczak Supreme: pieczona pierś z kurczaka z ziemniaczanym puree, warzywami i sosem demi glace • Domowa lemoniada 250 ml' },
@@ -246,10 +249,10 @@
       { id:'extra-deser', name:'Deser czekoladowy', price: 20, image:'https://i.imgur.com/mVjnusq.jpeg' },
     ];
 
-    // ✅ STATIC_PRODUCTS - 'lunche' will be overwritten by dynamic data
+    // ✅ STATIC_PRODUCTS - Mapa, która zostanie połączona z dynamicznymi lunchami
     const STATIC_PRODUCTS = {
       'boxy-sniadaniowe': BREAKFAST_BOXES,
-      // 'lunche': will come from Context
+      // 'lunche': Będą tutaj wstawione przez Context
       'kanapki': SANDWICHES,
       'zdrowe': HEALTHY,
       'slodkie': SWEETS,
@@ -257,7 +260,7 @@
     };
 
     /* =======================
-       MENU PROVIDER (DYNAMIC LUNCHES)
+       MENU PROVIDER (DYNAMIC LUNCHES - ZMIANY)
     ======================= */
     const MenuContext = createContext();
     const useMenu = () => useContext(MenuContext);
@@ -266,41 +269,34 @@
       const [lunches, setLunches] = useState(DEFAULT_LUNCHES);
 
       useEffect(() => {
-        // Attempt to fetch dynamic lunches from server
-        // Endpoint: /api/admin/products/lunche (or a public equivalent if exists)
-        // If fetch fails (e.g. auth required or server error), we keep default lunches.
+        // ✅ FETCHUJEMY Z PUBLICZNEGO ENDPOINTU (bez /admin/)
         const fetchLunches = async () => {
           try {
-            // NOTE: W idealnym świecie ten endpoint powinien być publiczny (/api/products/lunche).
-            // Tutaj próbujemy użyć tego, który mamy w serwerze.
-            const res = await fetch('/api/admin/products/lunche'); 
+            const res = await fetch('/api/products/lunche'); 
             if (res.ok) {
               const data = await res.json();
-              if (data.lunche && Array.isArray(data.lunche)) {
-                // Map Database format to UI format
+              if (data.lunche && Array.isArray(data.lunche) && data.lunche.length > 0) {
+                // Mapowanie danych z bazy (grosze -> pln)
                 const mapped = data.lunche.map(item => ({
                   id: item.id,
                   name: item.name,
-                  price: item.price / 100, // DB has grosze, UI needs PLN (float)
+                  price: item.price / 100, // Grosze na złotówki
                   image: item.image,
-                  subtitle: item.description // DB 'description' -> UI 'subtitle'
+                  subtitle: item.description // Baza: description -> UI: subtitle
                 }));
                 
-                // Only update if we got data
-                if (mapped.length > 0) {
-                  setLunches(mapped);
-                }
+                setLunches(mapped);
               }
             }
           } catch (e) {
-            console.warn("Could not fetch dynamic lunches, using defaults", e);
+            console.warn("Nie udało się pobrać lunchów z bazy, używam domyślnych.", e);
           }
         };
 
         fetchLunches();
       }, []);
 
-      // Merge dynamic lunches with static products
+      // Łączymy statyczne kategorie z dynamicznymi lunchami
       const productsMap = useMemo(() => ({
         ...STATIC_PRODUCTS,
         'lunche': lunches
@@ -484,9 +480,6 @@
        ACTIVE ORDER CONTEXT
        (Widget na dole)
     ======================= */
-    /* =======================
-       ACTIVE ORDER CONTEXT (Z POPRAWKĄ LIVE UPDATE)
-       ======================= */
     const ActiveOrderContext = createContext();
     const useActiveOrder = () => useContext(ActiveOrderContext);
 
