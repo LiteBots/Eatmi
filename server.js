@@ -555,41 +555,50 @@ const NAME_LIST = {
 };
 
 // ===============================
-// ✅ PRODUCT INITIALIZATION (SEEDING)
+// ✅ PRODUCT INITIALIZATION (SEEDING - WERSJA CORRECT)
+// Aktualizuje bazę do Twoich najnowszych opisów przy każdym starcie.
 // ===============================
 async function seedLunche() {
   try {
-    const count = await Product.countDocuments({ category: 'lunch' });
-    if (count === 0) {
-      console.log("Seeding initial lunches...");
-      await Product.create([
-        { 
-          id: "lunch-week", 
-          name: "Lunch tygodnia", 
-          price: 5500, 
-          description: "Schabowy, ziemniaki, surówka. Smacznego!",
-          image: "https://i.imgur.com/sn5VMfS.jpeg",
-          category: "lunch"
-        },
-        { 
-          id: "lunch-month", 
-          name: "Lunch miesiąca", 
-          price: 6500, 
-          description: "Rolada śląska, kluski i modra kapusta.",
-          image: "https://i.imgur.com/xGCYJZQ.jpeg",
-          category: "lunch"
-        },
-        { 
-          id: "lunch-vege", 
-          name: "Lunch VEGE", 
-          price: 5500, 
-          description: "Pierogi ruskie ze śmietaną.",
-          image: "https://i.imgur.com/0hvAvxJ.jpeg",
-          category: "lunch"
-        }
-      ]);
-      console.log("Lunches seeded!");
+    const LUNCH_DEFAULTS = [
+      { 
+        id: "lunch-week", 
+        name: "Lunch tygodnia", 
+        price: 5500, 
+        description: "Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Corn Flake Chicken: panierowana w płatkach kukurydzianych pierś z kurczaka z ziemniaczanym puree i coleslawem • Domowa lemoniada 250 ml",
+        image: "https://i.imgur.com/sn5VMfS.jpeg",
+        category: "lunch",
+        isVisible: true
+      },
+      { 
+        id: "lunch-month", 
+        name: "Lunch miesiąca", 
+        price: 6500, 
+        description: "Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Kurczak Supreme: pieczona pierś z kurczaka z ziemniaczanym puree, warzywami i sosem demi glace • Domowa lemoniada 250 ml",
+        image: "https://i.imgur.com/xGCYJZQ.jpeg",
+        category: "lunch",
+        isVisible: true
+      },
+      { 
+        id: "lunch-vege", 
+        name: "Lunch VEGE", 
+        price: 5500, 
+        description: "Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Tagliatelle z warzywami, oliwą z oliwek i pastą truflową • Domowa lemoniada 250 ml",
+        image: "https://i.imgur.com/0hvAvxJ.jpeg",
+        category: "lunch",
+        isVisible: true
+      }
+    ];
+
+    for (const lunch of LUNCH_DEFAULTS) {
+      // Upsert: Aktualizuj jeśli istnieje (ustawi poprawne opisy), stwórz jeśli nie
+      await Product.findOneAndUpdate(
+        { id: lunch.id }, 
+        { $set: lunch }, 
+        { upsert: true, new: true }
+      );
     }
+    console.log("✅ Lunche zaktualizowane do wersji 'Corn Flake Chicken' w bazie danych.");
   } catch(e) {
     console.error("SEED ERROR:", e);
   }
@@ -1223,10 +1232,10 @@ app.delete("/api/admin/staff/:id", requireAdminOnly, async (req, res) => {
 // ✅ NOWOŚĆ: API DO ZARZĄDZANIA PRODUKTAMI (LUNCHE)
 // ==========================================
 
-// 1. GET (Pobierz lunche)
-app.get("/api/admin/products/lunche", requireStaff, async (req, res) => {
+// 1. PUBLICZNE API (Dla index.html - bez hasła!)
+// Dzięki temu plik index.html (strona klienta) może pobrać lunche bez logowania.
+app.get("/api/products/lunche", async (req, res) => {
   try {
-    // Pobierz wszystkie produkty z kategorii lunch
     const products = await Product.find({ category: "lunch" }).lean();
     res.json({ lunche: products });
   } catch (e) {
@@ -1234,14 +1243,20 @@ app.get("/api/admin/products/lunche", requireStaff, async (req, res) => {
   }
 });
 
-// 2. PUT (Edytuj lunch)
+// 2. ADMIN API (Dla admin.html - zabezpieczone tokenem)
+app.get("/api/admin/products/lunche", requireStaff, async (req, res) => {
+  try {
+    const products = await Product.find({ category: "lunch" }).lean();
+    res.json({ lunche: products });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.put("/api/admin/products/lunche/:id", requireStaff, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, price, description, image } = req.body;
-
-    // Walidacja
-    if (!name || typeof price !== 'number') return res.status(400).json({ error: "Błędne dane" });
 
     const updated = await Product.findOneAndUpdate(
       { id }, 
@@ -1249,7 +1264,7 @@ app.put("/api/admin/products/lunche/:id", requireStaff, async (req, res) => {
       { new: true }
     );
 
-    if (!updated) return res.status(404).json({ error: "Produkt nie znaleziony" });
+    if (!updated) return res.status(404).json({ error: "Not found" });
 
     res.json({ ok: true, product: updated });
   } catch (e) {
