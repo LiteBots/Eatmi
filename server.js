@@ -460,7 +460,7 @@ const PRICE_LIST = {
   "n-espresso-double": 1200,
   "n-flat-white": 1200,
   "n-latte": 1300,
-  "n-cappu": 1200,
+  "n-cappu": 1300,
   "n-matcha": 1900,
   "n-herbata-cz": 1000,
   "n-zimowa": 1600,
