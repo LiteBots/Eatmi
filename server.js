@@ -212,8 +212,12 @@ const OrderSchema = new mongoose.Schema(
     paymentMethod: { type: String, default: "payu", index: true },
     isOffline: { type: Boolean, default: false, index: true },
 
-    totalAmount: { type: Number, required: true }, // grosze (produkty + dostawa)
+    totalAmount: { type: Number, required: true }, // grosze (produkty + dostawa - rabat)
     totalPLN: { type: Number, required: true }, // zł
+
+    // ✅ NOWE POLA DLA KODÓW RABATOWYCH
+    promoCode: { type: String, default: null },
+    discountAmount: { type: Number, default: 0 }, // W groszach
 
     customer: { type: Object, default: {} },
     cart: { type: Array, default: [] },
@@ -258,6 +262,22 @@ const PushSubSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 const PushSubscription = mongoose.models.PushSubscription || mongoose.model("PushSubscription", PushSubSchema);
+
+// -------------------------------
+// ✅ PROMO CODE (kolekcja: promocodes) - NOWOŚĆ
+// -------------------------------
+const PromoCodeSchema = new mongoose.Schema(
+  {
+    code: { type: String, required: true, unique: true, uppercase: true, trim: true },
+    discountPercent: { type: Number, required: true, min: 1, max: 100 },
+    expiresAt: { type: Date, required: true },
+    usageLimit: { type: Number, default: null }, // null = nielimitowany
+    usedCount: { type: Number, default: 0 },
+    isActive: { type: Boolean, default: true }
+  },
+  { timestamps: true, collection: "promocodes" }
+);
+const PromoCode = mongoose.models.PromoCode || mongoose.model("PromoCode", PromoCodeSchema);
 
 
 // ===============================
@@ -801,8 +821,38 @@ app.post("/api/push/subscribe", async (req, res) => {
 });
 
 // ===============================
-// ✅ Offline order (karta/gotówka przy odbiorze) - WITH DELIVERY
+// ✅ PROMO CODES VERIFY API
 // ===============================
+app.post("/api/promo/verify", async (req, res) => {
+  try {
+    const codeStr = String(req.body.code || "").toUpperCase().trim();
+    const promo = await PromoCode.findOne({ code: codeStr, isActive: true });
+
+    if (!promo) return res.status(404).json({ error: "Kod nieprawidłowy" });
+    
+    if (new Date() > promo.expiresAt) {
+      return res.status(400).json({ error: "Kod wygasł" });
+    }
+
+    if (promo.usageLimit !== null && promo.usedCount >= promo.usageLimit) {
+      return res.status(400).json({ error: "Limit użyć kodu wyczerpany" });
+    }
+
+    res.json({ 
+      ok: true, 
+      code: promo.code, 
+      discountPercent: promo.discountPercent 
+    });
+  } catch (e) {
+    res.status(500).json({ error: "Błąd weryfikacji" });
+  }
+});
+
+// ===============================
+// ✅ ORDER APIs (OFFLINE + PAYU) WITH PROMO
+// ===============================
+
+// 1. OFFLINE ORDER
 app.post("/api/order/offline", async (req, res) => {
   try {
     const methodRaw = String(req.body?.paymentMethod || "").trim().toLowerCase();
@@ -823,8 +873,24 @@ app.post("/api/order/offline", async (req, res) => {
     
     // ✅ Calculate delivery
     const productsValue = calcTotalProductsValue(cartNorm);
-    const deliveryCost = calcDeliveryCost(productsValue);
-    const totalAmount = productsValue + deliveryCost;
+
+    // ✅ PROMO LOGIC
+    let discountAmount = 0;
+    let usedPromoCode = null;
+    if (req.body.promoCode) {
+        const promo = await PromoCode.findOne({ code: req.body.promoCode.toUpperCase(), isActive: true });
+        if (promo && new Date() <= promo.expiresAt && (promo.usageLimit === null || promo.usedCount < promo.usageLimit)) {
+             const discount = Math.round(productsValue * (promo.discountPercent / 100));
+             discountAmount = discount;
+             usedPromoCode = promo.code;
+             
+             await PromoCode.updateOne({ _id: promo._id }, { $inc: { usedCount: 1 } });
+        }
+    }
+
+    const productsValueAfterDiscount = Math.max(0, productsValue - discountAmount);
+    const deliveryCost = calcDeliveryCost(productsValueAfterDiscount);
+    const totalAmount = productsValueAfterDiscount + deliveryCost;
 
     const extOrderId = `eatmi-offline-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
@@ -838,7 +904,9 @@ app.post("/api/order/offline", async (req, res) => {
       totalPLN: totalAmount / 100,
       customer,
       cart: cartNorm,
-      payuRaw: null
+      payuRaw: null,
+      promoCode: usedPromoCode,
+      discountAmount
     });
 
     sseBroadcast("new_order", {
@@ -893,9 +961,7 @@ app.get("/api/orders/:extOrderId", async (req, res) => {
   }
 });
 
-// ===============================
-// PayU: Create order - WITH DELIVERY
-// ===============================
+// 2. PAYU ORDER
 app.post("/api/payu/order", async (req, res) => {
   try {
     requireEnv("PAYU_POS_ID", PAYU_POS_ID);
@@ -904,6 +970,22 @@ app.post("/api/payu/order", async (req, res) => {
 
     // AWAIT validation
     const cartNorm = await validateAndBuildCart(req.body?.cart);
+
+    // ✅ PROMO LOGIC
+    let discountAmount = 0;
+    let usedPromoCode = null;
+    const productsValue = calcTotalProductsValue(cartNorm);
+
+    if (req.body.promoCode) {
+        const promo = await PromoCode.findOne({ code: req.body.promoCode.toUpperCase(), isActive: true });
+        if (promo && new Date() <= promo.expiresAt && (promo.usageLimit === null || promo.usedCount < promo.usageLimit)) {
+             const discount = Math.round(productsValue * (promo.discountPercent / 100));
+             discountAmount = discount;
+             usedPromoCode = promo.code;
+             
+             await PromoCode.updateOne({ _id: promo._id }, { $inc: { usedCount: 1 } });
+        }
+    }
 
     // ✅ UPDATED: Include add-ons in name and use calculated price
     const products = cartNorm.map((i) => {
@@ -923,14 +1005,18 @@ app.post("/api/payu/order", async (req, res) => {
       };
     });
 
-    // ✅ Calculate totals
-    const productsTotal = products.reduce(
-      (sum, p) => sum + Number(p.unitPrice) * Number(p.quantity),
-      0
-    );
+    // Add Discount Line Item (Negative Price)
+    if (discountAmount > 0) {
+        products.push({
+            name: `Rabat: ${usedPromoCode}`,
+            unitPrice: String(-discountAmount),
+            quantity: "1"
+        });
+    }
 
-    const deliveryCost = calcDeliveryCost(productsTotal);
-    const totalAmount = productsTotal + deliveryCost;
+    const valueAfterDiscount = Math.max(0, productsValue - discountAmount);
+    const deliveryCost = calcDeliveryCost(valueAfterDiscount);
+    const totalAmount = valueAfterDiscount + deliveryCost;
 
     // ✅ Add delivery to PayU products list if > 0
     if (deliveryCost > 0) {
@@ -961,7 +1047,9 @@ app.post("/api/payu/order", async (req, res) => {
       totalAmount,
       totalPLN: totalAmount / 100,
       customer,
-      cart: cartNorm // Saves cart with addons AND proper names
+      cart: cartNorm, // Saves cart with addons AND proper names
+      promoCode: usedPromoCode,
+      discountAmount
     });
 
     const orderBody = {
@@ -1223,6 +1311,49 @@ app.patch("/api/admin/orders/:extOrderId/status", requireStaff, async (req, res)
   } catch (e) {
     console.log("ADMIN UPDATE STATUS ERROR:", e);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ✅ ADMIN: PROMO CODES (NOWE)
+app.get("/api/admin/promocodes", requireStaff, async (req, res) => {
+  try {
+    const codes = await PromoCode.find({}).sort({ createdAt: -1 });
+    res.json({ codes });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/admin/promocodes", requireStaff, async (req, res) => {
+  try {
+    const { code, discountPercent, durationMinutes, usageLimit } = req.body;
+    
+    if (!code || !discountPercent || !durationMinutes) {
+      return res.status(400).json({ error: "Brak wymaganych danych" });
+    }
+
+    const expiresAt = new Date(Date.now() + durationMinutes * 60000);
+
+    await PromoCode.create({
+      code: String(code).toUpperCase(),
+      discountPercent: Number(discountPercent),
+      expiresAt,
+      usageLimit: usageLimit ? Number(usageLimit) : null
+    });
+
+    res.json({ ok: true });
+  } catch (e) {
+    if (e.code === 11000) return res.status(409).json({ error: "Ten kod już istnieje" });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete("/api/admin/promocodes/:id", requireStaff, async (req, res) => {
+  try {
+    await PromoCode.findByIdAndDelete(req.params.id);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -1791,16 +1922,16 @@ app.get("/api/management/users/:id/orders", requireMgmt, async (req, res) => {
 // helpers
 // ===============================
 function escapeRegex(s) {
-  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // ===============================
 // SPA fallback (hash-router)
 // ===============================
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
 app.listen(process.env.PORT || 3000, () => {
-  console.log("Server running on port", process.env.PORT || 3000);
+  console.log("Server running on port", process.env.PORT || 3000);
 });
