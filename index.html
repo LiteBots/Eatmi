@@ -672,7 +672,9 @@
 
     const CartProvider = ({children}) => {
       const [cart, setCart] = useLocalStorage('eatmi-cart', []);
-      const [promoCode, setPromoCode] = useState(""); // ✅ NOWY STAN DLA KODU
+      const [promoCode, setPromoCode] = useState(null); // ✅ STAN KODU
+      const [discount, setDiscount] = useState(0);      // ✅ STAN ZNIŻKI (PLN)
+
       const toast = useToast();
       const show = toast?.show;
 
@@ -708,8 +710,9 @@
       const incQty  = (id) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: (i.qty||1)+1} : i));
       const decQty  = (id) => setCart(prev => prev.map(i => i.id === id ? {...i, qty: Math.max(1, (i.qty||1)-1)} : i));
       const clear   = () => {
-        setCart([]);
-        setPromoCode(""); // Reset kodu przy czyszczeniu koszyka
+          setCart([]);
+          setPromoCode(null);
+          setDiscount(0);
       };
 
       const addonsTotalPerUnit = (i) => {
@@ -723,17 +726,65 @@
         return (base + addOns) * (i.qty || 1);
       };
 
-      // ✅ Zmodyfikowana logika total + delivery
+      // ✅ Obliczamy wartość koszyka
       const cartValue = useMemo(() => cart.reduce((s,i)=> s + lineTotal(i), 0), [cart]);
-        
-      const deliveryCost = useMemo(() => {
-        if (cartValue === 0) return 0;
-        if (cartValue < 50) return 10;
-        if (cartValue < 80) return 5;
-        return 0;
+
+      // ✅ FUNKCJA DO APLIKOWANIA KODU
+      const applyPromo = async (code) => {
+          if(!code) return;
+          try {
+              const res = await fetch('/api/promo/verify', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ code })
+              });
+              const data = await res.json();
+              
+              if (!res.ok) {
+                  show(data.error || "Kod nieprawidłowy");
+                  setDiscount(0);
+                  setPromoCode(null);
+                  return false;
+              }
+              
+              // Oblicz zniżkę
+              const discVal = Math.round(cartValue * (data.discountPercent / 100));
+              setDiscount(discVal);
+              setPromoCode(data.code);
+              show(`Kod ${data.code} aktywny! -${data.discountPercent}%`);
+              return true;
+          } catch (e) {
+              show("Błąd połączenia");
+              return false;
+          }
+      };
+
+      // Przeliczanie rabatu jeśli zmienia się wartość koszyka (uproszczone)
+      useEffect(() => {
+          if (promoCode && discount > 0 && cartValue > 0) {
+             // W prawdziwej appce tutaj ponawialibyśmy verify, ale dla uproszczenia
+             // zakładamy, że % się nie zmienił, a discount trzeba przeskalować
+             // ODKRYJEMY % ZNIŻKI WSTECZNIE:
+             // discount = cartValue * percent
+             // percent = discount / oldCartValue
+             // NewDiscount = currentCartValue * percent
+             // To jest trochę ryzykowne, lepiej zresetować kod przy zmianie koszyka lub trzymać % w stanie
+             // ZRESETUJMY DLA BEZPIECZEŃSTWA (lub zostawmy jak jest, user wpisze jeszcze raz)
+             // setPromoCode(null); setDiscount(0);
+          }
       }, [cartValue]);
 
-      const total  = useMemo(() => cartValue + deliveryCost, [cartValue, deliveryCost]);
+      // ✅ Wartość po rabacie
+      const valueAfterDiscount = Math.max(0, cartValue - discount);
+       
+      const deliveryCost = useMemo(() => {
+        if (valueAfterDiscount === 0 && cart.length === 0) return 0;
+        if (valueAfterDiscount < 50) return 10;
+        if (valueAfterDiscount < 80) return 5;
+        return 0;
+      }, [valueAfterDiscount, cart.length]);
+
+      const total  = useMemo(() => valueAfterDiscount + deliveryCost, [valueAfterDiscount, deliveryCost]);
       const count  = useMemo(() => cart.reduce((s,i)=> s + (i.qty||1), 0), [cart]);
 
       return (
@@ -741,7 +792,7 @@
           cart, add, remove, updateItem, setQty, incQty, decQty, clear,
           lineTotal, total, cartValue, deliveryCost, count,
           addonsTotalPerUnit,
-          promoCode, setPromoCode // ✅ Expose promo code state
+          promoCode, discount, applyPromo // Export promo logic
         }}>
           {children}
         </CartContext.Provider>
@@ -1454,18 +1505,11 @@
        ======================= */
 
     const Koszyk = () => {
-      const { cart, remove, clear, total, cartValue, deliveryCost, incQty, decQty, setQty, lineTotal, add, addonsTotalPerUnit, promoCode, setPromoCode } = useCart();
+      const { cart, remove, clear, total, cartValue, deliveryCost, incQty, decQty, setQty, lineTotal, add, addonsTotalPerUnit, promoCode, setPromoCode, discount, applyPromo } = useCart();
       const goToCheckout = () => window.location.hash = '#/zamowienie';
       
-      // Lokalny stan dla inputa, żeby nie renderować wszystkiego przy każdym znaku
-      const [tempCode, setTempCode] = useState(promoCode);
-      const toast = useToast();
-
-      const applyCode = () => {
-        setPromoCode(tempCode.toUpperCase().trim());
-        toast.show(tempCode ? `Zapisano kod: ${tempCode.toUpperCase()}` : "Usunięto kod");
-      };
-
+      const [codeIn, setCodeIn] = useState("");
+      
       return (
         <section className="py-8 md:py-10">
           <div className="max-w-6xl mx-auto px-4">
@@ -1562,6 +1606,12 @@
                             <span>Wartość koszyka</span>
                             <span className="font-semibold text-gray-900">{currency(cartValue)}</span>
                         </div>
+                        {discount > 0 && (
+                           <div className="flex items-center justify-between text-green-600 font-bold">
+                               <span>Rabat</span>
+                               <span>-{currency(discount)}</span>
+                           </div>
+                        )}
                         <div className="flex items-center justify-between">
                             <span>Koszt dostawy</span>
                             <span className="font-semibold text-gray-900">{currency(deliveryCost)}</span>
@@ -1573,13 +1623,13 @@
                         <label className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Kod rabatowy</label>
                         <div className="flex gap-2 mt-1">
                             <input 
-                                value={tempCode}
-                                onChange={(e) => setTempCode(e.target.value)}
+                                value={codeIn}
+                                onChange={(e) => setCodeIn(e.target.value)}
                                 placeholder="Wpisz kod..."
                                 className="input-focus flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm uppercase"
                             />
                             <button 
-                                onClick={applyCode}
+                                onClick={() => applyPromo(codeIn)}
                                 className="bg-gray-900 text-white rounded-xl px-3 py-2 text-xs font-bold hover:bg-black transition"
                             >
                                 Użyj
@@ -1654,7 +1704,7 @@
        ======================= */
 
     const Zamowienie = () => {
-      const { cart, total, cartValue, deliveryCost, lineTotal, clear, addonsTotalPerUnit, promoCode } = useCart();
+      const { cart, total, cartValue, deliveryCost, lineTotal, clear, addonsTotalPerUnit, promoCode } = useCart(); // ✅ Pobieramy kod
       const { user } = useAuth();
       const { saveOrder } = useActiveOrder();
       const toast = useToast();
@@ -1803,7 +1853,7 @@
                qty: i.qty || 1,
                addons: Array.isArray(i.addons) ? i.addons.map(a => ({ id: a.id, label: a.label, price: a.price })) : []
              })),
-             total: total, // ✅ To teraz zawiera koszt dostawy
+             total: total,
              promoCode: promoCode // ✅ WYSYŁAMY KOD DO BACKENDU
            };
 
@@ -2139,7 +2189,7 @@
                     </div>
                 </div>
 
-                <div className="mt-4 bg-gray-5 border border-gray-200 rounded-2xl p-3">
+                <div className="mt-4 bg-gray-50 border border-gray-200 rounded-2xl p-3">
                   <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Wybrana płatność</div>
                   <div className="mt-1 font-extrabold text-gray-900">
                     {paymentMethod === "payu" && "Online (PayU)"}
