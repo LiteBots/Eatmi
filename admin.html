@@ -138,7 +138,7 @@
       push: "/api/admin/push",
       staff: "/api/admin/staff",
       events: "/api/admin/stream",
-      promocodes: "/api/admin/promocodes", // Endpoint dla kodów rabatowych
+      promocodes: "/api/admin/promocodes",
     };
 
     /* =======================
@@ -281,7 +281,7 @@
         "edit": "fa-pen-to-square",
         "image": "fa-image",
         "file-text": "fa-file-lines",
-        "tags": "fa-tags", // Ikona dla kodów rabatowych
+        "tags": "fa-tags",
           
         // Cards
         "shopping-bag": "fa-bag-shopping",
@@ -415,35 +415,40 @@
     };
 
     /* =======================
-       Improved Audio Alert (ROBUST)
+       Improved Audio Alert (ROBUST & AGGRESSIVE)
        ========================================================= */
     const useBeep = () => {
-      // Store the AudioContext in a Ref to persist across renders
       const audioRef = useRef(null);
 
-      // Initialize AudioContext once on mount
+      // Inicjalizacja AudioContext
       useEffect(() => {
         const Ctx = window.AudioContext || window.webkitAudioContext;
         if (!Ctx) return;
+        
+        // Tworzymy kontekst
         const ctx = new Ctx();
         const master = ctx.createGain();
         master.connect(ctx.destination);
-        // Initial silent unlock attempt
-        if (ctx.state === 'suspended') {
-            const unlock = () => ctx.resume().then(() => {
-                window.removeEventListener('click', unlock);
-                window.removeEventListener('touchstart', unlock);
-            });
-            window.addEventListener('click', unlock);
-            window.addEventListener('touchstart', unlock);
-        }
+        
         audioRef.current = { ctx, master, interval: null };
+
+        // Globalny unlocker - każde kliknięcie w stronę próbuje odblokować audio
+        const unlock = () => {
+           if (ctx.state === 'suspended') {
+              ctx.resume().then(() => console.log("Audio resumed by click"));
+           }
+        };
+        
+        document.addEventListener('click', unlock);
+        document.addEventListener('touchstart', unlock);
 
         return () => {
           if (audioRef.current) {
-            if (audioRef.current.interval) clearInterval(audioRef.current.interval);
-            audioRef.current.ctx.close().catch(() => {});
+             clearInterval(audioRef.current.interval);
+             audioRef.current.ctx.close().catch(() => {});
           }
+          document.removeEventListener('click', unlock);
+          document.removeEventListener('touchstart', unlock);
         };
       }, []);
 
@@ -451,31 +456,30 @@
         const s = audioRef.current;
         if (!s) return;
         
-        // Ensure not already running
+        // Jeśli już gra, nie dubluj
         if (s.interval) return;
 
-        // AGGRESSIVE UNLOCK: Try to resume context immediately
+        // AGRESYWNE WZNAWIANIE: Jeśli przeglądarka uśpiła audio, obudź je TERAZ
         if (s.ctx.state === 'suspended') {
-           s.ctx.resume().catch(e => console.error("Audio resume failed", e));
+            s.ctx.resume().catch(e => console.error("Force resume failed", e));
         }
 
         const playTone = () => {
           try {
-            // Re-check resume in loop just in case
+            // Ponowna próba wznowienia tuż przed dźwiękiem
             if (s.ctx.state === 'suspended') s.ctx.resume();
 
             const osc = s.ctx.createOscillator();
             const g = s.ctx.createGain();
             
-            // SAWTOOTH is louder and more annoying (better for alerts)
+            // Fala piłokształtna (bardziej drażniąca = lepszy alarm)
             osc.type = "sawtooth"; 
-            osc.frequency.value = 880; // A5
+            osc.frequency.setValueAtTime(880, s.ctx.currentTime); // A5
+            osc.frequency.exponentialRampToValueAtTime(440, s.ctx.currentTime + 0.5); // Opadający dźwięk (alarm)
             
             const now = s.ctx.currentTime;
-            
-            g.gain.setValueAtTime(0, now);
-            g.gain.linearRampToValueAtTime(0.5, now + 0.05);
-            g.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+            g.gain.setValueAtTime(0.5, now);
+            g.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
 
             osc.connect(g);
             g.connect(s.master);
@@ -485,9 +489,9 @@
           } catch(e) { console.error("Tone error", e); }
         };
 
+        // Graj od razu, potem w pętli
         playTone();
-        // Beep every 800ms
-        s.interval = setInterval(playTone, 800);
+        s.interval = setInterval(playTone, 1500); // Co 1.5 sekundy (mniej irytujące, ale skuteczne)
       }, []);
 
       const stop = useCallback(() => {
@@ -739,7 +743,7 @@
       </button>
     );
 
-    const Topbar = ({ title, subtitle, onLogout }) => (
+    const Topbar = ({ title, subtitle, onLogout, onTestAlert }) => (
       <div className="sticky top-0 z-40">
         <div className="mx-auto w-full">
           <div className="liquid border-b border-white/60">
@@ -749,13 +753,16 @@
                 <div className="text-xl md:text-2xl font-extrabold leading-tight truncate">{title}</div>
                 {subtitle && <div className="hidden sm:block text-xs text-gray-600 mt-0.5">{subtitle}</div>}
               </div>
-              <button
-                type="button"
-                onClick={onLogout}
-                className="shrink-0 inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-3 py-2 md:px-4 md:py-3 shadow-soft active:scale-95 transition font-extrabold text-xs md:text-sm"
-              >
-                <Icon name="log-out" className="w-4 h-4" /> <span className="hidden xs:inline">Wyloguj</span>
-              </button>
+              <div className="flex items-center gap-2">
+                 <button onClick={onTestAlert} className="hidden md:block bg-red-500 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-red-600 transition">TEST ALARM</button>
+                 <button
+                    type="button"
+                    onClick={onLogout}
+                    className="shrink-0 inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-3 py-2 md:px-4 md:py-3 shadow-soft active:scale-95 transition font-extrabold text-xs md:text-sm"
+                 >
+                    <Icon name="log-out" className="w-4 h-4" /> <span className="hidden xs:inline">Wyloguj</span>
+                 </button>
+              </div>
             </div>
           </div>
         </div>
@@ -889,8 +896,8 @@
                     className="bg-white border border-gray-200 rounded-2xl p-4 shadow-soft active:scale-[0.98] transition cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4 group"
                   >
                       <div className="flex flex-col gap-1">
-                         <div className="font-extrabold text-lg text-gray-900">{item.customer.imieNazwisko}</div>
-                         <div className="text-sm text-gray-500 font-medium">{item.customer.telefon}</div>
+                          <div className="font-extrabold text-lg text-gray-900">{item.customer.imieNazwisko}</div>
+                          <div className="text-sm text-gray-500 font-medium">{item.customer.telefon}</div>
                       </div>
 
                       <div className="flex items-center gap-4">
@@ -1135,7 +1142,7 @@
                 const name = resolveProductName(it);
                 const unitPricePLN = getItemUnitPricePLN(it);
                 const linePLN = unitPricePLN * qty;
-                 
+                  
                 return (
                   <div key={i} className="border border-gray-200 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="min-w-0">
@@ -1903,15 +1910,15 @@
        ========================================================= */
     const ScheduleView = () => {
        return (
-          <div className="p-4 md:p-6 pb-24 grid place-items-center min-h-[50vh]">
-             <div className="text-center">
-                <div className="inline-block p-6 rounded-full bg-gray-100 mb-4">
-                   <Icon name="calendar-clock" className="w-12 h-12 text-gray-400" />
-                </div>
-                <h2 className="text-2xl font-black text-gray-900">Harmonogram</h2>
-                <div className="mt-2 text-gray-500 font-medium">Ta opcja jest aktualnie w budowie.</div>
-             </div>
-          </div>
+         <div className="p-4 md:p-6 pb-24 grid place-items-center min-h-[50vh]">
+            <div className="text-center">
+               <div className="inline-block p-6 rounded-full bg-gray-100 mb-4">
+                  <Icon name="calendar-clock" className="w-12 h-12 text-gray-400" />
+               </div>
+               <h2 className="text-2xl font-black text-gray-900">Harmonogram</h2>
+               <div className="mt-2 text-gray-500 font-medium">Ta opcja jest aktualnie w budowie.</div>
+            </div>
+         </div>
        );
     };
 
@@ -1955,9 +1962,29 @@
         toast.show("ok", "Powiadomienie", "Potwierdzono.");
       };
 
-      // SSE Live Updates
+      // Manual Test Logic
+      const triggerTestAlert = () => {
+         const miniOrder = {
+             extOrderId: "TEST-" + Math.floor(Math.random()*1000),
+             totalPLN: 99.00,
+             customer: { imieNazwisko: "TEST ALARMU" },
+             status: "Nowe",
+             paymentMethod: "payu",
+             createdAt: new Date().toISOString() 
+         };
+         setAlertOrder(miniOrder);
+         setAlertOpen(true);
+      };
+
+      // SSE Live Updates & Notifications
       useEffect(() => {
         if (!token) return;
+
+        // 1. Poproś o zgodę na powiadomienia systemowe przy starcie
+        if ("Notification" in window && Notification.permission !== "granted") {
+           Notification.requestPermission();
+        }
+
         let es = null;
 
         try {
@@ -1968,27 +1995,43 @@
             
           es.addEventListener("new_order", (e) => {
               try {
+                  console.log("New Order Event Received:", e.data); // DEBUG
                   const d = JSON.parse(e.data);
                   
                   // 1. Force refresh of data
                   setRefreshSignal(Date.now());
                   
-                  // 2. Force Alert Open 
+                  // 2. Prepare Alert Data
                   const custName = (d.customer && typeof d.customer === 'object' ? d.customer.name : d.customer) || "Klient";
-
                   const miniOrder = {
                       extOrderId: d.extOrderId || "Nowe",
-                      totalPLN: d.totalPLN,
+                      totalPLN: d.totalPLN || 0,
                       customer: { imieNazwisko: custName },
-                      status: d.status,
-                      paymentMethod: d.paymentMethod,
+                      status: d.status || "Nowe",
+                      paymentMethod: d.paymentMethod || "online",
                       createdAt: new Date().toISOString() 
                   };
                   
+                  // 3. Trigger App Alert (Overlay)
                   setAlertOrder(miniOrder);
                   setAlertOpen(true);
+
+                  // 4. Trigger System Notification (Backup dla dźwięku)
+                  if ("Notification" in window && Notification.permission === "granted") {
+                     new Notification("NOWE ZAMÓWIENIE!", {
+                        body: `Kwota: ${d.totalPLN || "?"} zł | Klient: ${custName}`,
+                        icon: "favicon.png"
+                     });
+                  }
+
               } catch (err) {
                   console.error("SSE Parse Error:", err, e.data);
+                  // Fallback
+                  setAlertOrder({ extOrderId: "BŁĄD", customer: { imieNazwisko: "Sprawdź listę" }, totalPLN: 0 });
+                  setAlertOpen(true);
+                  if ("Notification" in window && Notification.permission === "granted") {
+                     new Notification("NOWE ZAMÓWIENIE (Błąd danych)", { body: "Sprawdź panel administratora." });
+                  }
               }
           });
 
@@ -1996,7 +2039,7 @@
               setRefreshSignal(Date.now());
           });
             
-          es.onerror = () => { console.log("SSE Error"); es.close(); };
+          es.onerror = () => { console.log("SSE Error - reconnecting..."); };
 
         } catch (err) {
           console.error("SSE Setup Error", err);
@@ -2059,7 +2102,7 @@
             </div>
 
             <main className="lg:ml-[var(--sidebar-w)] transition-all duration-300">
-              <Topbar title={curT.t} subtitle={curT.s} onLogout={onLogout} />
+              <Topbar title={curT.t} subtitle={curT.s} onLogout={onLogout} onTestAlert={triggerTestAlert} />
               <div className="animate-fadeIn">
                 {tab === "dashboard" && <Dashboard token={token} refreshSignal={refreshSignal} />}
                 {tab === "orders" && (
