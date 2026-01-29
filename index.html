@@ -819,15 +819,30 @@
         }
       };
 
-      // Time calculation: 60 - 80 mins from timestamp
-      const formatTimeRange = (ts) => {
-        if (!ts) return "";
-        const date = new Date(ts);
-        const start = new Date(date.getTime() + 60 * 60000); // +60m
-        const end = new Date(date.getTime() + 80 * 60000);   // +80m
+      // Time calculation: 60 - 80 mins from timestamp or Scheduled Time
+      const formatTimeDisplay = () => {
+         // ✅ JEŚLI JEST USTALONA GODZINA PRZYJAZDU
+         if (activeOrder.customer && activeOrder.customer.deliveryTime) {
+             // Sprawdzamy czy "NextDay" (można by to zapisać w zamówieniu, ale tutaj uproszczamy)
+             // Jeżeli timestamp zamówienia jest > 16:00 poprzedniego dnia lub to pre-order,
+             // wyświetlamy po prostu godzinę.
+             return (
+               <>
+                 <span className="text-xs uppercase font-bold tracking-widest block opacity-70 mb-0.5">Dostawa:</span>
+                 {activeOrder.customer.deliveryTime}
+               </>
+             );
+         }
+
+         // Standardowe 60-80 min
+         const ts = activeOrder.timestamp;
+         if (!ts) return "";
+         const date = new Date(ts);
+         const start = new Date(date.getTime() + 60 * 60000); // +60m
+         const end = new Date(date.getTime() + 80 * 60000);   // +80m
         
-        const f = (d) => d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        return `${f(start)} – ${f(end)}`;
+         const f = (d) => d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+         return `${f(start)} – ${f(end)}`;
       };
 
       return (
@@ -845,9 +860,8 @@
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-[10px] opacity-70">Przewidywana dostawa</div>
                 <div className="text-lg font-extrabold leading-none text-brand-yellow">
-                  {formatTimeRange(activeOrder.timestamp)}
+                  {formatTimeDisplay()}
                 </div>
               </div>
             </div>
@@ -1719,7 +1733,6 @@
       ];
 
       // ✅ WALIDACJA CZASU NA UI
-      // Odświeżaj czas co minutę, aby przycisk odblokował się sam, gdy wybije godzina.
       const [now, setNow] = useState(new Date());
         
       useEffect(() => {
@@ -1732,25 +1745,28 @@
       const plHour = dateObj.getHours();
       const plDay = dateObj.getDay(); // 0 = Niedziela, 6 = Sobota
 
-      // Logika dostępności
-      // Sklep otwarty 8-16, tylko w dni robocze (1-5, czyli Pon-Pt)
+      // --- LOGIKA GODZIN OTWARCIA i DOSTAW ---
       const isWeekend = plDay === 0 || plDay === 6;
-      const isShopOpen = !isWeekend && (plHour >= 8 && plHour < 16);
-
-      // Sprawdzamy czy w koszyku są lunche (z kontekstu globalnego, ale cart ma productId)
-      const isLunchItem = (id) => id.startsWith('lunch'); // Proste sprawdzenie po ID
+      const isAfter16 = plHour >= 16;
+      
+      // Sprawdzamy czy w koszyku są lunche
+      const isLunchItem = (id) => id.startsWith('lunch'); 
       const hasLunch = cart.some(item => isLunchItem(item.productId));
-      const isLunchTime = plHour >= 12;
-        
-      // Czy można zamawiać lunch (jeśli jest w koszyku) - wymaga też otwartego sklepu
-      const canOrderLunch = !hasLunch || isLunchTime;
+      const isBefore12 = plHour < 12;
 
-      // Czy formularz jest zablokowany
-      const isBlocked = !isShopOpen || !canOrderLunch;
+      // WARUNKI WYŚWIETLANIA PÓL CZASU i INFORMACJI
+      // 1. Zamawiamy po 16:00 lub w weekend -> Dostawa w następny dzień roboczy
+      const isNextDayOrder = isWeekend || isAfter16;
 
+      // 2. Zamawiamy Lunch przed 12:00 (i nie jest to weekend/po 16) -> Pre-order na dziś od 12:00
+      const isLunchPreorderToday = !isNextDayOrder && isBefore12 && hasLunch;
+
+      // Czy pokazać pole wyboru godziny? Tak, jeśli to next day order LUB lunch preorder
+      const showTimePicker = isNextDayOrder || isLunchPreorderToday;
 
       const emptyForm = {
-        imieNazwisko:'', telefon:'', email:'', miasto:'', kod:'', ulica:'', nrBud:'', pietro:'', lokal:'', uwagi:'', faktura:false, nip:'', firma:''
+        imieNazwisko:'', telefon:'', email:'', miasto:'', kod:'', ulica:'', nrBud:'', pietro:'', lokal:'', uwagi:'', faktura:false, nip:'', firma:'', 
+        deliveryTime: '' // ✅ Nowe pole
       };
 
       const [form, setForm] = useState(() => {
@@ -1763,6 +1779,8 @@
         }
         if (user?.email) base.email = base.email || user.email;
         if (user?.fullName) base.imieNazwisko = base.imieNazwisko || user.fullName;
+        // Resetujemy deliveryTime przy załadowaniu, bo to zależy od bieżącej chwili
+        base.deliveryTime = ''; 
         return base;
       });
 
@@ -1775,7 +1793,7 @@
         });
       }, [user]);
 
-      useEffect(() => { window.lucide?.createIcons?.(); }, [isBlocked]); // odśwież ikony jak zmieni się status
+      useEffect(() => { window.lucide?.createIcons?.(); }, [isNextDayOrder, isLunchPreorderToday]); 
 
       const [remember, setRemember] = useState(true);
       const [hadSaved, setHadSaved] = useState(() => !!loadSavedCustomer());
@@ -1803,7 +1821,6 @@
       };
 
       // ✅ Helper do sprawdzania kodu pocztowego
-      // Uznajemy za błąd, jeśli coś jest wpisane, ma min. 6 znaków i NIE JEST na liście dozwolonych
       const isZipError = form.kod && form.kod.length >= 6 && !ALLOWED_ZIPS.includes(form.kod);
 
       const validateBeforeOrder = () => {
@@ -1816,6 +1833,12 @@
         if (!ALLOWED_ZIPS.includes(form.kod)) {
            alert(`Przykro nam, ale dostarczamy zamówienia tylko do kodów: ${ALLOWED_ZIPS.join(', ')}.`);
            return false;
+        }
+
+        // ✅ WALIDACJA GODZINY (jeśli wymagana)
+        if (showTimePicker && !form.deliveryTime) {
+            alert('Wybierz preferowaną godzinę dostawy.');
+            return false;
         }
 
         if (!cart.length) {
@@ -1831,9 +1854,6 @@
       };
 
        const placeOrder = async (method) => {
-         // Dodatkowe zabezpieczenie, choć przycisk jest disabled
-         if (isBlocked) return;
-
          if (!validateBeforeOrder()) return;
 
          if (remember) {
@@ -2123,6 +2143,35 @@
                     <input value={form.lokal} onChange={e=>handle('lokal', e.target.value)}
                       className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
                   </div>
+
+                  {/* ✅ WARUNKOWE POLE WYBORU GODZINY */}
+                  {showTimePicker && (
+                      <div className="md:col-span-2 bg-blue-50 border border-blue-200 p-4 rounded-xl">
+                          <div className="text-blue-800 font-bold mb-2 flex items-center gap-2">
+                             <i data-lucide="clock" className="w-4 h-4"></i>
+                             Preferowana godzina dostawy *
+                          </div>
+                          
+                          <input 
+                            type="time" 
+                            value={form.deliveryTime}
+                            onChange={e=>handle('deliveryTime', e.target.value)}
+                            className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px] font-bold"
+                          />
+                          
+                          <div className="text-xs text-blue-700 mt-2">
+                              {isNextDayOrder ? (
+                                  hasLunch ? 
+                                  "Dostawa możliwa jutro (dzień roboczy) w godzinach 12:00 – 16:00." :
+                                  "Dostawa możliwa jutro (dzień roboczy) w godzinach 08:00 – 16:00."
+                              ) : (
+                                  // isLunchPreorderToday
+                                  "Lunch startuje od 12:00. Wybierz godzinę między 12:00 a 16:00."
+                              )}
+                          </div>
+                      </div>
+                  )}
+
                   <div className="md:col-span-2">
                     <label className="text-xs uppercase tracking-wider text-gray-500">Uwagi do zamówienia</label>
                     <textarea value={form.uwagi} onChange={e=>handle('uwagi', e.target.value)}
@@ -2203,36 +2252,39 @@
                   <span className="font-extrabold">{currency(total)}</span>
                 </div>
 
-                {/* ✅ KOMUNIKATY O ZAMKNIĘCIU LUB LUNCHACH */}
-                {isBlocked && (
-                  <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm">
+                {/* ✅ KOMUNIKATY O ZAMÓWIENIU NA PÓŹNIEJ */}
+                {isNextDayOrder && (
+                  <div className="mt-4 p-4 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-sm">
                     <div className="font-bold flex items-center gap-2">
-                        <i data-lucide="clock" className="w-4 h-4"/>
-                        { isWeekend 
-                            ? "Restauracja jest zamknięta w weekendy" 
-                            : !isShopOpen 
-                              ? "Restauracja jest teraz zamknięta" 
-                              : "Pora na lunch jeszcze nie nadeszła" 
-                        }
+                        <i data-lucide="moon" className="w-4 h-4"/>
+                        Zamówienie na jutro
                     </div>
                     <div className="mt-1">
-                        { isWeekend
-                            ? "Zapraszamy od poniedziałku do piątku w godzinach 8:00 – 16:00."
-                            : !isShopOpen 
-                                ? "Zapraszamy do składania zamówień w godzinach 8:00 – 16:00 (Pon–Pt)."
-                                : "Dania lunchowe dostępne są wyłącznie w godzinach 12:00 – 16:00."
-                        }
+                        Złożone teraz zamówienie zostanie zrealizowane w najbliższy dzień roboczy. Wybierz godzinę dostawy w formularzu.
                     </div>
                   </div>
                 )}
-                          <button
+
+                {isLunchPreorderToday && (
+                  <div className="mt-4 p-4 rounded-xl bg-orange-50 border border-orange-200 text-orange-800 text-sm">
+                    <div className="font-bold flex items-center gap-2">
+                        <i data-lucide="sun" className="w-4 h-4"/>
+                        Lunch od 12:00
+                    </div>
+                    <div className="mt-1">
+                        Lunche dowozimy od godziny 12:00. Wybierz preferowaną godzinę dostawy w formularzu.
+                    </div>
+                  </div>
+                )}
+                
+                  <button
                 onClick={() => placeOrder(paymentMethod)}
-                disabled={busyPay || isBlocked}
+                disabled={busyPay}
                 style={{
                   backgroundColor: "#FFC107",
                   color: "#111827",
-                  opacity: (busyPay || isBlocked) ? 0.6 : 1,
-                  cursor: (busyPay || isBlocked) ? "not-allowed" : "pointer"
+                  opacity: busyPay ? 0.6 : 1,
+                  cursor: busyPay ? "not-allowed" : "pointer"
                 }}
                 className="w-full mt-4 font-extrabold rounded-xl px-4 py-3 min-h-[44px] hover:ring-2 hover:ring-brand-yellow/40"
               >
@@ -2772,7 +2824,7 @@
         const initPushInPWA = async () => {
           // 1. Sprawdź, czy jesteśmy w trybie STANDALONE (PWA)
           const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-          
+           
           if (!isStandalone) {
              console.log("Not in PWA/Standalone mode - skipping push auto-subscribe.");
              return; 
@@ -2789,7 +2841,7 @@
                   const permission = await Notification.requestPermission();
                   if (permission === 'granted') {
                       const reg = await navigator.serviceWorker.ready;
-                      
+                       
                       // Get Key
                       const response = await fetch('/api/push/vapid-public-key');
                       if(!response.ok) return;
@@ -2810,7 +2862,7 @@
                         body: JSON.stringify(subscription),
                         headers: { 'Content-Type': 'application/json' }
                       });
-                      
+                       
                       console.log("PWA subscribed on click!");
                   }
               } catch (e) {
