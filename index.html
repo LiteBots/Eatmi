@@ -1825,19 +1825,19 @@
 
       const validateBeforeOrder = () => {
         if(!form.imieNazwisko || !form.telefon || !form.miasto || !form.ulica) {
-          alert('Uzupełnij wymagane pola');
+          showToast('Uzupełnij wymagane pola ✍️');
           return false;
         }
         
         // ✅ WALIDACJA KODU
         if (!ALLOWED_ZIPS.includes(form.kod)) {
-           alert(`Przykro nam, ale dostarczamy zamówienia tylko do kodów: ${ALLOWED_ZIPS.join(', ')}.`);
+           showToast(`Dostawa tylko do kodów: ${ALLOWED_ZIPS.join(', ')} 📪`);
            return false;
         }
 
-        // ✅ NOWA WALIDACJA GODZINY (twarda logika)
+        // ✅ NOWA WALIDACJA GODZINY (twarda logika + showToast)
         if (showTimePicker && !form.deliveryTime) {
-            alert('Wybierz preferowaną godzinę dostawy.');
+            showToast('Wybierz godzinę dostawy 🕒');
             return false;
         }
 
@@ -1848,25 +1848,25 @@
             // Jeśli jest LUNCH w koszyku, godzina MUSI być między 12 a 16 (niezależnie czy dziś czy jutro)
             if (hasLunch) {
                 if (hour < 12 || hour >= 16) {
-                    alert('Dania lunchowe dowozimy wyłącznie w godzinach 12:00 – 16:00. Proszę zmienić godzinę dostawy.');
+                    showToast('Lunche dowozimy między 12:00 a 16:00 ☀️');
                     return false;
                 }
             } else {
                 // Jeśli NIE MA lunchu (tylko śniadania, kawy itp.), godzina 08:00 - 16:00
                 if (hour < 8 || hour >= 16) {
-                    alert('Dostawy realizujemy w godzinach 08:00 – 16:00. Proszę zmienić godzinę dostawy.');
+                    showToast('Dostawy realizujemy między 08:00 a 16:00 🚚');
                     return false;
                 }
             }
         }
 
         if (!cart.length) {
-          alert('Koszyk jest pusty.');
+          showToast('Twój koszyk jest pusty 🛒');
           return false;
         }
         const missing = cart.find(i => !i.productId);
         if (missing) {
-          alert("W koszyku jest pozycja bez productId. Dodaj produkt ponownie.");
+          showToast('Błąd koszyka (brak ID). Odśwież stronę.');
           return false;
         }
         return true;
