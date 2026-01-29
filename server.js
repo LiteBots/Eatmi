@@ -7,7 +7,7 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
-import webpush from "web-push"; // ✅ NOWOŚĆ: Biblioteka do Pushy
+import webpush from "web-push"; // ✅ Biblioteka do Pushy
 
 console.log("NODE VERSION:", process.version);
 
@@ -54,8 +54,7 @@ const {
   // osobny sekret tokenów panelu (jak nie ustawisz, poleci na ADMIN_TOKEN_SECRET)
   MGMT_TOKEN_SECRET,
 
-  // ====== PUSH VAPID KEYS (NOWOŚĆ) ======
-  // Wygeneruj je komendą: npx web-push generate-vapid-keys
+  // ====== PUSH VAPID KEYS ======
   VAPID_PUBLIC_KEY,
   VAPID_PRIVATE_KEY
 } = process.env;
@@ -251,7 +250,7 @@ const ProductSchema = new mongoose.Schema(
 const Product = mongoose.models.Product || mongoose.model("Product", ProductSchema);
 
 // -------------------------------
-// ✅ PUSH SUBSCRIPTION (kolekcja: push_subs) - NOWOŚĆ
+// ✅ PUSH SUBSCRIPTION (kolekcja: push_subs)
 // -------------------------------
 const PushSubSchema = new mongoose.Schema({
   endpoint: { type: String, required: true, unique: true },
@@ -264,7 +263,7 @@ const PushSubSchema = new mongoose.Schema({
 const PushSubscription = mongoose.models.PushSubscription || mongoose.model("PushSubscription", PushSubSchema);
 
 // -------------------------------
-// ✅ PROMO CODE (kolekcja: promocodes) - NOWOŚĆ
+// ✅ PROMO CODE (kolekcja: promocodes)
 // -------------------------------
 const PromoCodeSchema = new mongoose.Schema(
   {
@@ -308,7 +307,7 @@ function authRequired(req, res, next) {
 // AUTH API (bez kodu mailowego)
 // ===============================
 
-// Register -> zapis usera + token (od razu aktywne konto) + mail powitalny
+// Register
 app.post("/api/auth/register", async (req, res) => {
   try {
     const email = normalizeEmail(req.body?.email);
@@ -326,7 +325,6 @@ app.post("/api/auth/register", async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // spróbuj rozbić fullName na first/last
     const parts = fullName.split(/\s+/).filter(Boolean);
     const firstName = parts[0] || "";
     const lastName = parts.slice(1).join(" ");
@@ -339,7 +337,6 @@ app.post("/api/auth/register", async (req, res) => {
       lastName
     });
 
-    // ✅ MAIL POWITALNY — NIE BLOKUJE REJESTRACJI (bez await)
     sendWelcomeEmail({ to: user.email, fullName: user.fullName })
       .catch((e) => console.log("WELCOME EMAIL ERROR:", e?.message || e));
 
@@ -360,7 +357,7 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-// Login -> token
+// Login
 app.post("/api/auth/login", async (req, res) => {
   try {
     const email = normalizeEmail(req.body?.email);
@@ -386,7 +383,7 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-// Me (po tokenie)
+// Me
 app.get("/api/auth/me", authRequired, async (req, res) => {
   try {
     const user = await User.findById(req.user.uid).select("email fullName firstName lastName phone address createdAt");
@@ -481,7 +478,8 @@ function safeCustomer(customer) {
     uwagi: c.uwagi || "",
     faktura: !!c.faktura,
     nip: c.nip || "",
-    firma: c.firma || ""
+    firma: c.firma || "",
+    deliveryTime: c.deliveryTime || "" // ✅ ZAPISUJEMY GODZINĘ DOSTAWY
   };
 }
 
@@ -493,8 +491,6 @@ function isPaidStatus(status) {
 const OFFLINE_PENDING_STATUS = "AWAITING_PICKUP_PAYMENT";
 
 // ====== PRICE LIST (FALLBACK / STATIC) ======
-// To służy jako FALLBACK dla rzeczy, których nie ma w bazie (np. kawy, napoje)
-// Lunche będą brane z bazy danych
 const PRICE_LIST = {
   "bs-small-1": 4300,
   "bs-small-2": 4500,
@@ -508,11 +504,9 @@ const PRICE_LIST = {
   "bs-big-2": 8900,
   "bs-big-3": 9200,
   "bs-big-vege": 8700,
-  // Domyślne ceny lunchy (gdyby baza była pusta):
   "lunch-week": 5500,
   "lunch-month": 6500,
   "lunch-vege": 5500,
-  // Karta:
   "k-jajecznica-bekon": 1800,
   "k-club-kurczak": 1800,
   "k-club-vege": 1800,
@@ -543,7 +537,7 @@ const PRICE_LIST = {
   "extra-deser": 2000
 };
 
-// ✅ ADD-ONS PRICE LIST (server-side truth)
+// ✅ ADD-ONS PRICE LIST
 const ADDONS_PRICE_LIST = {
   "milk-oat": 200,
   "milk-coconut": 200,
@@ -551,7 +545,7 @@ const ADDONS_PRICE_LIST = {
   "honey-50": 300
 };
 
-// ✅ ADD-ONS NAME LIST (for PayU display)
+// ✅ ADD-ONS NAME LIST
 const ADDONS_NAME_LIST = {
   "milk-oat": "Mleko owsiane",
   "milk-coconut": "Mleko kokosowe",
@@ -607,8 +601,7 @@ const NAME_LIST = {
 };
 
 // ===============================
-// ✅ PRODUCT INITIALIZATION (SEEDING - WERSJA CORRECT)
-// Aktualizuje bazę do Twoich najnowszych opisów przy każdym starcie.
+// ✅ PRODUCT INITIALIZATION (SEEDING)
 // ===============================
 async function seedLunche() {
   try {
@@ -643,7 +636,6 @@ async function seedLunche() {
     ];
 
     for (const lunch of LUNCH_DEFAULTS) {
-      // Upsert: Aktualizuj jeśli istnieje (ustawi poprawne opisy), stwórz jeśli nie
       await Product.findOneAndUpdate(
         { id: lunch.id }, 
         { $set: lunch }, 
@@ -952,7 +944,8 @@ app.get("/api/orders/:extOrderId", async (req, res) => {
       customer: {
         imieNazwisko: order.customer?.imieNazwisko,
         miasto: order.customer?.miasto,
-        ulica: order.customer?.ulica
+        ulica: order.customer?.ulica,
+        deliveryTime: order.customer?.deliveryTime // ✅ Return delivery time
       }
     });
   } catch (e) {
@@ -1922,16 +1915,16 @@ app.get("/api/management/users/:id/orders", requireMgmt, async (req, res) => {
 // helpers
 // ===============================
 function escapeRegex(s) {
-  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // ===============================
 // SPA fallback (hash-router)
 // ===============================
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 
 app.listen(process.env.PORT || 3000, () => {
-  console.log("Server running on port", process.env.PORT || 3000);
+  console.log("Server running on port", process.env.PORT || 3000);
 });
