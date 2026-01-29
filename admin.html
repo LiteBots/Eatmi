@@ -290,6 +290,7 @@
           
         // Payment
         "banknote": "fa-money-bill-wave",
+        "credit-card": "fa-credit-card",
           
         // Statuses
         "circle-dashed": "fa-circle-notch", // or fa-spinner
@@ -891,10 +892,21 @@
          let revMonth = 0;
          let revTotal = 0;
 
+         // Payment Methods
+         let payOnline = 0;
+         let payCash = 0;
+         let payCard = 0;
+
          orders.forEach(o => {
             const date = new Date(pickCreatedAt(o));
             const val = getOrderTotalPLN(o);
+            const p = resolvePayment(o);
             
+            // Methods breakdown (Global)
+            if (p.kind === 'online') payOnline += val;
+            else if (p.kind === 'offline_cash') payCash += val;
+            else if (p.kind === 'offline_card') payCard += val;
+
             // Total
             revTotal += val;
 
@@ -914,7 +926,7 @@
             }
          });
 
-         return { revToday, revWeek, revMonth, revTotal };
+         return { revToday, revWeek, revMonth, revTotal, payOnline, payCash, payCard };
       }, [orders]);
 
       return (
@@ -929,6 +941,15 @@
               <Card title="Ten Tydzień" value={currency(stats.revWeek)} icon="calendar" loading={loading} hint="Poniedziałek - Piątek" />
               <Card title="Ten Miesiąc" value={currency(stats.revMonth)} icon="chart-line" loading={loading} hint="Bieżący miesiąc" />
               <Card title="Łącznie" value={currency(stats.revTotal)} icon="banknote" loading={loading} hint="Całkowity przychód" />
+           </div>
+
+           <div className="mb-8">
+             <div className="font-extrabold text-sm uppercase tracking-wide text-gray-500 mb-3 ml-1">Metody Płatności (Łącznie)</div>
+             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+               <Card title="PayU (Online)" value={currency(stats.payOnline)} icon="banknote" loading={loading} hint="Płatności internetowe" />
+               <Card title="Gotówka" value={currency(stats.payCash)} icon="wallet" loading={loading} hint="Płatność przy odbiorze" />
+               <Card title="Karta (Dostawa)" value={currency(stats.payCard)} icon="credit-card" loading={loading} hint="Terminal u kierowcy" />
+             </div>
            </div>
 
            <div className="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
