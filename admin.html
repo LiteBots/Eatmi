@@ -993,6 +993,41 @@
       const totalPLN = getOrderTotalPLN(order);
       const pay = resolvePayment(order);
 
+      // ✅ LOGIKA OBLICZANIA DATY DOSTAWY DLA ZAMÓWIEŃ "NA JUTRO"
+      const getDeliveryDate = () => {
+          if (!order.customer?.deliveryTime) return null;
+          
+          const created = new Date(pickCreatedAt(order)); // pobiera datę utworzenia
+          if (isNaN(created.getTime())) return null;
+
+          const hour = created.getHours();
+          const day = created.getDay(); // 0 Sun, 6 Sat
+          
+          let targetDate = new Date(created);
+          
+          // Logika analogiczna do frontendu
+          const isWeekend = day === 0 || day === 6;
+          const isAfter16 = hour >= 16;
+          
+          if (isWeekend || isAfter16) {
+              // Przesuwamy na następny dzień (uproszczone +1, w pełnej wersji biznesowej +dni robocze)
+              targetDate.setDate(targetDate.getDate() + 1);
+              
+              // Jeśli piątek po 16 -> Poniedziałek (+3 dni od utworzenia)
+              if (day === 5 && isAfter16) targetDate.setDate(created.getDate() + 3);
+              // Sobota -> Poniedziałek (+2)
+              else if (day === 6) targetDate.setDate(created.getDate() + 2);
+              // Niedziela -> Poniedziałek (+1)
+              else if (day === 0) targetDate.setDate(created.getDate() + 1);
+          }
+          // Jeśli lunch przed 12, data zostaje "dzisiaj"
+          
+          const dayStr = targetDate.toLocaleDateString("pl-PL", { weekday: 'long', day: 'numeric', month: 'long' });
+          return `${dayStr}, godz. ${order.customer.deliveryTime}`;
+      };
+      
+      const deliveryString = getDeliveryDate();
+
       // Delivery logic
       const productsValue = cart.reduce((sum, item) => {
          return sum + (getItemUnitPricePLN(item) * (item.qty || 1));
@@ -1026,6 +1061,21 @@
 
       return (
         <div className="space-y-5 pb-10">
+            
+          {/* ✅ CZERWONY KOMUNIKAT O PLANOWANEJ DOSTAWIE */}
+          {deliveryString && (
+            <div className="bg-red-50 border-2 border-red-500 rounded-2xl p-4 mb-2 animate-pulse">
+              <div className="flex items-center gap-3 justify-center text-red-600">
+                 <Icon name="clock-3" className="w-6 h-6" />
+                 <div className="text-center">
+                    <div className="text-xs font-black uppercase tracking-widest opacity-70">PLANOWANA DOSTAWA</div>
+                    <div className="text-xl font-black underline decoration-red-600 underline-offset-4 mt-1">
+                       {deliveryString}
+                    </div>
+                 </div>
+              </div>
+            </div>
+          )}
             
           {/* AKCJE - ZMIANA STATUSU */}
           <div className="bg-white border border-gray-200 rounded-3xl p-5 shadow-sm">
@@ -1085,7 +1135,7 @@
                 const name = resolveProductName(it);
                 const unitPricePLN = getItemUnitPricePLN(it);
                 const linePLN = unitPricePLN * qty;
-                  
+                 
                 return (
                   <div key={i} className="border border-gray-200 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="min-w-0">
