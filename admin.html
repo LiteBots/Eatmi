@@ -291,6 +291,7 @@
         // Payment
         "banknote": "fa-money-bill-wave",
         "credit-card": "fa-credit-card",
+        "chart-line": "fa-chart-line",
           
         // Statuses
         "circle-dashed": "fa-circle-notch", // or fa-spinner
@@ -755,14 +756,14 @@
                 {subtitle && <div className="hidden sm:block text-xs text-gray-600 mt-0.5">{subtitle}</div>}
               </div>
               <div className="flex items-center gap-2">
-                 <button onClick={onTestAlert} className="hidden md:block bg-red-500 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-red-600 transition">TEST ALARM</button>
-                 <button
-                   type="button"
-                   onClick={onLogout}
-                   className="shrink-0 inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-3 py-2 md:px-4 md:py-3 shadow-soft active:scale-95 transition font-extrabold text-xs md:text-sm"
-                  >
+                  <button onClick={onTestAlert} className="hidden md:block bg-red-500 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-red-600 transition">TEST ALARM</button>
+                  <button
+                    type="button"
+                    onClick={onLogout}
+                    className="shrink-0 inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-3 py-2 md:px-4 md:py-3 shadow-soft active:scale-95 transition font-extrabold text-xs md:text-sm"
+                   >
                     <Icon name="log-out" className="w-4 h-4" /> <span className="hidden xs:inline">Wyloguj</span>
-                 </button>
+                  </button>
               </div>
             </div>
           </div>
@@ -808,7 +809,7 @@
             if(!silent) setLoading(false);
             return;
           }
-           
+            
           setStats({
             ordersTotal: Number(data.ordersTotal || 0),
             ordersToday: Number(data.ordersToday || 0),
@@ -847,7 +848,7 @@
     };
 
     /* =======================
-        Transactions (NEW COMPONENT)
+        Transactions (DETAILED BREAKDOWN)
        ========================================================= */
     const Transactions = ({ token }) => {
       const toast = useToast();
@@ -870,114 +871,147 @@
 
       useEffect(() => { load(); }, []);
 
-      // Calculate Stats
+      // Calculate Stats Breakdown
       const stats = useMemo(() => {
          const now = new Date();
          const todayStr = now.toLocaleDateString("pl-PL");
          const currentMonth = now.getMonth();
          const currentYear = now.getFullYear();
          
-         // Logic for "This Week (Mon-Fri)"
+         // Logic for "This Week (Mon-Sun)"
          const day = now.getDay(); // 0 Sun, 1 Mon ... 6 Sat
-         const diff = now.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
-         const monday = new Date(now.setDate(diff));
+         const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
+         const monday = new Date(now);
+         monday.setDate(diff);
          monday.setHours(0,0,0,0);
          
-         const friday = new Date(monday);
-         friday.setDate(monday.getDate() + 4);
-         friday.setHours(23,59,59,999);
+         const sunday = new Date(monday);
+         sunday.setDate(monday.getDate() + 6);
+         sunday.setHours(23,59,59,999);
 
-         let revToday = 0;
-         let revWeek = 0;
-         let revMonth = 0;
-         let revTotal = 0;
-
-         // Payment Methods
-         let payOnline = 0;
-         let payCash = 0;
-         let payCard = 0;
+         // Struktura danych
+         const createBucket = () => ({ today: 0, week: 0, month: 0, total: 0 });
+         
+         const data = {
+             payu: createBucket(),
+             cash: createBucket(),
+             card: createBucket(),
+             grandTotal: 0
+         };
 
          orders.forEach(o => {
             const date = new Date(pickCreatedAt(o));
             const val = getOrderTotalPLN(o);
             const p = resolvePayment(o);
             
-            // Methods breakdown (Global)
-            if (p.kind === 'online') payOnline += val;
-            else if (p.kind === 'offline_cash') payCash += val;
-            else if (p.kind === 'offline_card') payCard += val;
+            // Wybierz odpowiedni kubełek
+            let bucket = data.payu; // domyślnie
+            if (p.kind === 'offline_cash') bucket = data.cash;
+            if (p.kind === 'offline_card') bucket = data.card;
 
-            // Total
-            revTotal += val;
+            // 1. Total (dla danej metody)
+            bucket.total += val;
+            data.grandTotal += val;
 
-            // Today
+            // 2. Today
             if (date.toLocaleDateString("pl-PL") === todayStr) {
-               revToday += val;
+               bucket.today += val;
             }
 
-            // Month
+            // 3. Month
             if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
-               revMonth += val;
+               bucket.month += val;
             }
 
-            // Week (Mon-Fri)
-            if (date >= monday && date <= friday) {
-               revWeek += val;
+            // 4. Week
+            if (date >= monday && date <= sunday) {
+               bucket.week += val;
             }
          });
 
-         return { revToday, revWeek, revMonth, revTotal, payOnline, payCash, payCard };
+         return data;
       }, [orders]);
+
+      // Helper do renderowania sekcji
+      const StatSection = ({ title, icon, colorClass, data }) => (
+          <div className="mb-8">
+            <div className={`flex items-center gap-2 mb-4 px-1 ${colorClass}`}>
+                <Icon name={icon} className="w-5 h-5" />
+                <h3 className="font-extrabold text-lg uppercase tracking-wide">{title}</h3>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                <Card title="Dziś" value={currency(data.today)} icon="calendar" loading={loading} hint="Ten dzień" />
+                <Card title="Ten Tydzień" value={currency(data.week)} icon="calendar-clock" loading={loading} hint="Pon-Ndz" />
+                <Card title="Ten Miesiąc" value={currency(data.month)} icon="layout-dashboard" loading={loading} hint="Bieżący" />
+                <Card title="Łącznie" value={currency(data.total)} icon="wallet" loading={loading} hint="Cała historia" />
+            </div>
+          </div>
+      );
 
       return (
         <div className="p-4 md:p-6 pb-24">
-           <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-extrabold">Finanse</h2>
-              <button onClick={load} className="p-2 bg-white border border-gray-200 rounded-xl shadow-sm"><Icon name="refresh-cw" className="w-4 h-4" /></button>
+           <div className="flex items-center justify-between mb-8">
+              <h2 className="text-xl font-extrabold">Finanse (Szczegółowe)</h2>
+              <button onClick={load} className="p-2 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-gray-50"><Icon name="refresh-cw" className="w-4 h-4" /></button>
            </div>
            
-           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <Card title="Utarg Dziś" value={currency(stats.revToday)} icon="wallet" loading={loading} hint="Dzisiejszy przychód" />
-              <Card title="Ten Tydzień" value={currency(stats.revWeek)} icon="calendar" loading={loading} hint="Poniedziałek - Piątek" />
-              <Card title="Ten Miesiąc" value={currency(stats.revMonth)} icon="chart-line" loading={loading} hint="Bieżący miesiąc" />
-              <Card title="Łącznie" value={currency(stats.revTotal)} icon="banknote" loading={loading} hint="Całkowity przychód" />
+           {/* PAYU */}
+           <StatSection 
+                title="PayU (Online)" 
+                icon="credit-card" 
+                colorClass="text-blue-600" 
+                data={stats.payu} 
+           />
+
+           {/* GOTÓWKA */}
+           <StatSection 
+                title="Gotówka (Odbiór)" 
+                icon="banknote" 
+                colorClass="text-emerald-600" 
+                data={stats.cash} 
+           />
+
+           {/* KARTA PRZY ODBIORZE */}
+           <StatSection 
+                title="Karta (Terminal Kierowcy)" 
+                icon="wallet" 
+                colorClass="text-violet-600" 
+                data={stats.card} 
+           />
+
+           {/* GRAND TOTAL */}
+           <div className="mt-10 bg-gray-900 rounded-3xl p-6 md:p-8 shadow-kiosk text-white flex flex-col md:flex-row items-center justify-between gap-6">
+                <div>
+                    <div className="text-sm font-bold uppercase tracking-[0.2em] text-gray-400 mb-2">Łączne saldo ze wszystkich metod</div>
+                    <div className="text-xs text-gray-500">Suma (PayU + Gotówka + Karta) z całej historii sprzedaży.</div>
+                </div>
+                <div className="text-4xl md:text-5xl font-black text-brand-yellow tracking-tight">
+                    {loading ? "..." : currency(stats.grandTotal)}
+                </div>
            </div>
 
-           <div className="mb-8">
-             <div className="font-extrabold text-sm uppercase tracking-wide text-gray-500 mb-3 ml-1">Metody Płatności (Łącznie)</div>
-             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-               <Card title="PayU (Online)" value={currency(stats.payOnline)} icon="banknote" loading={loading} hint="Płatności internetowe" />
-               <Card title="Gotówka" value={currency(stats.payCash)} icon="wallet" loading={loading} hint="Płatność przy odbiorze" />
-               <Card title="Karta (Dostawa)" value={currency(stats.payCard)} icon="credit-card" loading={loading} hint="Terminal u kierowcy" />
-             </div>
-           </div>
-
-           <div className="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-100 font-extrabold text-sm uppercase tracking-wide text-gray-500">Skrócona lista transakcji</div>
+           {/* LISTA TRANSAKCJI (opcjonalnie, zostawiam skróconą wersję poniżej, żeby nie było pusto na dole) */}
+           <div className="mt-12 bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-100 font-extrabold text-sm uppercase tracking-wide text-gray-500">Ostatnie transakcje</div>
               <div className="overflow-x-auto">
                  <table className="w-full text-left border-collapse">
                     <thead className="bg-gray-50/80 border-b border-gray-200">
                        <tr>
                           <th className="px-6 py-3 text-[10px] uppercase font-extrabold text-gray-500">Klient</th>
-                          <th className="px-6 py-3 text-[10px] uppercase font-extrabold text-gray-500">Telefon</th>
-                          <th className="px-6 py-3 text-[10px] uppercase font-extrabold text-gray-500">Zamówienie</th>
+                          <th className="px-6 py-3 text-[10px] uppercase font-extrabold text-gray-500">Metoda</th>
                           <th className="px-6 py-3 text-[10px] uppercase font-extrabold text-gray-500 text-right">Kwota</th>
                        </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                       {loading ? [1,2,3].map(i => <tr key={i}><td colSpan="4" className="p-4"><Skeleton className="h-6 w-full" /></td></tr>) : 
-                        orders.length === 0 ? <tr><td colSpan="4" className="p-8 text-center text-gray-400">Brak transakcji</td></tr> :
-                        orders.map((o, idx) => {
-                           const items = Array.isArray(o.cart) ? o.cart : (Array.isArray(o.items) ? o.items : []);
-                           const desc = items.map(it => `${it.qty||1}x ${resolveProductName(it)}`).join(", ");
-                           
+                       {loading ? [1,2].map(i => <tr key={i}><td colSpan="3" className="p-4"><Skeleton className="h-6 w-full" /></td></tr>) : 
+                        orders.slice(0, 5).map((o, idx) => {
+                           const pay = resolvePayment(o);
                            return (
-                              <tr key={idx} className="hover:bg-gray-50 transition">
-                                 <td className="px-6 py-3 text-sm font-bold text-gray-900">{o.customer?.imieNazwisko || o.name || "—"}</td>
-                                 <td className="px-6 py-3 text-sm font-mono text-gray-600">{o.customer?.telefon || "—"}</td>
-                                 <td className="px-6 py-3 text-sm text-gray-600 truncate max-w-[200px]" title={desc}>{desc}</td>
+                             <tr key={idx} className="hover:bg-gray-50 transition">
+                                 <td className="px-6 py-3 text-sm font-bold text-gray-900">{o.customer?.imieNazwisko || "—"}</td>
+                                 <td className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">{pay.badge}</td>
                                  <td className="px-6 py-3 text-sm font-black text-right">{currency(getOrderTotalPLN(o))}</td>
-                              </tr>
+                             </tr>
                            );
                         })
                        }
@@ -2004,7 +2038,7 @@
       // Title Logic
       const titleData = {
         dashboard: { t: "Dashboard", s: "Przegląd statystyk" },
-        transactions: { t: "Transakcje", s: "Finanse i historia" }, // ✅ NOWE
+        transactions: { t: "Transakcje", s: "Finanse i historia" },
         orders: { t: "Zamówienia", s: "Zarządzanie zamówieniami" },
         schedule: { t: "Harmonogram", s: "Planowane dostawy" },
         push: { t: "Powiadomienia", s: "Wysyłka PUSH" },
@@ -2128,7 +2162,7 @@
                  <Logo />
                  <div className="mt-8 space-y-2 flex-1 overflow-y-auto">
                    <NavItem active={tab==="dashboard"} icon="layout-dashboard" label="Dashboard" onClick={()=>setTab("dashboard")} />
-                   <NavItem active={tab==="transactions"} icon="wallet" label="Transakcje" onClick={()=>setTab("transactions")} /> {/* ✅ NOWE */}
+                   <NavItem active={tab==="transactions"} icon="wallet" label="Transakcje" onClick={()=>setTab("transactions")} />
                    <NavItem active={tab==="orders"} icon="clipboard-list" label="Zamówienia" badge={ordersCount} onClick={()=>setTab("orders")} />
                    <NavItem active={tab==="menu_lunch"} icon="utensils" label="Menu Lunche" onClick={()=>setTab("menu_lunch")} />
                    <NavItem active={tab==="promocodes"} icon="tags" label="Kody Rabatowe" onClick={()=>setTab("promocodes")} />
@@ -2150,7 +2184,7 @@
                  {[
                    { id: "dashboard", icon: "layout-dashboard", label: "Start" },
                    { id: "orders", icon: "clipboard-list", label: "Zam.", badge: ordersCount },
-                   { id: "transactions", icon: "wallet", label: "Kasa" }, // ✅ NOWE
+                   { id: "transactions", icon: "wallet", label: "Kasa" },
                    { id: "menu_lunch", icon: "utensils", label: "Menu" },
                    { id: "promocodes", icon: "tags", label: "Kody" } 
                  ].map(item => (
@@ -2173,7 +2207,7 @@
               <Topbar title={curT.t} subtitle={curT.s} onLogout={onLogout} onTestAlert={triggerTestAlert} />
               <div className="animate-fadeIn">
                 {tab === "dashboard" && <Dashboard token={token} refreshSignal={refreshSignal} />}
-                {tab === "transactions" && <Transactions token={token} />} {/* ✅ NOWE */}
+                {tab === "transactions" && <Transactions token={token} />}
                 {tab === "orders" && (
                     <Orders 
                         token={token} 
