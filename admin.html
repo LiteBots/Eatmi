@@ -1090,11 +1090,11 @@
       const totalPLN = getOrderTotalPLN(order);
       const pay = resolvePayment(order);
 
-      // ✅ ZMIANA: Usunięto logikę nadpisywania daty (następny dzień roboczy).
-      // Teraz pokazujemy po prostu to, co klient wybrał (lub to co przyszło z backendu).
+      // ✅ ZMIANA: Usunięto logikę nadpisywania daty (następny dzień roboczy) ORAZ dodano rozróżnienie Dostawa/Odbiór.
       const getDeliveryDate = () => {
-          if (c.deliveryTime && c.deliveryDate) return `${c.deliveryDate}, godz. ${c.deliveryTime}`;
-          if (c.deliveryTime) return `Dostawa/Odbiór: ${c.deliveryTime}`;
+          const method = c.fulfillmentMethod === 'pickup' ? 'Odbiór' : 'Dostawa';
+          if (c.deliveryTime && c.deliveryDate) return `${method}: ${c.deliveryDate}, godz. ${c.deliveryTime}`;
+          if (c.deliveryTime) return `${method}: ${c.deliveryTime}`;
           return null;
       };
       
@@ -1140,7 +1140,7 @@
               <div className="flex items-center gap-3 justify-center text-red-600">
                  <Icon name="clock-3" className="w-6 h-6" />
                  <div className="text-center">
-                    <div className="text-xs font-black uppercase tracking-widest opacity-70">WYBRANA DATA / GODZINA</div>
+                    <div className="text-xs font-black uppercase tracking-widest opacity-70">TERMIN REALIZACJI</div>
                     <div className="text-xl font-black underline decoration-red-600 underline-offset-4 mt-1">
                        {deliveryString}
                     </div>
