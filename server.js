@@ -479,7 +479,8 @@ function safeCustomer(customer) {
     faktura: !!c.faktura,
     nip: c.nip || "",
     firma: c.firma || "",
-    deliveryTime: c.deliveryTime || "" // ✅ ZAPISUJEMY GODZINĘ DOSTAWY
+    deliveryTime: c.deliveryTime || "", // ✅ ZAPISUJEMY GODZINĘ DOSTAWY
+    fulfillmentMethod: c.fulfillmentMethod || "" // ✅ ZAPISUJEMY METODĘ
   };
 }
 
@@ -856,7 +857,7 @@ app.post("/api/order/offline", async (req, res) => {
 
     const customer = safeCustomer(req.body?.customer);
 
-    if (!customer.imieNazwisko || !customer.telefon || !customer.miasto || !customer.ulica) {
+    if (!customer.imieNazwisko || !customer.telefon) {
       return res.status(400).json({ error: "Missing required customer fields" });
     }
 
@@ -872,11 +873,11 @@ app.post("/api/order/offline", async (req, res) => {
     if (req.body.promoCode) {
         const promo = await PromoCode.findOne({ code: req.body.promoCode.toUpperCase(), isActive: true });
         if (promo && new Date() <= promo.expiresAt && (promo.usageLimit === null || promo.usedCount < promo.usageLimit)) {
-             const discount = Math.round(productsValue * (promo.discountPercent / 100));
-             discountAmount = discount;
-             usedPromoCode = promo.code;
-             
-             await PromoCode.updateOne({ _id: promo._id }, { $inc: { usedCount: 1 } });
+            const discount = Math.round(productsValue * (promo.discountPercent / 100));
+            discountAmount = discount;
+            usedPromoCode = promo.code;
+            
+            await PromoCode.updateOne({ _id: promo._id }, { $inc: { usedCount: 1 } });
         }
     }
 
@@ -945,7 +946,8 @@ app.get("/api/orders/:extOrderId", async (req, res) => {
         imieNazwisko: order.customer?.imieNazwisko,
         miasto: order.customer?.miasto,
         ulica: order.customer?.ulica,
-        deliveryTime: order.customer?.deliveryTime // ✅ Return delivery time
+        deliveryTime: order.customer?.deliveryTime, // ✅ Return delivery time
+        fulfillmentMethod: order.customer?.fulfillmentMethod
       }
     });
   } catch (e) {
@@ -972,11 +974,11 @@ app.post("/api/payu/order", async (req, res) => {
     if (req.body.promoCode) {
         const promo = await PromoCode.findOne({ code: req.body.promoCode.toUpperCase(), isActive: true });
         if (promo && new Date() <= promo.expiresAt && (promo.usageLimit === null || promo.usedCount < promo.usageLimit)) {
-             const discount = Math.round(productsValue * (promo.discountPercent / 100));
-             discountAmount = discount;
-             usedPromoCode = promo.code;
-             
-             await PromoCode.updateOne({ _id: promo._id }, { $inc: { usedCount: 1 } });
+            const discount = Math.round(productsValue * (promo.discountPercent / 100));
+            discountAmount = discount;
+            usedPromoCode = promo.code;
+            
+            await PromoCode.updateOne({ _id: promo._id }, { $inc: { usedCount: 1 } });
         }
     }
 
@@ -1320,7 +1322,7 @@ app.get("/api/admin/promocodes", requireStaff, async (req, res) => {
 app.post("/api/admin/promocodes", requireStaff, async (req, res) => {
   try {
     const { code, discountPercent, durationMinutes, usageLimit } = req.body;
-    
+     
     if (!code || !discountPercent || !durationMinutes) {
       return res.status(400).json({ error: "Brak wymaganych danych" });
     }
@@ -1356,12 +1358,12 @@ app.post("/api/admin/push", requireStaff, async (req, res) => {
   try {
     const title = String(req.body?.title || "").trim();
     const body = String(req.body?.body || "").trim();
-    
+     
     if (!title || !body) return res.status(400).json({ error: "Missing title or body" });
 
     // Pobierz wszystkie subskrypcje z bazy
     const subscriptions = await PushSubscription.find({});
-    
+     
     console.log(`[PUSH] Wysyłam do ${subscriptions.length} urządzeń...`);
 
     const notificationPayload = JSON.stringify({
