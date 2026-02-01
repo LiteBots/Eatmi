@@ -88,8 +88,14 @@
     .drawer-scroll { max-height: calc(100vh - 80px); overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: calc(20px + var(--safe-b)); }
 
     /* Flashing alert */
-    .flash-yellow { background: #FFC107; transition: background 0.2s ease-in-out; }
-    .flash-white { background: #ffffff; transition: background 0.2s ease-in-out; }
+    .flash-active {
+        animation: flashBg 0.6s infinite alternate;
+    }
+    @keyframes flashBg {
+        0% { background-color: #ffffff; }
+        100% { background-color: #FFC107; }
+    }
+
     .no-interact { pointer-events: none; user-select: none; filter: blur(2px); }
 
     /* iOS/Safari fixed centering helpers */
@@ -422,39 +428,36 @@
     const useBeep = () => {
       const audioRef = useRef(null);
 
-      // Inicjalizacja AudioContext
       useEffect(() => {
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        if (!Ctx) return;
-        
-        // Tworzymy kontekst
-        const ctx = new Ctx();
-        const master = ctx.createGain();
-        master.connect(ctx.destination);
-        
-        audioRef.current = { ctx, master, interval: null };
-
-        // Globalny unlocker - każde kliknięcie w stronę próbuje odblokować audio
+        // Global unlocker - każde kliknięcie w stronę próbuje odblokować audio
         const unlock = () => {
-            if (ctx.state === 'suspended') {
-              ctx.resume().then(() => console.log("Audio resumed by click"));
+            const ctx = audioRef.current?.ctx;
+            if (ctx && ctx.state === 'suspended') {
+              ctx.resume().catch(() => {});
             }
         };
         
         document.addEventListener('click', unlock);
         document.addEventListener('touchstart', unlock);
-
         return () => {
-          if (audioRef.current) {
-             clearInterval(audioRef.current.interval);
-             audioRef.current.ctx.close().catch(() => {});
-          }
           document.removeEventListener('click', unlock);
           document.removeEventListener('touchstart', unlock);
         };
       }, []);
 
+      const initAudio = () => {
+        if (!audioRef.current) {
+             const Ctx = window.AudioContext || window.webkitAudioContext;
+             if (!Ctx) return;
+             const ctx = new Ctx();
+             const master = ctx.createGain();
+             master.connect(ctx.destination);
+             audioRef.current = { ctx, master, interval: null };
+        }
+      };
+
       const start = useCallback(() => {
+        initAudio();
         const s = audioRef.current;
         if (!s) return;
         
@@ -463,13 +466,12 @@
 
         // AGRESYWNE WZNAWIANIE: Jeśli przeglądarka uśpiła audio, obudź je TERAZ
         if (s.ctx.state === 'suspended') {
-             s.ctx.resume().catch(e => console.error("Force resume failed", e));
+              s.ctx.resume().catch(e => console.error("Force resume failed", e));
         }
 
         const playTone = () => {
           try {
-            // Ponowna próba wznowienia tuż przed dźwiękiem
-            if (s.ctx.state === 'suspended') s.ctx.resume();
+            if (s.ctx.state === 'suspended') s.ctx.resume().catch(() => {});
 
             const osc = s.ctx.createOscillator();
             const g = s.ctx.createGain();
@@ -477,7 +479,7 @@
             // Fala piłokształtna (bardziej drażniąca = lepszy alarm)
             osc.type = "sawtooth"; 
             osc.frequency.setValueAtTime(880, s.ctx.currentTime); // A5
-            osc.frequency.exponentialRampToValueAtTime(440, s.ctx.currentTime + 0.5); // Opadający dźwięk (alarm)
+            osc.frequency.exponentialRampToValueAtTime(440, s.ctx.currentTime + 0.5);
             
             const now = s.ctx.currentTime;
             g.gain.setValueAtTime(0.5, now);
@@ -491,9 +493,8 @@
           } catch(e) { console.error("Tone error", e); }
         };
 
-        // Graj od razu, potem w pętli
         playTone();
-        s.interval = setInterval(playTone, 1500); // Co 1.5 sekundy (mniej irytujące, ale skuteczne)
+        s.interval = setInterval(playTone, 1500);
       }, []);
 
       const stop = useCallback(() => {
@@ -511,39 +512,28 @@
         New Order Overlay (FIXED)
        ========================================================= */
     const NewOrderOverlay = ({ open, orderPreview, onAcknowledge }) => {
-      const [flash, setFlash] = useState(false);
-      const flashRef = useRef(null);
       const { start, stop } = useBeep();
 
       useEffect(() => {
         if (!open) {
-          setFlash(false);
-          if (flashRef.current) clearInterval(flashRef.current);
-          flashRef.current = null;
           stop();
           document.title = "eatmi.pl — Panel Administratora";
           return;
         }
 
-        // 1. Start Visual Flash
-        setFlash(false);
-        if (flashRef.current) clearInterval(flashRef.current);
-        // Faster flash (300ms) for more urgency
-        flashRef.current = setInterval(() => {
-            setFlash(f => !f);
-            // Title Flash
-            document.title = document.title.includes("🔔") ? "NOWE ZAMÓWIENIE!" : "🔔 (1) NOWE ZAMÓWIENIE";
-        }, 300); 
-
-        // 2. Start Audio
+        // 1. Start Audio
         start();
 
+        // 2. Start Title Flash
+        const tInt = setInterval(() => {
+            document.title = document.title.includes("🔔") ? "NOWE ZAMÓWIENIE!" : "🔔 (1) NOWE ZAMÓWIENIE";
+        }, 500);
+
         // 3. Vibrate (Mobile)
-        if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+        if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 1000]);
 
         return () => {
-          if (flashRef.current) clearInterval(flashRef.current);
-          flashRef.current = null;
+          clearInterval(tInt);
           stop();
           document.title = "eatmi.pl — Panel Administratora";
         };
@@ -551,14 +541,14 @@
 
       if (!open) return null;
 
-      const bgClass = flash ? "flash-yellow" : "flash-white";
       const id = orderPreview?.extOrderId || "—";
       const name = orderPreview?.customer?.imieNazwisko || "—";
       const totalPLN = getOrderTotalPLN(orderPreview);
       const pay = resolvePayment(orderPreview);
 
+      // Używamy klasy flash-active na głównym kontenerze
       return (
-        <div className={`ios-fixed z-[9999] ${bgClass}`}>
+        <div className="ios-fixed z-[9999] flash-active">
           <div className="absolute inset-0"></div>
           <div className="relative h-full w-full flex items-center justify-center px-4 py-6">
             <div className="w-full max-w-2xl bg-white/95 border border-black/10 shadow-kiosk rounded-3xl p-6 md:p-8 backdrop-blur-xl animate-fadeIn">
@@ -981,19 +971,19 @@
 
            {/* GRAND TOTAL */}
            <div className="mt-10 bg-gray-900 rounded-3xl p-6 md:p-8 shadow-kiosk text-white flex flex-col md:flex-row items-center justify-between gap-6">
-                <div>
-                    <div className="text-sm font-bold uppercase tracking-[0.2em] text-gray-400 mb-2">Łączne saldo ze wszystkich metod</div>
-                    <div className="text-xs text-gray-500">Suma (PayU + Gotówka + Karta) z całej historii sprzedaży.</div>
-                </div>
-                <div className="text-4xl md:text-5xl font-black text-brand-yellow tracking-tight">
-                    {loading ? "..." : currency(stats.grandTotal)}
-                </div>
+               <div>
+                   <div className="text-sm font-bold uppercase tracking-[0.2em] text-gray-400 mb-2">Łączne saldo ze wszystkich metod</div>
+                   <div className="text-xs text-gray-500">Suma (PayU + Gotówka + Karta) z całej historii sprzedaży.</div>
+               </div>
+               <div className="text-4xl md:text-5xl font-black text-brand-yellow tracking-tight">
+                   {loading ? "..." : currency(stats.grandTotal)}
+               </div>
            </div>
 
            {/* LISTA TRANSAKCJI (opcjonalnie, zostawiam skróconą wersję poniżej, żeby nie było pusto na dole) */}
            <div className="mt-12 bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-100 font-extrabold text-sm uppercase tracking-wide text-gray-500">Ostatnie transakcje</div>
-              <div className="overflow-x-auto">
+             <div className="px-6 py-4 border-b border-gray-100 font-extrabold text-sm uppercase tracking-wide text-gray-500">Ostatnie transakcje</div>
+             <div className="overflow-x-auto">
                  <table className="w-full text-left border-collapse">
                     <thead className="bg-gray-50/80 border-b border-gray-200">
                        <tr>
@@ -1017,7 +1007,7 @@
                        }
                     </tbody>
                  </table>
-              </div>
+             </div>
            </div>
         </div>
       );
@@ -1100,37 +1090,12 @@
       const totalPLN = getOrderTotalPLN(order);
       const pay = resolvePayment(order);
 
-      // ✅ LOGIKA OBLICZANIA DATY DOSTAWY DLA ZAMÓWIEŃ "NA JUTRO"
+      // ✅ ZMIANA: Usunięto logikę nadpisywania daty (następny dzień roboczy).
+      // Teraz pokazujemy po prostu to, co klient wybrał (lub to co przyszło z backendu).
       const getDeliveryDate = () => {
-          if (!order.customer?.deliveryTime) return null;
-          
-          const created = new Date(pickCreatedAt(order)); // pobiera datę utworzenia
-          if (isNaN(created.getTime())) return null;
-
-          const hour = created.getHours();
-          const day = created.getDay(); // 0 Sun, 6 Sat
-          
-          let targetDate = new Date(created);
-          
-          // Logika analogiczna do frontendu
-          const isWeekend = day === 0 || day === 6;
-          const isAfter16 = hour >= 16;
-          
-          if (isWeekend || isAfter16) {
-              // Przesuwamy na następny dzień (uproszczone +1, w pełnej wersji biznesowej +dni robocze)
-              targetDate.setDate(targetDate.getDate() + 1);
-              
-              // Jeśli piątek po 16 -> Poniedziałek (+3 dni od utworzenia)
-              if (day === 5 && isAfter16) targetDate.setDate(created.getDate() + 3);
-              // Sobota -> Poniedziałek (+2)
-              else if (day === 6) targetDate.setDate(created.getDate() + 2);
-              // Niedziela -> Poniedziałek (+1)
-              else if (day === 0) targetDate.setDate(created.getDate() + 1);
-          }
-          // Jeśli lunch przed 12, data zostaje "dzisiaj"
-          
-          const dayStr = targetDate.toLocaleDateString("pl-PL", { weekday: 'long', day: 'numeric', month: 'long' });
-          return `${dayStr}, godz. ${order.customer.deliveryTime}`;
+          if (c.deliveryTime && c.deliveryDate) return `${c.deliveryDate}, godz. ${c.deliveryTime}`;
+          if (c.deliveryTime) return `Dostawa/Odbiór: ${c.deliveryTime}`;
+          return null;
       };
       
       const deliveryString = getDeliveryDate();
@@ -1169,13 +1134,13 @@
       return (
         <div className="space-y-5 pb-10">
             
-          {/* ✅ CZERWONY KOMUNIKAT O PLANOWANEJ DOSTAWIE */}
+          {/* ✅ CZERWONY KOMUNIKAT O PLANOWANEJ DOSTAWIE (BEZ NADPISYWANIA LOGIKĄ) */}
           {deliveryString && (
             <div className="bg-red-50 border-2 border-red-500 rounded-2xl p-4 mb-2 animate-pulse">
               <div className="flex items-center gap-3 justify-center text-red-600">
                  <Icon name="clock-3" className="w-6 h-6" />
                  <div className="text-center">
-                    <div className="text-xs font-black uppercase tracking-widest opacity-70">PLANOWANA DOSTAWA / ODBIÓR</div>
+                    <div className="text-xs font-black uppercase tracking-widest opacity-70">WYBRANA DATA / GODZINA</div>
                     <div className="text-xl font-black underline decoration-red-600 underline-offset-4 mt-1">
                        {deliveryString}
                     </div>
