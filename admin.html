@@ -1175,7 +1175,7 @@
               <div className="flex items-center gap-3 justify-center text-red-600">
                  <Icon name="clock-3" className="w-6 h-6" />
                  <div className="text-center">
-                    <div className="text-xs font-black uppercase tracking-widest opacity-70">PLANOWANA DOSTAWA</div>
+                    <div className="text-xs font-black uppercase tracking-widest opacity-70">PLANOWANA DOSTAWA / ODBIÓR</div>
                     <div className="text-xl font-black underline decoration-red-600 underline-offset-4 mt-1">
                        {deliveryString}
                     </div>
@@ -1226,6 +1226,7 @@
               <KV k="Imię i nazwisko" v={c.imieNazwisko || c.name} />
               <KV k="Telefon" v={c.telefon || c.phone} mono />
               <KV k="Email" v={c.email} />
+              <KV k="Typ" v={c.fulfillmentMethod === 'pickup' ? 'Odbiór osobisty' : 'Dostawa'} />
               <KV k="Adres" v={`${c.miasto || '-'}, ${c.ulica || '-'} ${c.nrBud || ''}${c.lokal ? '/'+c.lokal : ''}`} />
               <KV k="Kod pocztowy" v={c.kod} mono />
               <KV k="Uwagi" v={c.uwagi} />
@@ -1242,7 +1243,7 @@
                 const name = resolveProductName(it);
                 const unitPricePLN = getItemUnitPricePLN(it);
                 const linePLN = unitPricePLN * qty;
-                  
+                 
                 return (
                   <div key={i} className="border border-gray-200 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="min-w-0">
@@ -2065,16 +2066,16 @@
 
       // Manual Test Logic
       const triggerTestAlert = () => {
-         const miniOrder = { 
-             extOrderId: "TEST-" + Math.floor(Math.random()*1000), 
-             totalPLN: 99.00,
-             customer: { imieNazwisko: "TEST ALARMU" },
-             status: "Nowe",
-             paymentMethod: "payu",
-             createdAt: new Date().toISOString() 
-         };
-         setAlertOrder(miniOrder);
-         setAlertOpen(true);
+          const miniOrder = { 
+              extOrderId: "TEST-" + Math.floor(Math.random()*1000), 
+              totalPLN: 99.00,
+              customer: { imieNazwisko: "TEST ALARMU" },
+              status: "Nowe",
+              paymentMethod: "payu",
+              createdAt: new Date().toISOString() 
+          };
+          setAlertOrder(miniOrder);
+          setAlertOpen(true);
       };
 
       // SSE Live Updates & Notifications
@@ -2091,9 +2092,9 @@
         try {
           const url = `${API.events}?token=${token}`;
           es = new EventSource(url);
-           
+            
           es.onopen = () => console.log("SSE Connected");
-           
+            
           es.addEventListener("new_order", (e) => {
               try {
                   console.log("New Order Event Received:", e.data); // DEBUG
@@ -2139,7 +2140,7 @@
           es.addEventListener("order_update", (e) => {
               setRefreshSignal(Date.now());
           });
-           
+            
           es.onerror = () => { console.log("SSE Error - reconnecting..."); };
 
         } catch (err) {
