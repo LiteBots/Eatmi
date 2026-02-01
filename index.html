@@ -75,10 +75,10 @@
     .input-focus { outline: none; }
     .input-focus:focus { box-shadow: 0 0 0 3px rgba(255,193,7,.35); border-color: rgba(255,193,7,.75); }
 
-    /* Wymuszenie żółtego dla 2 CTA w HERO */
+    /* Wymuszenie żółtego dla CTA */
     .btn-yellow{
-      background:#FFC107 !important;
-      color:#111827 !important;
+      background: #FFC107 !important;
+      color: #111827 !important;
       border-color: rgba(0,0,0,.08) !important;
     }
     .btn-yellow:hover{
@@ -1224,7 +1224,7 @@
             <button
               type="button"
               onClick={() => onAdd(item)}
-              className="inline-flex items-center justify-center gap-2 bg-brand-yellow text-gray-900 font-extrabold px-4 py-3 rounded-2xl shadow-soft hover:scale-[1.03] active:scale-[0.98] transition hover:ring-2 hover:ring-brand-yellow/40 min-h-[44px]"
+              className="btn-yellow inline-flex items-center justify-center gap-2 font-extrabold px-4 py-3 rounded-2xl shadow-soft hover:scale-[1.03] active:scale-[0.98] transition hover:ring-2 hover:ring-brand-yellow/40 min-h-[44px]"
             >
               <i data-lucide="plus" className="w-4 h-4"></i> Dodaj
             </button>
@@ -1478,7 +1478,8 @@
           productId: item.id,
           name: item.name,
           price: item.price,
-          image: item.image
+          image: item.image,
+          category: categoryId // ✅ DODANO KATEGORIĘ, BY ŚLEDZIĆ LUNCH
         });
 
         // ✅ po dodaniu kawy/herbaty: pokaż okienko z dodatkami
@@ -1882,7 +1883,7 @@
       { id: 'slot-2', label: '10:00 – 11:00', cutoff: 10 * 60 },      // 10:00 (implies > 9:59)
       { id: 'slot-3', label: '11:30 – 12:30', cutoff: 11 * 60 + 30 },// 11:30 (implies > 11:29)
       { id: 'slot-4', label: '13:00 – 14:00', cutoff: 13 * 60 },      // 13:00 (implies > 12:59)
-      { id: 'slot-5', label: '15:00 – 16:00', cutoff: 15 * 60 }       // 15:00 - koniec dnia
+      { id: 'slot-5', label: '15:00 – 16:00', cutoff: 15 * 60 }        // 15:00 - koniec dnia
     ];
 
     const Zamowienie = () => {
@@ -1917,18 +1918,28 @@
       const [errors, setErrors] = useState({});
 
       // ✅ LOGIKA DATY I CZASU
+      // 1. Wykryj, czy w koszyku jest lunch
+      const hasLunch = useMemo(() => cart.some(i => i.category === 'lunche'), [cart]);
+
       const getAvailableSlots = (targetDateStr) => {
+          let slots = TIME_SLOTS_DEF;
           const targetDate = new Date(targetDateStr);
           const isToday = targetDate.toDateString() === now.toDateString();
 
-          if (!isToday) {
-             // Jeśli to przyszła data (np. jutro), wszystkie sloty są dostępne
-             return TIME_SLOTS_DEF;
+          // Jeśli dzisiaj: filtrujemy po godzinie (ukrywamy minione)
+          if (isToday) {
+             const currentMinutes = now.getHours() * 60 + now.getMinutes();
+             slots = slots.filter(slot => currentMinutes < slot.cutoff);
           }
 
-          // Jeśli dzisiaj: filtrujemy po godzinie
-          const currentMinutes = now.getHours() * 60 + now.getMinutes();
-          return TIME_SLOTS_DEF.filter(slot => currentMinutes < slot.cutoff);
+          // ✅ LUNCH CONSTRAINT: Jeśli w koszyku jest lunch, ukrywamy sloty 1 i 2 (przed 11:30)
+          if (hasLunch) {
+              // Slot 1 (08:30) i Slot 2 (10:00) są za wcześnie na lunch
+              const lunchBlockedIds = ['slot-1', 'slot-2'];
+              slots = slots.filter(s => !lunchBlockedIds.includes(s.id));
+          }
+
+          return slots;
       };
 
       const dateConfig = useMemo(() => {
@@ -1969,7 +1980,7 @@
               minStr: toYMD(startDate),
               maxStr: toYMD(maxDate)
           };
-      }, [now]);
+      }, [now, hasLunch]);
       
       const [dateParams, setDateParams] = useState({
          selectedDate: dateConfig.minStr, 
@@ -1999,7 +2010,7 @@
       }, [dateParams.selectedDate]);
 
       // ✅ Automatyczny wybór pierwszego dostępnego slotu po zmianie daty
-      const availableSlots = useMemo(() => getAvailableSlots(dateParams.selectedDate), [dateParams.selectedDate, now]);
+      const availableSlots = useMemo(() => getAvailableSlots(dateParams.selectedDate), [dateParams.selectedDate, now, hasLunch]);
 
       useEffect(() => {
           // Jeśli aktualnie wybrany slot nie jest dostępny w nowej liście, zresetuj lub wybierz pierwszy
@@ -2263,7 +2274,7 @@
                               maxDateStr={dateConfig.maxStr}
                               now={now} 
                           />
-                          
+                           
                           {/* ✅ NOWY KOMUNIKAT NA CZERWONO Z DYNAMICZNYM TEKSTEM */}
                           {!isToday && (
                             <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-start gap-3">
@@ -3243,7 +3254,7 @@
                       MARCIN CHOJNACKI MILKSHAKE BAR
                     </li>
                   </ul>
-        
+       
                   <div className="mt-4">
                     <div className="font-semibold text-gray-700">
                       Adres prowadzenia działalności:
@@ -3253,11 +3264,11 @@
                       woj. POMORSKIE, Polska
                     </div>
                   </div>
-            
+           
                   <div className="mt-6 font-semibold text-gray-700">
                     © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
                   </div>
-            
+           
                   <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-sm">
                     <a
                       href="/rule.html"
