@@ -149,6 +149,29 @@
     .header-pwa-fix {
        padding-top: calc(env(safe-area-inset-top) + 12px);
     }
+
+    /* Custom scrollbar hide for calendar grid */
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #ddd; 
+        border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #ccc; 
+    }
   </style>
 
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
@@ -163,7 +186,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useMemo, createContext, useContext } = React;
+    const { useState, useEffect, useMemo, createContext, useContext, useRef } = React;
 
     /* =======================
        PWA HELPER: VAPID CONVERSION
@@ -504,7 +527,7 @@
         const now = Date.now();
         setActiveOrder({
           ...orderData,
-          status: 'PENDING', // Startowy status
+          status: orderData.status || 'PENDING', // Startowy status
           statusTimestamp: now,
           timestamp: now
         });
@@ -762,21 +785,21 @@
       // Przeliczanie rabatu jeśli zmienia się wartość koszyka (uproszczone)
       useEffect(() => {
           if (promoCode && discount > 0 && cartValue > 0) {
-             // W prawdziwej appce tutaj ponawialibyśmy verify, ale dla uproszczenia
-             // zakładamy, że % się nie zmienił, a discount trzeba przeskalować
-             // ODKRYJEMY % ZNIŻKI WSTECZNIE:
-             // discount = cartValue * percent
-             // percent = discount / oldCartValue
-             // NewDiscount = currentCartValue * percent
-             // To jest trochę ryzykowne, lepiej zresetować kod przy zmianie koszyka lub trzymać % w stanie
-             // ZRESETUJMY DLA BEZPIECZEŃSTWA (lub zostawmy jak jest, user wpisze jeszcze raz)
-             // setPromoCode(null); setDiscount(0);
+              // W prawdziwej appce tutaj ponawialibyśmy verify, ale dla uproszczenia
+              // zakładamy, że % się nie zmienił, a discount trzeba przeskalować
+              // ODKRYJEMY % ZNIŻKI WSTECZNIE:
+              // discount = cartValue * percent
+              // percent = discount / oldCartValue
+              // NewDiscount = currentCartValue * percent
+              // To jest trochę ryzykowne, lepiej zresetować kod przy zmianie koszyka lub trzymać % w stanie
+              // ZRESETUJMY DLA BEZPIECZEŃSTWA (lub zostawmy jak jest, user wpisze jeszcze raz)
+              // setPromoCode(null); setDiscount(0);
           }
       }, [cartValue]);
 
       // ✅ Wartość po rabacie
       const valueAfterDiscount = Math.max(0, cartValue - discount);
-       
+        
       const deliveryCost = useMemo(() => {
         if (valueAfterDiscount === 0 && cart.length === 0) return 0;
         if (valueAfterDiscount < 50) return 10;
@@ -800,7 +823,7 @@
     };
 
     /* =======================
-       ORDER TRACKER WIDGET
+       ORDER TRACKER WIDGET (ZMODYFIKOWANY)
        ======================= */
     const OrderTrackerWidget = () => {
       const { activeOrder } = useActiveOrder();
@@ -808,42 +831,38 @@
 
       if (!activeOrder) return null;
 
-      // Status styling
+      // Status styling - Dodano "Oczekuje na przyjęcie"
       const getStatusStyles = (s) => {
         switch(s) {
           case 'Zrealizowane': return 'bg-green-100 text-green-700 border-green-200';
           case 'Anulowane': return 'bg-red-100 text-red-700 border-red-200';
           case 'W drodze': return 'bg-brand-yellow/20 text-yellow-800 border-brand-yellow/40';
           case 'Opóźniony': return 'bg-orange-100 text-orange-700 border-orange-200';
-          default: return 'bg-blue-50 text-blue-700 border-blue-200'; // W przygotowaniu
+          case 'Oczekuje na przyjęcie': return 'bg-blue-100 text-blue-700 border-blue-200'; // NOWY STYL
+          default: return 'bg-gray-100 text-gray-700 border-gray-200';
         }
       };
 
-      // Time calculation: 60 - 80 mins from timestamp or Scheduled Time
+      // Formatowanie czasu (data i godzina)
       const formatTimeDisplay = () => {
-         // ✅ JEŚLI JEST USTALONA GODZINA PRZYJAZDU
-         if (activeOrder.customer && activeOrder.customer.deliveryTime) {
-             // Sprawdzamy czy "NextDay" (można by to zapisać w zamówieniu, ale tutaj uproszczamy)
-             // Jeżeli timestamp zamówienia jest > 16:00 poprzedniego dnia lub to pre-order,
-             // wyświetlamy po prostu godzinę.
-             return (
-               <>
-                 <span className="text-xs uppercase font-bold tracking-widest block opacity-70 mb-0.5">Dostawa:</span>
-                 {activeOrder.customer.deliveryTime}
-               </>
-             );
-         }
-
-         // Standardowe 60-80 min
-         const ts = activeOrder.timestamp;
-         if (!ts) return "";
-         const date = new Date(ts);
-         const start = new Date(date.getTime() + 60 * 60000); // +60m
-         const end = new Date(date.getTime() + 80 * 60000);   // +80m
-        
-         const f = (d) => d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-         return `${f(start)} – ${f(end)}`;
+          if (activeOrder.customer && activeOrder.customer.deliveryTime) {
+              return (
+                <>
+                  <span className="text-xs uppercase font-bold tracking-widest block opacity-70 mb-0.5">
+                    {activeOrder.customer.fulfillmentMethod === 'pickup' ? 'Czas odbioru:' : 'Czas dostawy:'}
+                  </span>
+                  {activeOrder.customer.deliveryTime}
+                </>
+              );
+          }
+          // Fallback
+          const ts = activeOrder.timestamp;
+          if (!ts) return "";
+          const date = new Date(ts);
+          return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
       };
+
+      const isPickup = activeOrder.customer?.fulfillmentMethod === 'pickup';
 
       return (
         <div className="fixed inset-x-0 bottom-[calc(var(--tabbar-h)+var(--safe-b)+10px)] z-[60] px-3 md:px-0 md:bottom-10 md:right-10 md:left-auto md:w-96 tracker-enter">
@@ -860,7 +879,7 @@
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-lg font-extrabold leading-none text-brand-yellow">
+                <div className="text-sm md:text-base font-extrabold leading-tight text-brand-yellow">
                   {formatTimeDisplay()}
                 </div>
               </div>
@@ -870,10 +889,20 @@
             <div className="p-4 bg-white">
               <div className="flex items-start justify-between gap-3 text-sm">
                   <div>
-                    <div className="font-semibold text-gray-900">Adres dostawy:</div>
+                    <div className="font-semibold text-gray-900">
+                        {isPickup ? 'Odbiór:' : 'Adres dostawy:'}
+                    </div>
                     <div className="text-gray-600 text-xs mt-0.5">
-                      {activeOrder.customer.ulica} {activeOrder.customer.nrBud}
-                      {activeOrder.customer.lokal ? '/' + activeOrder.customer.lokal : ''}, {activeOrder.customer.miasto}
+                      {isPickup ? (
+                          <span className="text-brand-yellow font-bold bg-gray-900 px-1.5 py-0.5 rounded">
+                              Odbiór osobisty w lokalu
+                          </span>
+                      ) : (
+                          <>
+                            {activeOrder.customer.ulica} {activeOrder.customer.nrBud}
+                            {activeOrder.customer.lokal ? '/' + activeOrder.customer.lokal : ''}, {activeOrder.customer.miasto}
+                          </>
+                      )}
                     </div>
                   </div>
                   <div className="text-right">
@@ -895,7 +924,7 @@
                 {expanded && (
                   <div className="mt-2 space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
                     {activeOrder.items.map((item, idx) => (
-                        <div key={idx} className="flex justify-between text-xs text-gray-700">
+                        <div key={idx} className="flex justify-between text-xs text-gray-700 border-b border-gray-50 last:border-0 py-1">
                           <span>{item.qty}x {item.name}</span>
                           <span>{currency(item.price)}</span>
                         </div>
@@ -1412,7 +1441,7 @@
     const CategoryPage = ({ categoryId }) => {
       const { add } = useCart();
       const productsMap = useMenu(); // ✅ Use dynamic menu context
-      
+       
       const category = PRODUCT_CATEGORIES.find(c => c.id === categoryId);
       const items = productsMap[categoryId] || [];
 
@@ -1420,7 +1449,7 @@
       const [addonsOpen, setAddonsOpen] = useState(false);
       const [addonsCartItemId, setAddonsCartItemId] = useState("");
       const [addonsTitle, setAddonsTitle] = useState("");
-        
+       
       // ✅ stan do powiększania zdjęć
       const [zoomedImage, setZoomedImage] = useState(null);
 
@@ -1505,7 +1534,7 @@
             cartItemId={addonsCartItemId}
             title={addonsTitle}
           />
-            
+           
           <ImageModal 
             src={zoomedImage}
             onClose={() => setZoomedImage(null)}
@@ -1714,59 +1743,279 @@
     };
 
     /* =======================
-       ZAMOWIENIE (3 metody płatności) + ACTIVE ORDER TRACKING
+       CALENDAR WIDGET (POLISH GRID)
        ======================= */
+    const CalendarWidget = ({ onDateSelect, selectedDateStr, maxDateStr, now }) => {
+        // State for current view month
+        const [viewDate, setViewDate] = useState(now);
+
+        // ✅ FIXED DATE HELPER: Constructs YYYY-MM-DD manually to avoid UTC shifts
+        const toYMD = (date) => {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        };
+
+        // Polish Month Names
+        const PL_MONTHS = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
+
+        // Navigation
+        const nextMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
+        const prevMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
+
+        // Logic check
+        const isDateDisabled = (d) => {
+            const ymd = toYMD(d);
+            const todayYMD = toYMD(now);
+            const maxYMD = maxDateStr;
+
+            // 1. Past dates (before today)
+            // Compare YMD strings to be timezone safe
+            if (ymd < todayYMD) return true;
+
+            // 2. Logic: If today is Friday > 16:00, today is disabled
+            // (We handle this by passing `now` which might be logically shifted, 
+            // but here we just check if it's strictly before `now` passed as prop)
+            
+            // 3. Weekend check
+            const day = d.getDay();
+            if (day === 0 || day === 6) return true; // 0=Sun, 6=Sat
+
+            // 4. Max date check
+            if (ymd > maxYMD) return true;
+
+            return false;
+        };
+
+        const renderCalendarGrid = () => {
+            const year = viewDate.getFullYear();
+            const month = viewDate.getMonth();
+            
+            // First day of month
+            const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0=Sun, 1=Mon...
+            // Polish grid starts on Monday (1). 
+            // If 1 (Mon) -> offset 0. If 0 (Sun) -> offset 6.
+            const startOffset = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
+
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const days = [];
+
+            // Empty slots for start offset
+            for (let i = 0; i < startOffset; i++) {
+                days.push(<div key={`empty-${i}`} className="h-10"></div>);
+            }
+
+            // Days
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateObj = new Date(year, month, d);
+                const ymd = toYMD(dateObj);
+                const disabled = isDateDisabled(dateObj);
+                const isSelected = selectedDateStr === ymd;
+                
+                // ✅ ZMIANA: Usunąłem isToday i powiązany styl.
+                // Teraz tylko isSelected dostaje styl.
+
+                days.push(
+                    <button
+                        key={ymd}
+                        type="button"
+                        onClick={() => !disabled && onDateSelect(ymd)}
+                        disabled={disabled}
+                        className={`h-10 w-full rounded-lg text-sm font-bold flex items-center justify-center transition relative
+                            ${isSelected 
+                                ? 'bg-brand-yellow text-gray-900 ring-2 ring-brand-yellow/50 z-10' 
+                                : ''
+                            }
+                            ${disabled 
+                                ? 'text-gray-300 bg-gray-50 cursor-not-allowed'
+                                : !isSelected ? 'text-gray-700 hover:bg-gray-100 hover:text-gray-900' : ''
+                            }
+                        `}
+                    >
+                        {d}
+                    </button>
+                );
+            }
+            return days;
+        };
+
+        return (
+            <div className="bg-white border border-gray-200 rounded-xl p-4 select-none">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-4">
+                    <button type="button" onClick={prevMonth} className="p-1 hover:bg-gray-100 rounded-lg text-gray-500">
+                        <i data-lucide="chevron-left" className="w-5 h-5"></i>
+                    </button>
+                    <div className="font-bold text-gray-900 capitalize">
+                        {PL_MONTHS[viewDate.getMonth()]} {viewDate.getFullYear()}
+                    </div>
+                    <button type="button" onClick={nextMonth} className="p-1 hover:bg-gray-100 rounded-lg text-gray-500">
+                        <i data-lucide="chevron-right" className="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                {/* Days Header (Pn Wt...) */}
+                <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                    {['Pn','Wt','Śr','Cz','Pt','So','Nd'].map(d => (
+                        <div key={d} className="text-xs font-bold text-gray-400 uppercase">{d}</div>
+                    ))}
+                </div>
+
+                {/* Grid */}
+                <div className="grid grid-cols-7 gap-1">
+                    {renderCalendarGrid()}
+                </div>
+            </div>
+        );
+    };
+
+    /* =======================
+       ZAMOWIENIE (3 metody płatności + 2 metody realizacji + DATA/CZAS)
+       ======================= */
+    
+    // ✅ DEFINICJA SLOTÓW CZASOWYCH I ICH PROGÓW ODCIĘCIA (dla DZISIAJ)
+    // cutoff: minuty od początku dnia (np. 8:00 = 8*60 = 480)
+    // Jeśli aktualny czas w minutach > cutoff, slot jest niedostępny dzisiaj.
+    const TIME_SLOTS_DEF = [
+      { id: 'slot-1', label: '08:30 – 09:30', cutoff: 8 * 60 },      // 8:00
+      { id: 'slot-2', label: '10:00 – 11:00', cutoff: 10 * 60 },      // 10:00 (implies > 9:59)
+      { id: 'slot-3', label: '11:30 – 12:30', cutoff: 11 * 60 + 30 },// 11:30 (implies > 11:29)
+      { id: 'slot-4', label: '13:00 – 14:00', cutoff: 13 * 60 },      // 13:00 (implies > 12:59)
+      { id: 'slot-5', label: '15:00 – 16:00', cutoff: 15 * 60 }       // 15:00 - koniec dnia
+    ];
 
     const Zamowienie = () => {
-      const { cart, total, cartValue, deliveryCost, lineTotal, clear, addonsTotalPerUnit, promoCode } = useCart(); // ✅ Pobieramy kod
+      const { cart, total, cartValue, deliveryCost, lineTotal, clear, addonsTotalPerUnit, promoCode } = useCart();
       const { user } = useAuth();
       const { saveOrder } = useActiveOrder();
       const toast = useToast();
       const showToast = toast?.show;
 
-      // ✅ DEFINICJA OBSŁUGIWANYCH KODÓW POCZTOWYCH
-      const ALLOWED_ZIPS = [
-        '76-200', 
-        '76-217', 
-        '76-245', 
-        '76-251'
-      ];
-
-      // ✅ WALIDACJA CZASU NA UI
       const [now, setNow] = useState(new Date());
-        
       useEffect(() => {
-        const interval = setInterval(() => setNow(new Date()), 1000 * 60); // co minutę
+        const interval = setInterval(() => setNow(new Date()), 1000 * 60);
         return () => clearInterval(interval);
       }, []);
 
-      const plString = now.toLocaleString("en-US", {timeZone: "Europe/Warsaw"});
-      const dateObj = new Date(plString);
-      const plHour = dateObj.getHours();
-      const plDay = dateObj.getDay(); // 0 = Niedziela, 6 = Sobota
+      // ✅ REFS FOR SCROLLING
+      const timeSlotRef = useRef(null);
+      const fulfillmentRef = useRef(null);
+      const detailsRef = useRef(null);
 
-      // --- LOGIKA GODZIN OTWARCIA i DOSTAW ---
-      const isWeekend = plDay === 0 || plDay === 6;
-      const isAfter16 = plHour >= 16;
+      // ✅ Lista obsługiwanych miast
+      const ALLOWED_CITIES = [
+          'Słupsk', 'Redzikowo', 'Bierkowo', 'Łosiono', 'Krępa Słupska', 'Głobino', 'Włynkówko', 'Siemianice', 'Kobylnica'
+      ];
+
+      // ✅ Metody realizacji i płatności
+      const [fulfillmentMethod, setFulfillmentMethod] = useState('delivery'); // 'delivery' | 'pickup'
+      const [paymentMethod, setPaymentMethod] = useState("payu"); // 'payu' | 'card' | 'cash'
+      const [busyPay, setBusyPay] = useState(false);
       
-      // Sprawdzamy czy w koszyku są lunche
-      const isLunchItem = (id) => id.startsWith('lunch'); 
-      const hasLunch = cart.some(item => isLunchItem(item.productId));
-      const isBefore12 = plHour < 12;
+      // ✅ Stan błędów walidacji
+      const [errors, setErrors] = useState({});
 
-      // WARUNKI WYŚWIETLANIA PÓL CZASU i INFORMACJI
-      // 1. Zamawiamy po 16:00 lub w weekend -> Dostawa w następny dzień roboczy
-      const isNextDayOrder = isWeekend || isAfter16;
+      // ✅ LOGIKA DATY I CZASU
+      const getAvailableSlots = (targetDateStr) => {
+          const targetDate = new Date(targetDateStr);
+          const isToday = targetDate.toDateString() === now.toDateString();
 
-      // 2. Zamawiamy Lunch przed 12:00 (i nie jest to weekend/po 16) -> Pre-order na dziś od 12:00
-      const isLunchPreorderToday = !isNextDayOrder && isBefore12 && hasLunch;
+          if (!isToday) {
+             // Jeśli to przyszła data (np. jutro), wszystkie sloty są dostępne
+             return TIME_SLOTS_DEF;
+          }
 
-      // Czy pokazać pole wyboru godziny? Tak, jeśli to next day order LUB lunch preorder
-      const showTimePicker = isNextDayOrder || isLunchPreorderToday;
+          // Jeśli dzisiaj: filtrujemy po godzinie
+          const currentMinutes = now.getHours() * 60 + now.getMinutes();
+          return TIME_SLOTS_DEF.filter(slot => currentMinutes < slot.cutoff);
+      };
 
+      const dateConfig = useMemo(() => {
+          // Ustalamy datę minimalną. 
+          // Jeśli jest po 16:00 (lub brak slotów na dziś), min data to jutro (jeśli roboczy)
+          // Ale CalendarWidget i tak filtruje sloty.
+          
+          let startDate = new Date(now);
+          
+          // ✅ FIX: Manual helper to ensure consistent YMD format for comparisons
+          const toYMD = (d) => {
+             const y = d.getFullYear();
+             const m = String(d.getMonth()+1).padStart(2,'0');
+             const day = String(d.getDate()).padStart(2,'0');
+             return `${y}-${m}-${day}`;
+          };
+
+          // Jeśli dzisiaj brak slotów, przeskocz na jutro logicznie jako start
+          const slotsToday = getAvailableSlots(toYMD(startDate));
+          if (slotsToday.length === 0) {
+              startDate.setDate(startDate.getDate() + 1);
+          }
+          
+          // Max date calculation (Current + 7 WORKING days strictly)
+          let maxDate = new Date(startDate);
+          let workingDaysAdded = 0;
+          let safetyCounter = 0;
+          while (workingDaysAdded < 7 && safetyCounter < 20) {
+              maxDate.setDate(maxDate.getDate() + 1);
+              const d = maxDate.getDay();
+              if (d !== 0 && d !== 6) { // Not Sun (0) or Sat (6)
+                  workingDaysAdded++;
+              }
+              safetyCounter++;
+          }
+
+          return {
+              minStr: toYMD(startDate),
+              maxStr: toYMD(maxDate)
+          };
+      }, [now]);
+      
+      const [dateParams, setDateParams] = useState({
+         selectedDate: dateConfig.minStr, 
+         selectedTimeSlot: null // Przechowujemy cały obiekt slotu lub ID
+      });
+
+      // Jeśli selectedDate jest niepoprawna (np. sobota), przesuń na poniedziałek
+      useEffect(() => {
+          const d = new Date(dateParams.selectedDate);
+          const day = d.getDay();
+          
+          // Helper to format
+          const toYMD = (dt) => {
+             const y = dt.getFullYear();
+             const m = String(dt.getMonth()+1).padStart(2,'0');
+             const dy = String(dt.getDate()).padStart(2,'0');
+             return `${y}-${m}-${dy}`;
+          };
+
+          if (day === 0 || day === 6) {
+              let nextValid = new Date(d);
+              while (nextValid.getDay() === 0 || nextValid.getDay() === 6) {
+                  nextValid.setDate(nextValid.getDate() + 1);
+              }
+              setDateParams(p => ({...p, selectedDate: toYMD(nextValid)}));
+          }
+      }, [dateParams.selectedDate]);
+
+      // ✅ Automatyczny wybór pierwszego dostępnego slotu po zmianie daty
+      const availableSlots = useMemo(() => getAvailableSlots(dateParams.selectedDate), [dateParams.selectedDate, now]);
+
+      useEffect(() => {
+          // Jeśli aktualnie wybrany slot nie jest dostępny w nowej liście, zresetuj lub wybierz pierwszy
+          const isValid = dateParams.selectedTimeSlot && availableSlots.find(s => s.id === dateParams.selectedTimeSlot.id);
+          
+          if (!isValid && availableSlots.length > 0) {
+              setDateParams(p => ({ ...p, selectedTimeSlot: availableSlots[0] }));
+          } else if (availableSlots.length === 0) {
+              setDateParams(p => ({ ...p, selectedTimeSlot: null }));
+          }
+      }, [availableSlots]);
+
+
+      // Formularz
       const emptyForm = {
-        imieNazwisko:'', telefon:'', email:'', miasto:'', kod:'', ulica:'', nrBud:'', pietro:'', lokal:'', uwagi:'', faktura:false, nip:'', firma:'', 
-        deliveryTime: '' // ✅ Nowe pole
+        imieNazwisko:'', telefon:'', email:'', miasto:'', kod:'', ulica:'', nrBud:'', pietro:'', lokal:'', uwagi:'', faktura:false, nip:'', firma:''
       };
 
       const [form, setForm] = useState(() => {
@@ -1779,10 +2028,15 @@
         }
         if (user?.email) base.email = base.email || user.email;
         if (user?.fullName) base.imieNazwisko = base.imieNazwisko || user.fullName;
-        // Resetujemy deliveryTime przy załadowaniu, bo to zależy od bieżącej chwili
-        base.deliveryTime = ''; 
         return base;
       });
+
+      // Nasłuch na miasto (ukrywanie żółtego boxa)
+      const isCityValid = useMemo(() => {
+          if (!form.miasto) return false;
+          const normalizedInput = form.miasto.toLowerCase().trim();
+          return ALLOWED_CITIES.some(c => c.toLowerCase() === normalizedInput);
+      }, [form.miasto]);
 
       useEffect(() => {
         setForm((prev) => {
@@ -1793,16 +2047,18 @@
         });
       }, [user]);
 
-      useEffect(() => { window.lucide?.createIcons?.(); }, [isNextDayOrder, isLunchPreorderToday]); 
+      useEffect(() => { window.lucide?.createIcons?.(); }, [fulfillmentMethod, dateParams, errors]); 
 
       const [remember, setRemember] = useState(true);
       const [hadSaved, setHadSaved] = useState(() => !!loadSavedCustomer());
 
-      // payu | card | cash
-      const [paymentMethod, setPaymentMethod] = useState("payu");
-      const [busyPay, setBusyPay] = useState(false);
-
-      const handle = (k,v)=> setForm(s=> ({...s,[k]:v}));
+      // ✅ Zmodyfikowany handle - czyści błąd podczas pisania
+      const handle = (k,v)=> {
+          setForm(s=> ({...s,[k]:v}));
+          if (errors[k]) {
+              setErrors(prev => ({...prev, [k]: false}));
+          }
+      };
 
       useEffect(() => {
         if (!remember) return;
@@ -1817,62 +2073,52 @@
         clearSavedCustomer();
         setHadSaved(false);
         setForm({ ...emptyForm });
-        setHadSaved(false);
       };
 
-      // ✅ Helper do sprawdzania kodu pocztowego
-      const isZipError = form.kod && form.kod.length >= 6 && !ALLOWED_ZIPS.includes(form.kod);
+      // ✅ Pomocnik do stylów inputów (czerwona ramka przy błędzie)
+      const getInputClass = (field) => {
+          const base = "input-focus w-full border rounded-xl px-4 py-3 min-h-[44px] ";
+          if (errors[field]) {
+              return base + "border-red-500 bg-red-50 text-red-900 placeholder-red-300 ring-1 ring-red-500";
+          }
+          return base + "border-gray-200 bg-white";
+      };
 
+      // ✅ Zmodyfikowana walidacja
       const validateBeforeOrder = () => {
-        if(!form.imieNazwisko || !form.telefon || !form.miasto || !form.ulica) {
-          showToast('Uzupełnij wymagane pola ✍️');
-          return false;
-        }
-        
-        // ✅ WALIDACJA KODU
-        if (!ALLOWED_ZIPS.includes(form.kod)) {
-           showToast(`Dostawa tylko do kodów: ${ALLOWED_ZIPS.join(', ')} 📪`);
-           return false;
+        const newErrors = {};
+        let isValid = true;
+
+        if (!form.imieNazwisko) { newErrors.imieNazwisko = true; isValid = false; }
+        if (!form.telefon) { newErrors.telefon = true; isValid = false; }
+
+        if (fulfillmentMethod === 'delivery') {
+            if (!form.miasto) { newErrors.miasto = true; isValid = false; }
+            if (!form.ulica) { newErrors.ulica = true; isValid = false; }
+            if (!form.nrBud) { newErrors.nrBud = true; isValid = false; }
         }
 
-        // ✅ NOWA WALIDACJA GODZINY (twarda logika + showToast)
-        if (showTimePicker && !form.deliveryTime) {
-            showToast('Wybierz godzinę dostawy 🕒');
+        if (!isValid) {
+            setErrors(newErrors);
+            showToast('Uzupełnij wymagane pola zaznaczone na czerwono 🔴');
+            // Wibracja przy błędzie
+            try { if (navigator.vibrate) navigator.vibrate(200); } catch {}
             return false;
         }
 
-        if (form.deliveryTime) {
-            const timeParts = form.deliveryTime.split(':');
-            const hour = parseInt(timeParts[0]);
-            
-            // Jeśli jest LUNCH w koszyku, godzina MUSI być między 12 a 16 (niezależnie czy dziś czy jutro)
-            if (hasLunch) {
-                if (hour < 12 || hour >= 16) {
-                    showToast('Lunche dowozimy między 12:00 a 16:00 ☀️');
-                    return false;
-                }
-            } else {
-                // Jeśli NIE MA lunchu (tylko śniadania, kawy itp.), godzina 08:00 - 16:00
-                if (hour < 8 || hour >= 16) {
-                    showToast('Dostawy realizujemy między 08:00 a 16:00 🚚');
-                    return false;
-                }
-            }
+        if (!dateParams.selectedTimeSlot) {
+            showToast('Wybierz godzinę realizacji ⏰');
+            return false;
         }
 
         if (!cart.length) {
           showToast('Twój koszyk jest pusty 🛒');
           return false;
         }
-        const missing = cart.find(i => !i.productId);
-        if (missing) {
-          showToast('Błąd koszyka (brak ID). Odśwież stronę.');
-          return false;
-        }
         return true;
       };
 
-       const placeOrder = async (method) => {
+       const placeOrder = async () => {
          if (!validateBeforeOrder()) return;
 
          if (remember) {
@@ -1882,9 +2128,20 @@
 
          setBusyPay(true);
 
+         // Budujemy opis czasu dostawy
+         const selDate = new Date(dateParams.selectedDate);
+         const isToday = selDate.toDateString() === now.toDateString();
+         const dayName = isToday ? "Dzisiaj" : selDate.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' });
+         
+         const deliveryTimeInfo = `${dayName}, ${dateParams.selectedTimeSlot.label}`;
+
          try {
            const payload = {
-             customer: form,
+             customer: {
+                 ...form,
+                 deliveryTime: deliveryTimeInfo, // Wysyłamy sformatowany czas
+                 fulfillmentMethod: fulfillmentMethod // 'delivery' lub 'pickup'
+             },
              cart: cart.map(i => ({
                productId: i.productId,
                name: i.name,
@@ -1893,11 +2150,11 @@
                addons: Array.isArray(i.addons) ? i.addons.map(a => ({ id: a.id, label: a.label, price: a.price })) : []
              })),
              total: total,
-             promoCode: promoCode // ✅ WYSYŁAMY KOD DO BACKENDU
+             promoCode: promoCode
            };
 
            // --- PŁATNOŚĆ ONLINE (PAYU) ---
-           if (method === "payu") {
+           if (paymentMethod === "payu") {
              const r = await fetch("/api/payu/order", {
                method: "POST",
                headers: { "Content-Type": "application/json" },
@@ -1911,20 +2168,16 @@
              }
                
              if (data.redirectUri) {
-                // 🔴 FIX: Zapisujemy stan ZANIM przekierujemy
                 saveOrder({
-                    extOrderId: data.extOrderId, // Musi przyjść z backendu w odpowiedzi PayU!
-                    customer: form,
-                    items: cart,
-                    total: total,
-                    paymentMethod: method,
-                    status: 'OCZEKIWANIE NA PŁATNOŚĆ'
+                   extOrderId: data.extOrderId,
+                   customer: payload.customer,
+                   items: cart,
+                   total: total,
+                   paymentMethod: paymentMethod,
+                   status: 'OCZEKIWANIE NA PŁATNOŚĆ'
                 });
                 
-                // Czyścimy koszyk lokalnie, bo "poszło"
                 clear();
-
-                // Przekierowanie
                 window.location.href = data.redirectUri;
              } else {
                 alert("Błąd: Brak linku do płatności");
@@ -1932,8 +2185,8 @@
              return;
            }
 
-           // --- PŁATNOŚĆ OFFLINE (PRZY ODBIORZE) ---
-           const offlinePayload = { ...payload, paymentMethod: method };
+           // --- PŁATNOŚĆ OFFLINE (KARTA / GOTÓWKA) ---
+           const offlinePayload = { ...payload, paymentMethod: paymentMethod };
 
            const r2 = await fetch("/api/order/offline", {
              method: "POST",
@@ -1947,13 +2200,15 @@
                throw new Error(data2.error || "Błąd zamówienia");
            }
 
-           // ✅ KLUCZOWA ZMIANA: Używamy extOrderId zwróconego przez serwer
+           // ✅ TUTAJ ZMIANA: Ustawiamy status na "Oczekuje na przyjęcie"
            saveOrder({
-               extOrderId: data2.extOrderId, // <--- TO JEST KLUCZ DO ŚLEDZENIA
-               customer: form,
+               extOrderId: data2.extOrderId,
+               customer: payload.customer,
                items: cart,
                total: total,
-               paymentMethod: method
+               paymentMethod: paymentMethod,
+               status: 'Oczekuje na przyjęcie', // <--- ZMIENIONO Z DOMYŚLNEGO
+               timestamp: Date.now()
            });
 
            showToast?.("Twoje zamówienie zostało przyjęte! 👨‍🍳");
@@ -1969,8 +2224,14 @@
 
       const paymentLabel =
         paymentMethod === "payu" ? "Płatność online (PayU)" :
-        paymentMethod === "card" ? "Złóż zamówienie (karta przy odbiorze)" :
-        "Złóż zamówienie (gotówka przy odbiorze)";
+        paymentMethod === "card" ? "Karta przy odbiorze" :
+        "Gotówka przy odbiorze";
+      
+      const submitLabel = fulfillmentMethod === 'pickup' ? "Zamawiam z odbiorem" : "Zamawiam z dostawą";
+
+      // ✅ LOGIKA OBLICZANIA CZY TO DZISIAJ
+      const selD = new Date(dateParams.selectedDate);
+      const isToday = selD.toDateString() === now.toDateString();
 
       return (
         <section className="py-8 md:py-10">
@@ -1978,297 +2239,356 @@
             <a href="#/koszyk" className="inline-flex items-center gap-2 text-sm text-gray-600">
               <i data-lucide="arrow-left" className="w-4 h-4"></i> Wróć do koszyka
             </a>
-            <h2 className="text-2xl font-extrabold mt-3">Zamówienie</h2>
-
-            {/* ✅ NOWY KOMUNIKAT O ZASIĘGU DOSTAWY */}
-            <div className="mt-4 p-4 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm flex items-start gap-3 shadow-sm">
-              <i data-lucide="info" className="w-5 h-5 shrink-0 mt-0.5"></i>
-              <div>
-                <div className="font-bold">Zasięg dostawy</div>
-                <p className="mt-1">
-                  Zamówienia obsługujemy w: <strong>Słupsk, Redzikowo, Bierkowo, Łosiono, Krępa Słupska, Głobino, Włynkówko, Siemianice, Kobylnica</strong>.
-                  <br/>
-                  <br/>
-                  W razie chęci zamówienia poza ten obszar prosimy o kontakt:{" "}
-                  <a href="tel:+48780065750" className="font-bold underline text-yellow-900 hover:text-black">
-                    +48 780 065 750
-                  </a>.
-                </p>
-              </div>
-            </div>
-
-            {/* ✅ PRZENIESIONY WYBÓR GODZINY (NA GÓRĘ) */}
-            {showTimePicker && (
-               <div className="mt-4 bg-blue-50 border border-blue-200 p-4 rounded-xl shadow-soft">
-                  <div className="text-blue-800 font-bold mb-2 flex items-center gap-2">
-                      <i data-lucide="clock" className="w-4 h-4"></i>
-                      {isNextDayOrder ? "Chcesz zamówić na jutro?" : "Preferowana godzina dostawy *"}
-                  </div>
-                          
-                  <input 
-                     type="time" 
-                     value={form.deliveryTime}
-                     onChange={e=>handle('deliveryTime', e.target.value)}
-                     className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px] font-bold"
-                  />
-                          
-                  <div className="text-xs text-blue-700 mt-2 font-medium">
-                      {hasLunch 
-                         ? "Dla zamówień z lunchem: wybierz godzinę 12:00 – 16:00."
-                         : "Dla zamówień standardowych: wybierz godzinę 08:00 – 16:00."
-                      }
-                  </div>
-               </div>
-            )}
-
-            {!user && (
-              <div className="mt-4 bg-white border border-gray-200 rounded-2xl p-4 shadow-soft">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                  <div>
-                    <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Konto (opcjonalnie)</div>
-                    <div className="font-extrabold text-gray-900">Zaloguj się, żeby szybciej uzupełniać dane</div>
-                    <div className="text-sm text-gray-600 mt-1">Email i imię/nazwisko mogą uzupełnić się automatycznie.</div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="mt-4 bg-white border border-gray-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-soft">
-              <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(e)=>setRemember(e.target.checked)}
-                />
-                Zapamiętaj dane na przyszłość
-              </label>
-
-              <div className="flex items-center gap-2">
-                {hadSaved && (
-                  <div className="text-xs text-gray-500">
-                    Mamy zapisane dane — formularz uzupełnia się automatycznie.
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={clearRemembered}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-sm font-semibold hover:ring-2 hover:ring-brand-yellow/20"
-                >
-                  <i data-lucide="trash-2" className="w-4 h-4"></i>
-                  Wyczyść zapamiętane dane
-                </button>
-              </div>
-            </div>
-
-            {/* ✅ WYBÓR PŁATNOŚCI Z PODŚWIETLENIEM */}
-            <div className="mt-4 bg-white border border-gray-200 rounded-2xl p-4 shadow-soft">
-              <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Metoda płatności</div>
-              <div className="mt-3 grid md:grid-cols-3 gap-3">
-                <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft transition ${paymentMethod==="payu" ? "bg-brand-yellow border-brand-yellow ring-2 ring-brand-yellow/50" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="payu"
-                    checked={paymentMethod==="payu"}
-                    onChange={() => setPaymentMethod("payu")}
-                    className="hidden"
-                  />
-                  <div className="flex items-start gap-3">
-                    <div className={`w-11 h-11 rounded-2xl grid place-items-center ring-1 ring-black/10 shrink-0 ${paymentMethod==="payu" ? "bg-white" : "bg-brand-yellow/20"}`}>
-                      <i data-lucide="credit-card" className="w-5 h-5 text-gray-900"></i>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-extrabold text-gray-900">Online (PayU)</div>
-                      <div className="text-xs text-gray-700 mt-0.5">Zapłać od razu i przejdź do PayU.</div>
-                    </div>
-                  </div>
-                </label>
-
-                <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft transition ${paymentMethod==="card" ? "bg-brand-yellow border-brand-yellow ring-2 ring-brand-yellow/50" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="card"
-                    checked={paymentMethod==="card"}
-                    onChange={() => setPaymentMethod("card")}
-                    className="hidden"
-                  />
-                  <div className="flex items-start gap-3">
-                    <div className={`w-11 h-11 rounded-2xl grid place-items-center ring-1 ring-black/10 shrink-0 ${paymentMethod==="card" ? "bg-white" : "bg-brand-yellow/20"}`}>
-                      <i data-lucide="credit-card" className="w-5 h-5 text-gray-900"></i>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-extrabold text-gray-900">Karta przy odbiorze</div>
-                      <div className="text-xs text-gray-700 mt-0.5">Zapłacisz kartą na miejscu.</div>
-                    </div>
-                  </div>
-                </label>
-
-                <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft transition ${paymentMethod==="cash" ? "bg-brand-yellow border-brand-yellow ring-2 ring-brand-yellow/50" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="cash"
-                    checked={paymentMethod==="cash"}
-                    onChange={() => setPaymentMethod("cash")}
-                    className="hidden"
-                  />
-                  <div className="flex items-start gap-3">
-                    <div className={`w-11 h-11 rounded-2xl grid place-items-center ring-1 ring-black/10 shrink-0 ${paymentMethod==="cash" ? "bg-white" : "bg-brand-yellow/20"}`}>
-                      <i data-lucide="banknote" className="w-5 h-5 text-gray-900"></i>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-extrabold text-gray-900">Gotówka przy odbiorze</div>
-                      <div className="text-xs text-gray-700 mt-0.5">Zapłacisz gotówką na miejscu.</div>
-                    </div>
-                  </div>
-                </label>
-              </div>
-            </div>
+            <h2 className="text-2xl font-extrabold mt-3">Finalizacja zamówienia</h2>
 
             <div className="mt-6 grid lg:grid-cols-3 gap-6 items-start">
-              <div className="lg:col-span-2 bg-white border border-gray-200 rounded-2xl p-5">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Imię i nazwisko *</label>
-                    <input value={form.imieNazwisko} onChange={e=>handle('imieNazwisko', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-                  </div>
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Nr telefonu *</label>
-                    <input value={form.telefon} onChange={e=>handle('telefon', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-                  </div>
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Adres email</label>
-                    <input value={form.email} onChange={e=>handle('email', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-                  </div>
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Miasto *</label>
-                    <input value={form.miasto} onChange={e=>handle('miasto', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-                  </div>
-
-                  {/* ✅ POLE KODU Z WALIDACJĄ */}
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Kod pocztowy</label>
-                    <input 
-                        value={form.kod} 
-                        onChange={e=>handle('kod', e.target.value)}
-                        placeholder="76-200"
-                        className={`input-focus w-full border rounded-xl px-4 py-3 bg-white min-h-[44px] transition-colors ${isZipError ? 'border-red-500 bg-red-50 text-red-900 focus:border-red-600 focus:ring-red-200' : 'border-gray-200'}`}
-                      />
-                    {isZipError && (
-                      <div className="text-red-600 font-bold text-xs mt-1.5 flex items-center gap-1">
-                          <i data-lucide="alert-circle" className="w-3 h-3"></i> Nie obsługujemy tego kodu pocztowego
+              <div className="lg:col-span-2 space-y-6">
+                  
+                  {/* 1. SPOSÓB REALIZACJI I CZAS */}
+                  <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-soft">
+                      <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold mb-4">1. Sposób i czas realizacji</div>
+                      
+                      {/* Wybór Daty - NOWY KALENDARZ (PRZENIESIONY NA GÓRĘ) */}
+                      <div className="mb-6">
+                          <label className="text-sm font-semibold text-gray-900 block mb-2">Wybierz dzień:</label>
+                          <CalendarWidget 
+                              onDateSelect={(val) => {
+                                  setDateParams(p => ({ ...p, selectedDate: val }));
+                                  // Scroll to time slots
+                                  setTimeout(() => {
+                                      timeSlotRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                  }, 200);
+                              }}
+                              selectedDateStr={dateParams.selectedDate}
+                              maxDateStr={dateConfig.maxStr}
+                              now={now} 
+                          />
+                          
+                          {/* ✅ NOWY KOMUNIKAT NA CZERWONO Z DYNAMICZNYM TEKSTEM */}
+                          {!isToday && (
+                            <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-start gap-3">
+                              <i data-lucide="calendar" className="w-5 h-5 shrink-0 mt-0.5 text-red-600"></i>
+                              <div>
+                                <div className="font-bold">Wybrano inną datę niż dzisiaj</div>
+                                <div className="mt-0.5">
+                                  {fulfillmentMethod === 'delivery' 
+                                    ? 'Twoje zamówienie będzie dostarczone: ' 
+                                    : 'Twoje zamówienie będzie gotowe do odbioru: '
+                                  }
+                                  <span className="font-extrabold underline">{selD.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                       </div>
-                    )}
-                  </div>
 
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Ulica *</label>
-                    <input value={form.ulica} onChange={e=>handle('ulica', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-                  </div>
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Nr budynku</label>
-                    <input value={form.nrBud} onChange={e=>handle('nrBud', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-                  </div>
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Piętro</label>
-                    <input value={form.pietro} onChange={e=>handle('pietro', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-                  </div>
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Nr lokalu</label>
-                    <input value={form.lokal} onChange={e=>handle('lokal', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="text-xs uppercase tracking-wider text-gray-500">Uwagi do zamówienia</label>
-                    <textarea value={form.uwagi} onChange={e=>handle('uwagi', e.target.value)}
-                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 min-h-[120px] bg-white"></textarea>
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={form.faktura} onChange={e=>handle('faktura', e.target.checked)} />
-                    Chcę dane do faktury
-                  </label>
-                  {form.faktura && (
-                    <div className="grid md:grid-cols-2 gap-4 mt-3">
-                      <div>
-                        <label className="text-xs uppercase tracking-wider text-gray-500">NIP</label>
-                        <input value={form.nip} onChange={e=>handle('nip', e.target.value)}
-                          className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                      {/* Wybór Godziny (NOWA LOGIKA SLOTÓW) */}
+                      <div className="mb-6 scroll-mt-24" ref={timeSlotRef}>
+                          <label className="text-sm font-semibold text-gray-900 block mb-2">Wybierz godzinę realizacji:</label>
+                          
+                          {availableSlots.length === 0 ? (
+                              <div className="text-sm text-red-600 font-medium bg-red-50 p-3 rounded-lg border border-red-100">
+                                  Brak wolnych terminów na ten dzień. Proszę wybrać inną datę.
+                              </div>
+                          ) : (
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                  {availableSlots.map(slot => {
+                                      const isSelected = dateParams.selectedTimeSlot?.id === slot.id;
+                                      return (
+                                          <button
+                                              key={slot.id}
+                                              type="button"
+                                              onClick={() => {
+                                                  setDateParams(p => ({ ...p, selectedTimeSlot: slot }));
+                                                  // Scroll to fulfillment
+                                                  setTimeout(() => {
+                                                      fulfillmentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                  }, 200);
+                                              }}
+                                              className={`py-3 px-2 rounded-xl text-sm font-bold border transition ${
+                                                  isSelected 
+                                                  ? 'bg-brand-yellow text-gray-900 border-brand-yellow ring-2 ring-brand-yellow/40' 
+                                                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                                              }`}
+                                          >
+                                              {slot.label}
+                                          </button>
+                                      );
+                                  })}
+                              </div>
+                          )}
                       </div>
+
+                      {/* Toggle Dostawa / Odbiór (PRZENIESIONE NA DÓŁ) */}
+                      <div className="scroll-mt-24" ref={fulfillmentRef}>
+                          <label className="text-sm font-semibold text-gray-900 block mb-2">Sposób odbioru:</label>
+                          <div className="grid grid-cols-2 gap-3">
+                              <button
+                                 type="button"
+                                 onClick={() => {
+                                     setFulfillmentMethod('delivery');
+                                     setTimeout(() => {
+                                         detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                     }, 200);
+                                 }}
+                                 className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold border transition ${fulfillmentMethod === 'delivery' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                              >
+                                 <i data-lucide="truck" className="w-4 h-4"></i> Dostawa
+                              </button>
+                              <button
+                                 type="button"
+                                 onClick={() => {
+                                     setFulfillmentMethod('pickup');
+                                     setTimeout(() => {
+                                         detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                     }, 200);
+                                 }}
+                                 className={`flex items-center justify-center gap-2 py-3 rounded-xl font-bold border transition ${fulfillmentMethod === 'pickup' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                              >
+                                 <i data-lucide="shopping-bag" className="w-4 h-4"></i> Odbiór osobisty
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* 2. DANE DOSTAWY / ODBIORU */}
+                  <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-soft scroll-mt-32" ref={detailsRef}>
+                      <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold mb-4">
+                          {fulfillmentMethod === 'delivery' ? '2. Adres dostawy' : '2. Dane odbierającego'}
+                      </div>
+                      
+                      {/* ✅ Żółty Box - pojawia się TYLKO gdy jest tekst ORAZ miasto nie jest na liście */}
+                      {fulfillmentMethod === 'delivery' && form.miasto.trim().length > 0 && !isCityValid && (
+                          <div className="mb-4 p-4 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm flex items-start gap-3 shadow-sm transition-all duration-500">
+                              <i data-lucide="info" className="w-5 h-5 shrink-0 mt-0.5"></i>
+                              <div>
+                                <div className="font-bold">Gdzie dowozimy?</div>
+                                <p className="mt-1">
+                                  Obsługujemy: <strong>Słupsk, Redzikowo, Bierkowo, Łosiono, Krępa Słupska, Głobino, Włynkówko, Siemianice, Kobylnica</strong>.
+                                  <br/>Wpisz poprawne miasto, aby ten komunikat zniknął.
+                                </p>
+                              </div>
+                          </div>
+                      )}
+
+                      <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-xs uppercase tracking-wider text-gray-500">Imię i nazwisko *</label>
+                            <input value={form.imieNazwisko} onChange={e=>handle('imieNazwisko', e.target.value)}
+                              className={getInputClass('imieNazwisko')}/>
+                          </div>
+                          <div>
+                            <label className="text-xs uppercase tracking-wider text-gray-500">Nr telefonu *</label>
+                            <input value={form.telefon} onChange={e=>handle('telefon', e.target.value)}
+                              className={getInputClass('telefon')}/>
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="text-xs uppercase tracking-wider text-gray-500">Adres email (opcjonalnie)</label>
+                            <input value={form.email} onChange={e=>handle('email', e.target.value)}
+                              className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                          </div>
+
+                          {/* Pola adresu - UKRYTE przy odbiorze osobistym */}
+                          {fulfillmentMethod === 'delivery' && (
+                              <>
+                                  <div>
+                                    <label className="text-xs uppercase tracking-wider text-gray-500">Miasto *</label>
+                                    <input value={form.miasto} onChange={e=>handle('miasto', e.target.value)}
+                                      className={getInputClass('miasto')}/>
+                                  </div>
+                                  <div>
+                                    <label className="text-xs uppercase tracking-wider text-gray-500">Kod pocztowy</label>
+                                    {/* ✅ Usunięty placeholder */}
+                                    <input value={form.kod} onChange={e=>handle('kod', e.target.value)}
+                                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                                  </div>
+                                  <div>
+                                    <label className="text-xs uppercase tracking-wider text-gray-500">Ulica *</label>
+                                    <input value={form.ulica} onChange={e=>handle('ulica', e.target.value)}
+                                      className={getInputClass('ulica')}/>
+                                  </div>
+                                  <div>
+                                    <label className="text-xs uppercase tracking-wider text-gray-500">Nr budynku *</label>
+                                    <input value={form.nrBud} onChange={e=>handle('nrBud', e.target.value)}
+                                      className={getInputClass('nrBud')}/>
+                                  </div>
+                                  <div>
+                                    <label className="text-xs uppercase tracking-wider text-gray-500">Piętro</label>
+                                    <input value={form.pietro} onChange={e=>handle('pietro', e.target.value)}
+                                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                                  </div>
+                                  <div>
+                                    <label className="text-xs uppercase tracking-wider text-gray-500">Nr lokalu</label>
+                                    <input value={form.lokal} onChange={e=>handle('lokal', e.target.value)}
+                                      className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                                  </div>
+                              </>
+                          )}
+
+                          <div className="md:col-span-2">
+                            <label className="text-xs uppercase tracking-wider text-gray-500">Uwagi do zamówienia</label>
+                            <textarea value={form.uwagi} onChange={e=>handle('uwagi', e.target.value)}
+                              className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 min-h-[100px] bg-white"></textarea>
+                          </div>
+                      </div>
+
+                      <div className="mt-4">
+                        <label className="flex items-center gap-2 text-sm">
+                          <input type="checkbox" checked={form.faktura} onChange={e=>handle('faktura', e.target.checked)} />
+                          Chcę fakturę VAT
+                        </label>
+                        {form.faktura && (
+                          <div className="grid md:grid-cols-2 gap-4 mt-3 pt-3 border-t border-gray-100">
+                            <div>
+                              <label className="text-xs uppercase tracking-wider text-gray-500">NIP</label>
+                              <input value={form.nip} onChange={e=>handle('nip', e.target.value)}
+                                className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                            </div>
+                            <div>
+                              <label className="text-xs uppercase tracking-wider text-gray-500">Nazwa firmy</label>
+                              <input value={form.firma} onChange={e=>handle('firma', e.target.value)}
+                                className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                  </div>
+
+                  {/* 3. METODA PŁATNOŚCI */}
+                  <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-soft">
+                      <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold mb-4">3. Płatność</div>
+                      <div className="grid md:grid-cols-3 gap-3">
+                        <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft transition ${paymentMethod==="payu" ? "bg-brand-yellow border-brand-yellow ring-2 ring-brand-yellow/50" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
+                          <input type="radio" name="payment" value="payu" checked={paymentMethod==="payu"} onChange={() => setPaymentMethod("payu")} className="hidden" />
+                          <div className="flex items-start gap-3">
+                            <div className={`w-11 h-11 rounded-2xl grid place-items-center ring-1 ring-black/10 shrink-0 ${paymentMethod==="payu" ? "bg-white" : "bg-brand-yellow/20"}`}>
+                              <i data-lucide="credit-card" className="w-5 h-5 text-gray-900"></i>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-extrabold text-gray-900">Online (PayU)</div>
+                              <div className="text-xs text-gray-700 mt-0.5">Szybki przelew / BLIK</div>
+                            </div>
+                          </div>
+                        </label>
+
+                        <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft transition ${paymentMethod==="card" ? "bg-brand-yellow border-brand-yellow ring-2 ring-brand-yellow/50" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
+                          <input type="radio" name="payment" value="card" checked={paymentMethod==="card"} onChange={() => setPaymentMethod("card")} className="hidden" />
+                          <div className="flex items-start gap-3">
+                            <div className={`w-11 h-11 rounded-2xl grid place-items-center ring-1 ring-black/10 shrink-0 ${paymentMethod==="card" ? "bg-white" : "bg-brand-yellow/20"}`}>
+                              <i data-lucide="credit-card" className="w-5 h-5 text-gray-900"></i>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-extrabold text-gray-900">Karta na miejscu</div>
+                              <div className="text-xs text-gray-700 mt-0.5">{fulfillmentMethod === 'pickup' ? 'Przy odbiorze' : 'U kuriera'}</div>
+                            </div>
+                          </div>
+                        </label>
+
+                        <label className={`cursor-pointer rounded-2xl border p-4 shadow-soft transition ${paymentMethod==="cash" ? "bg-brand-yellow border-brand-yellow ring-2 ring-brand-yellow/50" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
+                          <input type="radio" name="payment" value="cash" checked={paymentMethod==="cash"} onChange={() => setPaymentMethod("cash")} className="hidden" />
+                          <div className="flex items-start gap-3">
+                            <div className={`w-11 h-11 rounded-2xl grid place-items-center ring-1 ring-black/10 shrink-0 ${paymentMethod==="cash" ? "bg-white" : "bg-brand-yellow/20"}`}>
+                              <i data-lucide="banknote" className="w-5 h-5 text-gray-900"></i>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-extrabold text-gray-900">Gotówka</div>
+                              <div className="text-xs text-gray-700 mt-0.5">{fulfillmentMethod === 'pickup' ? 'Przy odbiorze' : 'U kuriera'}</div>
+                            </div>
+                          </div>
+                        </label>
+                      </div>
+                  </div>
+
+                  {/* Logowanie / Zapisywanie danych */}
+                  {!user && (
+                    <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-soft flex flex-col md:flex-row md:items-center justify-between gap-3">
                       <div>
-                        <label className="text-xs uppercase tracking-wider text-gray-500">Nazwa firmy</label>
-                        <input value={form.firma} onChange={e=>handle('firma', e.target.value)}
-                          className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
+                        <div className="font-extrabold text-gray-900">Masz konto? Zaloguj się</div>
+                        <div className="text-sm text-gray-600">Dane uzupełnią się automatycznie.</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                          <label className="flex items-center gap-2 text-sm font-semibold text-gray-800 cursor-pointer">
+                            <input type="checkbox" checked={remember} onChange={(e)=>setRemember(e.target.checked)} />
+                            Zapamiętaj mnie
+                          </label>
+                          {hadSaved && (
+                            <button type="button" onClick={clearRemembered} className="text-xs text-gray-500 hover:text-red-600 underline">Wyczyść</button>
+                          )}
                       </div>
                     </div>
                   )}
-                </div>
+
               </div>
 
+              {/* PODSUMOWANIE (STICKY) */}
               <aside className="bg-white border border-gray-200 rounded-2xl p-5 sticky top-[84px]">
-                <div className="font-semibold">Podsumowanie</div>
-                <div className="mt-3 space-y-3 max-h-64 overflow-auto pr-2">
+                <div className="font-semibold text-lg mb-4">Podsumowanie</div>
+                <div className="space-y-3 max-h-64 overflow-auto pr-2 mb-4 custom-scrollbar">
                   {cart.map(i => {
                     const addSum = addonsTotalPerUnit(i);
                     return (
-                      <div key={i.id} className="text-sm">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="font-medium">{i.name} × {i.qty||1}</span>
-                          <span className="font-bold">{currency(lineTotal(i))}</span>
+                      <div key={i.id} className="text-sm flex justify-between gap-2 border-b border-gray-50 pb-2">
+                        <div>
+                           <div className="font-medium">{i.name}</div>
+                           {i.addons?.length > 0 && <div className="text-xs text-gray-500">+ dodatki</div>}
+                           <div className="text-xs text-gray-400">Ilość: {i.qty}</div>
                         </div>
-
-                        {Array.isArray(i.addons) && i.addons.length > 0 && (
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {i.addons.map((a) => (
-                              <span key={a.id} className="text-[10px] font-extrabold px-2 py-1 rounded-full bg-brand-yellow/15 border border-brand-yellow/30">
-                                + {a.label}
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                        <div className="font-bold">{currency(lineTotal(i))}</div>
                       </div>
                     );
                   })}
                 </div>
                   
-                <div className="mt-4 pt-3 border-t border-gray-100 space-y-2 text-sm">
-                    <div className="flex justify-between text-gray-600">
+                <div className="space-y-2 text-sm text-gray-600 border-t border-gray-100 pt-3">
+                    <div className="flex justify-between">
                         <span>Produkty</span>
                         <span>{currency(cartValue)}</span>
                     </div>
-                    <div className="flex justify-between text-gray-600">
+                    <div className="flex justify-between">
                         <span>Dostawa</span>
-                        <span className="font-semibold">{currency(deliveryCost)}</span>
+                        <span className="font-semibold text-gray-900">
+                             {fulfillmentMethod === 'pickup' ? currency(0) : currency(deliveryCost)}
+                        </span>
                     </div>
                 </div>
 
-                <div className="mt-4 bg-gray-50 border border-gray-200 rounded-2xl p-3">
-                  <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Wybrana płatność</div>
-                  <div className="mt-1 font-extrabold text-gray-900">
-                    {paymentMethod === "payu" && "Online (PayU)"}
-                    {paymentMethod === "card" && "Karta przy odbiorze"}
-                    {paymentMethod === "cash" && "Gotówka przy odbiorze"}
+                <div className="mt-4 bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm">
+                  <div className="flex justify-between mb-1">
+                      <span className="text-gray-500">Typ:</span>
+                      <span className="font-bold">{fulfillmentMethod === 'delivery' ? 'Dostawa' : 'Odbiór osobisty'}</span>
+                  </div>
+                  <div className="flex justify-between mb-1">
+                      <span className="text-gray-500">Płatność:</span>
+                      <span className="font-bold">{paymentLabel.split('(')[0]}</span>
+                  </div>
+                  <div className="flex justify-between">
+                      <span className="text-gray-500">Termin:</span>
+                      <span className="font-bold text-right ml-4">
+                          {(() => {
+                            if (!dateParams.selectedTimeSlot) return '-';
+                            const d = new Date(dateParams.selectedDate);
+                            const isToday = d.toDateString() === now.toDateString();
+                            const label = dateParams.selectedTimeSlot.label;
+                            if (isToday) return `Dziś ${label}`;
+                            // Format: D.MM
+                            const day = d.getDate();
+                            const m = d.getMonth() + 1;
+                            const mStr = m < 10 ? '0' + m : m;
+                            return `${day}.${mStr} ${label}`;
+                          })()}
+                      </span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between mt-4 text-lg">
-                  <span className="font-bold">Do zapłaty</span>
-                  <span className="font-extrabold">{currency(total)}</span>
+                <div className="flex items-center justify-between mt-5 text-xl">
+                  <span className="font-bold">Razem</span>
+                  <span className="font-extrabold text-brand-yellow drop-shadow-sm" style={{ textShadow: '0 1px 1px rgba(0,0,0,0.1)' }}>
+                      {fulfillmentMethod === 'pickup' ? currency(total - deliveryCost) : currency(total)}
+                  </span>
                 </div>
                 
-                  <button
-                onClick={() => placeOrder(paymentMethod)}
+                <button
+                onClick={placeOrder}
                 disabled={busyPay}
                 style={{
                   backgroundColor: "#FFC107",
@@ -2276,12 +2596,10 @@
                   opacity: busyPay ? 0.6 : 1,
                   cursor: busyPay ? "not-allowed" : "pointer"
                 }}
-                className="w-full mt-4 font-extrabold rounded-xl px-4 py-3 min-h-[44px] hover:ring-2 hover:ring-brand-yellow/40"
+                className="w-full mt-6 font-extrabold rounded-xl px-4 py-4 text-base shadow-soft hover:shadow-lg hover:-translate-y-0.5 transition flex items-center justify-center gap-2"
               >
-                <span className="inline-flex items-center justify-center gap-2">
-                  {busyPay && <i data-lucide="loader" className="w-4 h-4 spin"></i>}
-                  {paymentLabel}
-                </span>
+                {busyPay && <i data-lucide="loader" className="w-5 h-5 spin"></i>}
+                {submitLabel}
               </button>
               </aside>
             </div>
@@ -2816,8 +3134,8 @@
           const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
            
           if (!isStandalone) {
-             console.log("Not in PWA/Standalone mode - skipping push auto-subscribe.");
-             return; 
+              console.log("Not in PWA/Standalone mode - skipping push auto-subscribe.");
+              return; 
           }
 
           // 2. Jeśli już mamy zgodę lub odmowę, nie robimy nic
@@ -2831,7 +3149,7 @@
                   const permission = await Notification.requestPermission();
                   if (permission === 'granted') {
                       const reg = await navigator.serviceWorker.ready;
-                       
+                      
                       // Get Key
                       const response = await fetch('/api/push/vapid-public-key');
                       if(!response.ok) return;
@@ -2852,7 +3170,7 @@
                         body: JSON.stringify(subscription),
                         headers: { 'Content-Type': 'application/json' }
                       });
-                       
+                        
                       console.log("PWA subscribed on click!");
                   }
               } catch (e) {
