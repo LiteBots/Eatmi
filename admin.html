@@ -131,7 +131,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useEffect, useMemo, useRef, useState, useLayoutEffect, useCallback } = React;
+    const { useEffect, useMemo, useRef, useState, useCallback } = React;
 
     /* =========================================================
         API CONFIG
@@ -250,9 +250,6 @@
       return pid || "Pozycja";
     };
 
-    /* =======================
-        Global Helpers for Components
-       ========================================================= */
     const fmtDate = (iso) => {
       if (!iso) return "—";
       try {
@@ -266,7 +263,6 @@
        ========================================================= */
       
     const ICON_MAP = {
-        // Navigation & General
         "layout-dashboard": "fa-table-columns",
         "clipboard-list": "fa-clipboard-list",
         "megaphone": "fa-bullhorn",
@@ -288,27 +284,19 @@
         "image": "fa-image",
         "file-text": "fa-file-lines",
         "tags": "fa-tags",
-          
-        // Cards
         "shopping-bag": "fa-bag-shopping",
         "calendar": "fa-calendar-days",
         "wallet": "fa-wallet",
-          
-        // Payment
         "banknote": "fa-money-bill-wave",
         "credit-card": "fa-credit-card",
         "chart-line": "fa-chart-line",
-          
-        // Statuses
-        "circle-dashed": "fa-circle-notch", // or fa-spinner
+        "circle-dashed": "fa-circle-notch",
         "check-circle-2": "fa-circle-check",
         "check-circle": "fa-circle-check",
         "clock-3": "fa-clock",
         "x-circle": "fa-circle-xmark",
         "bike": "fa-bicycle",
-          
-        // Actions
-        "chef-hat": "fa-utensils", 
+        "chef-hat": "fa-utensils",
     };
 
     const Icon = ({ name, className="" }) => {
@@ -429,7 +417,6 @@
       const audioRef = useRef(null);
 
       useEffect(() => {
-        // Global unlocker - każde kliknięcie w stronę próbuje odblokować audio
         const unlock = () => {
             const ctx = audioRef.current?.ctx;
             if (ctx && ctx.state === 'suspended') {
@@ -460,11 +447,8 @@
         initAudio();
         const s = audioRef.current;
         if (!s) return;
-        
-        // Jeśli już gra, nie dubluj
         if (s.interval) return;
 
-        // AGRESYWNE WZNAWIANIE: Jeśli przeglądarka uśpiła audio, obudź je TERAZ
         if (s.ctx.state === 'suspended') {
               s.ctx.resume().catch(e => console.error("Force resume failed", e));
         }
@@ -476,9 +460,8 @@
             const osc = s.ctx.createOscillator();
             const g = s.ctx.createGain();
             
-            // Fala piłokształtna (bardziej drażniąca = lepszy alarm)
             osc.type = "sawtooth"; 
-            osc.frequency.setValueAtTime(880, s.ctx.currentTime); // A5
+            osc.frequency.setValueAtTime(880, s.ctx.currentTime);
             osc.frequency.exponentialRampToValueAtTime(440, s.ctx.currentTime + 0.5);
             
             const now = s.ctx.currentTime;
@@ -521,15 +504,12 @@
           return;
         }
 
-        // 1. Start Audio
         start();
 
-        // 2. Start Title Flash
         const tInt = setInterval(() => {
             document.title = document.title.includes("🔔") ? "NOWE ZAMÓWIENIE!" : "🔔 (1) NOWE ZAMÓWIENIE";
         }, 500);
 
-        // 3. Vibrate (Mobile)
         if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 1000]);
 
         return () => {
@@ -546,7 +526,6 @@
       const totalPLN = getOrderTotalPLN(orderPreview);
       const pay = resolvePayment(orderPreview);
 
-      // Używamy klasy flash-active na głównym kontenerze
       return (
         <div className="ios-fixed z-[9999] flash-active">
           <div className="absolute inset-0"></div>
@@ -699,7 +678,7 @@
                 type="button"
                 onClick={() => submit()}
                 disabled={loading || pin.length !== 4}
-                class="mt-6 w-full bg-gray-900 text-white font-extrabold rounded-2xl px-5 py-4 shadow-glass hover:ring-4 hover:ring-brand-yellow/35 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition text-lg"
+                className="mt-6 w-full bg-gray-900 text-white font-extrabold rounded-2xl px-5 py-4 shadow-glass hover:ring-4 hover:ring-brand-yellow/35 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed transition text-lg"
               >
                 {loading ? "Weryfikacja..." : "Zaloguj się"}
               </button>
@@ -838,7 +817,7 @@
     };
 
     /* =======================
-        Transactions (DETAILED BREAKDOWN)
+        Transactions (NEW LAYOUT: by period rows)
        ========================================================= */
     const Transactions = ({ token }) => {
       const toast = useToast();
@@ -861,154 +840,171 @@
 
       useEffect(() => { load(); }, []);
 
-      // Calculate Stats Breakdown
       const stats = useMemo(() => {
-         const now = new Date();
-         const todayStr = now.toLocaleDateString("pl-PL");
-         const currentMonth = now.getMonth();
-         const currentYear = now.getFullYear();
-         
-         // Logic for "This Week (Mon-Sun)"
-         const day = now.getDay(); // 0 Sun, 1 Mon ... 6 Sat
-         const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
-         const monday = new Date(now);
-         monday.setDate(diff);
-         monday.setHours(0,0,0,0);
-         
-         const sunday = new Date(monday);
-         sunday.setDate(monday.getDate() + 6);
-         sunday.setHours(23,59,59,999);
+        const now = new Date();
 
-         // Struktura danych
-         const createBucket = () => ({ today: 0, week: 0, month: 0, total: 0 });
-         
-         const data = {
-             payu: createBucket(),
-             cash: createBucket(),
-             card: createBucket(),
-             grandTotal: 0
-         };
+        // Today boundaries
+        const startToday = new Date(now);
+        startToday.setHours(0,0,0,0);
+        const endToday = new Date(now);
+        endToday.setHours(23,59,59,999);
 
-         orders.forEach(o => {
-            const date = new Date(pickCreatedAt(o));
-            const val = getOrderTotalPLN(o);
-            const p = resolvePayment(o);
-            
-            // Wybierz odpowiedni kubełek
-            let bucket = data.payu; // domyślnie
-            if (p.kind === 'offline_cash') bucket = data.cash;
-            if (p.kind === 'offline_card') bucket = data.card;
+        // Week (Mon-Sun)
+        const day = now.getDay(); // 0 Sun, 1 Mon ... 6 Sat
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
+        const startWeek = new Date(now);
+        startWeek.setDate(diff);
+        startWeek.setHours(0,0,0,0);
+        const endWeek = new Date(startWeek);
+        endWeek.setDate(startWeek.getDate() + 6);
+        endWeek.setHours(23,59,59,999);
 
-            // 1. Total (dla danej metody)
-            bucket.total += val;
-            data.grandTotal += val;
+        // Month
+        const startMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0,0,0,0);
+        const endMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23,59,59,999);
 
-            // 2. Today
-            if (date.toLocaleDateString("pl-PL") === todayStr) {
-               bucket.today += val;
-            }
+        // Year
+        const startYear = new Date(now.getFullYear(), 0, 1, 0,0,0,0);
+        const endYear = new Date(now.getFullYear(), 11, 31, 23,59,59,999);
 
-            // 3. Month
-            if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
-               bucket.month += val;
-            }
+        const bucket = () => ({ payu: 0, card: 0, cash: 0, total: 0 });
 
-            // 4. Week
-            if (date >= monday && date <= sunday) {
-               bucket.week += val;
-            }
-         });
+        const out = {
+          today: bucket(),
+          week: bucket(),
+          month: bucket(),
+          year: bucket(),
+          all: bucket(),
+          grandAllTime: 0, // łączny zarobek z wszystkich metod od początku
+        };
 
-         return data;
+        const addTo = (b, kind, val) => {
+          if (!b) return;
+          if (kind === "online") b.payu += val;
+          else if (kind === "offline_card") b.card += val;
+          else if (kind === "offline_cash") b.cash += val;
+          b.total += val;
+        };
+
+        orders.forEach(o => {
+          const created = pickCreatedAt(o);
+          const date = created ? new Date(created) : null;
+          const val = getOrderTotalPLN(o);
+          const pay = resolvePayment(o);
+
+          // all time
+          addTo(out.all, pay.kind, val);
+          out.grandAllTime += val;
+
+          if (!date || !Number.isFinite(date.getTime())) return;
+
+          // today
+          if (date >= startToday && date <= endToday) addTo(out.today, pay.kind, val);
+
+          // week
+          if (date >= startWeek && date <= endWeek) addTo(out.week, pay.kind, val);
+
+          // month
+          if (date >= startMonth && date <= endMonth) addTo(out.month, pay.kind, val);
+
+          // year
+          if (date >= startYear && date <= endYear) addTo(out.year, pay.kind, val);
+        });
+
+        return out;
       }, [orders]);
 
-      // Helper do renderowania sekcji
-      const StatSection = ({ title, icon, colorClass, data }) => (
-          <div className="mb-8">
-            <div className={`flex items-center gap-2 mb-4 px-1 ${colorClass}`}>
-                <Icon name={icon} className="w-5 h-5" />
-                <h3 className="font-extrabold text-lg uppercase tracking-wide">{title}</h3>
+      const PeriodBlock = ({ label, data }) => (
+        <div className="bg-white border border-gray-200 rounded-3xl shadow-soft p-5 md:p-6">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold">FINANSE</div>
+              <div className="text-xl font-black">{label}</div>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-                <Card title="Dziś" value={currency(data.today)} icon="calendar" loading={loading} hint="Ten dzień" />
-                <Card title="Ten Tydzień" value={currency(data.week)} icon="calendar-clock" loading={loading} hint="Pon-Ndz" />
-                <Card title="Ten Miesiąc" value={currency(data.month)} icon="layout-dashboard" loading={loading} hint="Bieżący" />
-                <Card title="Łącznie" value={currency(data.total)} icon="wallet" loading={loading} hint="Cała historia" />
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-[10px] uppercase tracking-[0.18em] font-black text-gray-600">
+              PayU • Karta • Gotówka • Total
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+              <div className="text-[10px] uppercase tracking-[0.16em] font-black text-gray-500">PayU (online)</div>
+              <div className="mt-1 text-2xl font-black text-gray-900">{loading ? "..." : currency(data.payu)}</div>
+            </div>
+            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+              <div className="text-[10px] uppercase tracking-[0.16em] font-black text-gray-500">Karta (odbiór)</div>
+              <div className="mt-1 text-2xl font-black text-gray-900">{loading ? "..." : currency(data.card)}</div>
+            </div>
+            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+              <div className="text-[10px] uppercase tracking-[0.16em] font-black text-gray-500">Gotówka (odbiór)</div>
+              <div className="mt-1 text-2xl font-black text-gray-900">{loading ? "..." : currency(data.cash)}</div>
+            </div>
+            <div className="bg-gray-900 border border-black/10 rounded-2xl p-4 text-white">
+              <div className="text-[10px] uppercase tracking-[0.16em] font-black text-gray-300">Total</div>
+              <div className="mt-1 text-2xl font-black text-brand-yellow">{loading ? "..." : currency(data.total)}</div>
             </div>
           </div>
+        </div>
       );
 
       return (
-        <div className="p-4 md:p-6 pb-24">
-           <div className="flex items-center justify-between mb-8">
-              <h2 className="text-xl font-extrabold">Finanse (Szczegółowe)</h2>
-              <button onClick={load} className="p-2 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-gray-50"><Icon name="refresh-cw" className="w-4 h-4" /></button>
-           </div>
-           
-           {/* PAYU */}
-           <StatSection 
-                title="PayU (Online)" 
-                icon="credit-card" 
-                colorClass="text-blue-600" 
-                data={stats.payu} 
-           />
+        <div className="p-4 md:p-6 pb-24 space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-extrabold">Finanse</h2>
+            <button onClick={load} className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2 shadow-soft hover:bg-gray-50 active:scale-95 transition font-extrabold text-xs">
+              <Icon name="refresh-cw" className="w-4 h-4" /> Odśwież
+            </button>
+          </div>
 
-           {/* GOTÓWKA */}
-           <StatSection 
-                title="Gotówka (Odbiór)" 
-                icon="banknote" 
-                colorClass="text-emerald-600" 
-                data={stats.cash} 
-           />
+          {/* Wiersze okresów: Dziś / Tydzień / Miesiąc / Rok */}
+          <PeriodBlock label="Dziś" data={stats.today} />
+          <PeriodBlock label="Ten tydzień" data={stats.week} />
+          <PeriodBlock label="Ten miesiąc" data={stats.month} />
+          <PeriodBlock label="Ten rok" data={stats.year} />
 
-           {/* KARTA PRZY ODBIORZE */}
-           <StatSection 
-                title="Karta (Terminal Kierowcy)" 
-                icon="wallet" 
-                colorClass="text-violet-600" 
-                data={stats.card} 
-           />
+          {/* Łączny zarobek od początku */}
+          <div className="bg-gray-900 rounded-3xl p-6 md:p-8 shadow-kiosk text-white flex flex-col md:flex-row items-center justify-between gap-6">
+            <div>
+              <div className="text-sm font-bold uppercase tracking-[0.2em] text-gray-400 mb-2">Łączny zarobek z wszystkich metod od początku</div>
+              <div className="text-xs text-gray-500">Suma (PayU + Karta + Gotówka) z całej historii sprzedaży.</div>
+            </div>
+            <div className="text-4xl md:text-5xl font-black text-brand-yellow tracking-tight">
+              {loading ? "..." : currency(stats.grandAllTime)}
+            </div>
+          </div>
 
-           {/* GRAND TOTAL */}
-           <div className="mt-10 bg-gray-900 rounded-3xl p-6 md:p-8 shadow-kiosk text-white flex flex-col md:flex-row items-center justify-between gap-6">
-               <div>
-                   <div className="text-sm font-bold uppercase tracking-[0.2em] text-gray-400 mb-2">Łączne saldo ze wszystkich metod</div>
-                   <div className="text-xs text-gray-500">Suma (PayU + Gotówka + Karta) z całej historii sprzedaży.</div>
-               </div>
-               <div className="text-4xl md:text-5xl font-black text-brand-yellow tracking-tight">
-                   {loading ? "..." : currency(stats.grandTotal)}
-               </div>
-           </div>
+          {/* Ostatnie transakcje */}
+          <div className="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 font-extrabold text-sm uppercase tracking-wide text-gray-500">Ostatnie transakcje</div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-gray-50/80 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-[10px] uppercase font-extrabold text-gray-500">Klient</th>
+                    <th className="px-6 py-3 text-[10px] uppercase font-extrabold text-gray-500">Metoda</th>
+                    <th className="px-6 py-3 text-[10px] uppercase font-extrabold text-gray-500 text-right">Kwota</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {loading ? [1,2].map(i => (
+                    <tr key={i}><td colSpan="3" className="p-4"><Skeleton className="h-6 w-full" /></td></tr>
+                  )) : (
+                    orders.slice(0, 8).map((o, idx) => {
+                      const pay = resolvePayment(o);
+                      return (
+                        <tr key={idx} className="hover:bg-gray-50 transition">
+                          <td className="px-6 py-3 text-sm font-bold text-gray-900">{o.customer?.imieNazwisko || "—"}</td>
+                          <td className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">{pay.badge}</td>
+                          <td className="px-6 py-3 text-sm font-black text-right">{currency(getOrderTotalPLN(o))}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-           {/* LISTA TRANSAKCJI (opcjonalnie, zostawiam skróconą wersję poniżej, żeby nie było pusto na dole) */}
-           <div className="mt-12 bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
-             <div className="px-6 py-4 border-b border-gray-100 font-extrabold text-sm uppercase tracking-wide text-gray-500">Ostatnie transakcje</div>
-             <div className="overflow-x-auto">
-                 <table className="w-full text-left border-collapse">
-                    <thead className="bg-gray-50/80 border-b border-gray-200">
-                       <tr>
-                          <th className="px-6 py-3 text-[10px] uppercase font-extrabold text-gray-500">Klient</th>
-                          <th className="px-6 py-3 text-[10px] uppercase font-extrabold text-gray-500">Metoda</th>
-                          <th className="px-6 py-3 text-[10px] uppercase font-extrabold text-gray-500 text-right">Kwota</th>
-                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                       {loading ? [1,2].map(i => <tr key={i}><td colSpan="3" className="p-4"><Skeleton className="h-6 w-full" /></td></tr>) : 
-                        orders.slice(0, 5).map((o, idx) => {
-                           const pay = resolvePayment(o);
-                           return (
-                             <tr key={idx} className="hover:bg-gray-50 transition">
-                                 <td className="px-6 py-3 text-sm font-bold text-gray-900">{o.customer?.imieNazwisko || "—"}</td>
-                                 <td className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">{pay.badge}</td>
-                                 <td className="px-6 py-3 text-sm font-black text-right">{currency(getOrderTotalPLN(o))}</td>
-                             </tr>
-                           );
-                        })
-                       }
-                    </tbody>
-                 </table>
-             </div>
-           </div>
         </div>
       );
     };
@@ -1090,7 +1086,6 @@
       const totalPLN = getOrderTotalPLN(order);
       const pay = resolvePayment(order);
 
-      // ✅ ZMIANA: Usunięto logikę nadpisywania daty (następny dzień roboczy) ORAZ dodano rozróżnienie Dostawa/Odbiór.
       const getDeliveryDate = () => {
           const method = c.fulfillmentMethod === 'pickup' ? 'Odbiór' : 'Dostawa';
           if (c.deliveryTime && c.deliveryDate) return `${method}: ${c.deliveryDate}, godz. ${c.deliveryTime}`;
@@ -1100,7 +1095,6 @@
       
       const deliveryString = getDeliveryDate();
 
-      // Delivery logic
       const productsValue = cart.reduce((sum, item) => {
          return sum + (getItemUnitPricePLN(item) * (item.qty || 1));
       }, 0);
@@ -1133,8 +1127,6 @@
 
       return (
         <div className="space-y-5 pb-10">
-            
-          {/* ✅ CZERWONY KOMUNIKAT O PLANOWANEJ DOSTAWIE (BEZ NADPISYWANIA LOGIKĄ) */}
           {deliveryString && (
             <div className="bg-red-50 border-2 border-red-500 rounded-2xl p-4 mb-2 animate-pulse">
               <div className="flex items-center gap-3 justify-center text-red-600">
@@ -1149,7 +1141,6 @@
             </div>
           )}
             
-          {/* AKCJE - ZMIANA STATUSU */}
           <div className="bg-white border border-gray-200 rounded-3xl p-5 shadow-sm">
             <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold mb-3">Akcje (Zmień status)</div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -1234,7 +1225,6 @@
               })}
             </div>
 
-            {/* DELIVERY SUMMARY */}
             <div className="mt-4 pt-3 border-t border-gray-100 space-y-1 text-sm text-gray-700">
                 <div className="flex justify-between">
                     <span>Wartość produktów:</span>
@@ -1326,7 +1316,6 @@
           setOrders(list);
           setOrdersCount?.(list.length);
 
-          // Update selected if open (for live updates)
           if(selected) {
               const updatedSelected = list.find(o => o.extOrderId === selected.extOrderId);
               if(updatedSelected) setSelected(updatedSelected);
@@ -1349,7 +1338,7 @@
       };
 
       useEffect(() => { load(); }, []);
-      useEffect(() => { if(refreshSignal) load({ silent: true }); }, [refreshSignal]); // Reload when signal changes
+      useEffect(() => { if(refreshSignal) load({ silent: true }); }, [refreshSignal]);
 
       const rows = useMemo(() => {
         const q = query.trim().toLowerCase();
@@ -1382,7 +1371,6 @@
             </button>
           </div>
 
-          {/* Mobile / Tablet List */}
           <div className="lg:hidden space-y-3">
             {loading ? (
               [1,2,3].map(i => <Skeleton key={i} className="h-40 w-full" />)
@@ -1393,7 +1381,6 @@
             )}
           </div>
 
-          {/* Desktop Table */}
           <div className="hidden lg:block bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
             <div className="overflow-x-auto">
                <table className="w-full text-left border-collapse">
@@ -1452,11 +1439,8 @@
       const [lunches, setLunches] = useState([]);
       const [editingItem, setEditingItem] = useState(null);
       const [saving, setSaving] = useState(false);
-
-      // Definicja formularza edycji
       const [form, setForm] = useState({ name: "", pricePLN: "", description: "", image: "" });
 
-      // Pobieranie danych (GET)
       const load = async () => {
         setLoading(true);
         try {
@@ -1465,7 +1449,6 @@
           if (r.ok) {
              setLunches(data.lunche || []);
           } else {
-             // Fallback
              toast.show("info", "Menu", "Brak danych z API, pokazuję demo.");
              setLunches([
                { id: 'lunch-week', name: 'Lunch tygodnia', price: 5500, description: 'Schabowy, ziemniaki, mizeria, kompot.', image: 'https://i.imgur.com/sn5VMfS.jpeg' },
@@ -1482,24 +1465,20 @@
 
       useEffect(() => { load(); }, []);
 
-      // Otwarcie edycji
       const openEdit = (item) => {
         setEditingItem(item);
         setForm({
           name: item.name,
-          // Backend trzyma cenę w groszach, tutaj zamieniamy na PLN do edycji (np. 5500 -> 55)
           pricePLN: (item.price / 100).toString(),
           description: item.description || item.subtitle || "",
           image: item.image
         });
       };
 
-      // Zapis (PUT)
       const save = async () => {
         if(!editingItem) return;
         setSaving(true);
         try {
-          // Walidacja ceny
           const priceGrosze = Math.round(parseFloat(form.pricePLN.replace(",", ".")) * 100);
           if (isNaN(priceGrosze) || priceGrosze < 0) throw new Error("Błędna cena");
 
@@ -1521,7 +1500,7 @@
           
           toast.show("ok", "Menu", "Zapisano zmiany!");
           setEditingItem(null);
-          load(); // Odśwież listę
+          load();
         } catch (e) {
           toast.show("error", "Menu", e.message || "Nie udało się zapisać.");
         } finally {
@@ -1540,7 +1519,6 @@
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               {lunches.map(lunch => (
                 <div key={lunch.id} className="group bg-white border border-gray-200 rounded-3xl overflow-hidden shadow-soft hover:shadow-md transition flex flex-col">
-                  {/* Podgląd obrazka */}
                   <div className="relative h-48 w-full bg-gray-100 overflow-hidden">
                     <img src={lunch.image} alt={lunch.name} className="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
                     <div className="absolute top-3 right-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest shadow-sm">
@@ -1565,11 +1543,8 @@
             </div>
           )}
 
-          {/* Drawer do edycji */}
           <Drawer open={!!editingItem} onClose={() => setEditingItem(null)} title="Edycja Lunchu">
             <div className="space-y-5">
-              
-              {/* Sekcja Zdjęcia */}
               <div>
                 <label className="block text-xs uppercase font-extrabold text-gray-500 mb-2 ml-1">Link do zdjęcia (URL)</label>
                 <div className="flex gap-3">
@@ -1585,7 +1560,6 @@
                 </div>
               </div>
 
-              {/* Nazwa */}
               <div>
                 <label className="block text-xs uppercase font-extrabold text-gray-500 mb-2 ml-1">Nazwa wyświetlana</label>
                 <input 
@@ -1595,7 +1569,6 @@
                 />
               </div>
 
-              {/* Cena */}
               <div>
                 <label className="block text-xs uppercase font-extrabold text-gray-500 mb-2 ml-1">Cena (PLN)</label>
                 <div className="relative">
@@ -1610,7 +1583,6 @@
                 </div>
               </div>
 
-              {/* Opis */}
               <div>
                 <label className="block text-xs uppercase font-extrabold text-gray-500 mb-2 ml-1">Opis / Składniki</label>
                 <textarea 
@@ -1621,7 +1593,6 @@
                 />
               </div>
 
-              {/* Zapisz */}
               <button 
                 onClick={save}
                 disabled={saving}
@@ -1629,7 +1600,6 @@
               >
                 {saving ? "Zapisywanie..." : "Zapisz zmiany"}
               </button>
-
             </div>
           </Drawer>
         </div>
@@ -1637,7 +1607,7 @@
     };
 
     /* =======================
-        ✅ PROMO CODES COMPONENT (NOWOŚĆ)
+        ✅ PROMO CODES COMPONENT
        ========================================================= */
     const PromoCodes = ({ token }) => {
       const toast = useToast();
@@ -1648,7 +1618,7 @@
       const [form, setForm] = useState({
         code: "",
         discountPercent: "",
-        durationMinutes: "1440", // 24h default
+        durationMinutes: "1440",
         usageLimit: ""
       });
 
@@ -1709,8 +1679,6 @@
 
       return (
         <div className="p-4 md:p-6 pb-24 grid lg:grid-cols-3 gap-6 items-start">
-          
-          {/* FORMULARZ TWORZENIA */}
           <div className="bg-white border border-gray-200 rounded-3xl shadow-soft p-5 md:p-6 lg:col-span-1">
             <div className="flex items-center gap-3 mb-5">
               <div className="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center"><Icon name="tags" className="w-5 h-5 text-gray-900" /></div>
@@ -1774,7 +1742,6 @@
             </div>
           </div>
 
-          {/* LISTA KODÓW */}
           <div className="bg-white border border-gray-200 rounded-3xl shadow-soft p-5 md:p-6 lg:col-span-2">
             <div className="flex items-center justify-between mb-5">
               <div className="font-extrabold text-lg">Aktywne kody</div>
@@ -1971,9 +1938,6 @@
       );
     };
 
-    /* =======================
-        Schedule Placeholder View
-       ========================================================= */
     const ScheduleView = () => {
        return (
          <div className="p-4 md:p-6 pb-24 grid place-items-center min-h-[50vh]">
@@ -1999,12 +1963,11 @@
       const [ordersCount, setOrdersCount] = useState(0);
       const [alertOpen, setAlertOpen] = useState(false);
       const [alertOrder, setAlertOrder] = useState(null);
-      const [refreshSignal, setRefreshSignal] = useState(0); // For auto-refresh
+      const [refreshSignal, setRefreshSignal] = useState(0);
 
-      // Title Logic
       const titleData = {
         dashboard: { t: "Dashboard", s: "Przegląd statystyk" },
-        transactions: { t: "Transakcje", s: "Finanse i historia" },
+        transactions: { t: "Finanse", s: "PayU / Karta / Gotówka + okresy" },
         orders: { t: "Zamówienia", s: "Zarządzanie zamówieniami" },
         schedule: { t: "Harmonogram", s: "Planowane dostawy" },
         push: { t: "Powiadomienia", s: "Wysyłka PUSH" },
@@ -2014,7 +1977,6 @@
       };
       const curT = titleData[tab] || {t:"Panel",s:""};
 
-      // Alert Logic
       const acknowledge = () => {
         const o = alertOrder;
         if (o) {
@@ -2024,12 +1986,10 @@
         setAlertOpen(false);
         setAlertOrder(null);
         setTab("orders");
-        // Trigger list refresh
         setRefreshSignal(Date.now());
         toast.show("ok", "Powiadomienie", "Potwierdzono.");
       };
 
-      // Manual Test Logic
       const triggerTestAlert = () => {
           const miniOrder = { 
               extOrderId: "TEST-" + Math.floor(Math.random()*1000), 
@@ -2043,11 +2003,9 @@
           setAlertOpen(true);
       };
 
-      // SSE Live Updates & Notifications
       useEffect(() => {
         if (!token) return;
 
-        // 1. Poproś o zgodę na powiadomienia systemowe przy starcie
         if ("Notification" in window && Notification.permission !== "granted") {
            Notification.requestPermission();
         }
@@ -2062,13 +2020,9 @@
             
           es.addEventListener("new_order", (e) => {
               try {
-                  console.log("New Order Event Received:", e.data); // DEBUG
                   const d = JSON.parse(e.data);
-                  
-                  // 1. Force refresh of data
                   setRefreshSignal(Date.now());
                   
-                  // 2. Prepare Alert Data
                   const custName = (d.customer && typeof d.customer === 'object' ? d.customer.name : d.customer) || "Klient";
                   const miniOrder = {
                       extOrderId: d.extOrderId || "Nowe",
@@ -2079,11 +2033,9 @@
                       createdAt: new Date().toISOString() 
                   };
                   
-                  // 3. Trigger App Alert (Overlay)
                   setAlertOrder(miniOrder);
                   setAlertOpen(true);
 
-                  // 4. Trigger System Notification (Backup dla dźwięku)
                   if ("Notification" in window && Notification.permission === "granted") {
                       new Notification("NOWE ZAMÓWIENIE!", {
                         body: `Kwota: ${d.totalPLN || "?"} zł | Klient: ${custName}`,
@@ -2093,7 +2045,6 @@
 
               } catch (err) {
                   console.error("SSE Parse Error:", err, e.data);
-                  // Fallback
                   setAlertOrder({ extOrderId: "BŁĄD", customer: { imieNazwisko: "Sprawdź listę" }, totalPLN: 0 });
                   setAlertOpen(true);
                   if ("Notification" in window && Notification.permission === "granted") {
@@ -2102,7 +2053,7 @@
               }
           });
 
-          es.addEventListener("order_update", (e) => {
+          es.addEventListener("order_update", () => {
               setRefreshSignal(Date.now());
           });
             
@@ -2121,14 +2072,12 @@
         <div className="min-h-screen pb-[env(safe-area-inset-bottom)]">
           <NewOrderOverlay open={alertOpen} orderPreview={alertOrder} onAcknowledge={acknowledge} />
           <div className={alertOpen ? "no-interact blur-sm" : ""}>
-              
-            {/* Desktop Sidebar */}
             <aside className="hidden lg:block fixed inset-y-0 left-0 w-[var(--sidebar-w)] p-4 z-50">
                <div className="bg-white/90 border border-white/60 shadow-glass rounded-[2rem] h-full flex flex-col p-5 backdrop-blur-xl">
                  <Logo />
                  <div className="mt-8 space-y-2 flex-1 overflow-y-auto">
                    <NavItem active={tab==="dashboard"} icon="layout-dashboard" label="Dashboard" onClick={()=>setTab("dashboard")} />
-                   <NavItem active={tab==="transactions"} icon="wallet" label="Transakcje" onClick={()=>setTab("transactions")} />
+                   <NavItem active={tab==="transactions"} icon="wallet" label="Finanse" onClick={()=>setTab("transactions")} />
                    <NavItem active={tab==="orders"} icon="clipboard-list" label="Zamówienia" badge={ordersCount} onClick={()=>setTab("orders")} />
                    <NavItem active={tab==="menu_lunch"} icon="utensils" label="Menu Lunche" onClick={()=>setTab("menu_lunch")} />
                    <NavItem active={tab==="promocodes"} icon="tags" label="Kody Rabatowe" onClick={()=>setTab("promocodes")} />
@@ -2144,7 +2093,6 @@
                </div>
             </aside>
 
-            {/* Mobile/Tablet Tab Bar (Top) */}
             <div className="lg:hidden px-4 pt-4 pb-0">
                <div className="bg-white/90 border border-white/60 shadow-soft rounded-2xl p-2 grid grid-cols-5 gap-1 backdrop-blur-md">
                  {[
@@ -2178,7 +2126,7 @@
                     <Orders 
                         token={token} 
                         setOrdersCount={setOrdersCount} 
-                        onNewOrderDetected={(o) => { /* handled by SSE now but kept for legacy checks */ }} 
+                        onNewOrderDetected={(o) => {}} 
                         refreshSignal={refreshSignal}
                     />
                 )}
