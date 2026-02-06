@@ -2862,18 +2862,26 @@
         };
 
         const handleKeyDown = (e) => {
-          if (e.key === 'F12') {
+          const key = e.key.toLowerCase();
+          
+          if (key === 'f12') {
             e.preventDefault();
+            window.location.href = "https://www.google.com";
             return;
           }
-          if ((e.ctrlKey && e.shiftKey && ['I', 'J', 'C', 'i', 'j', 'c'].includes(e.key)) ||
-              (e.metaKey && e.altKey && ['I', 'J', 'C', 'i', 'j', 'c'].includes(e.key))) {
+
+          if (
+            ((e.ctrlKey && e.shiftKey) || (e.metaKey && e.altKey)) &&
+            ['i', 'j', 'c'].includes(key)
+          ) {
             e.preventDefault();
+            window.location.href = "https://www.google.com";
             return;
           }
-          if ((e.ctrlKey && ['U', 'u'].includes(e.key)) ||
-              (e.metaKey && ['U', 'u'].includes(e.key))) {
+
+          if ((e.ctrlKey || e.metaKey) && key === 'u') {
             e.preventDefault();
+            window.location.href = "https://www.google.com";
             return;
           }
         };
