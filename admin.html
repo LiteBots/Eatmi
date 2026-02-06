@@ -59,22 +59,20 @@
       --sidebar-w: 280px;
     }
     html, body { height: 100%; width: 100%; }
-    body { 
-      overscroll-behavior-y: none; 
+    body {
+      overscroll-behavior-y: none;
       -webkit-tap-highlight-color: transparent;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
 
     .liquid { background: rgba(255,255,255,.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
-      
-    /* Input focus ring adjustment */
-    .input-focus { outline: none; transition: box-shadow 0.2s; font-size: 16px; /* Prevents iOS zoom */ }
+
+    .input-focus { outline: none; transition: box-shadow 0.2s; font-size: 16px; }
     .input-focus:focus { box-shadow: 0 0 0 3px rgba(255,193,7,.35); border-color: rgba(255,193,7,.75); }
-      
+
     .toast-enter { animation: toastIn .25s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
     @keyframes toastIn { from { transform: translateY(20px) scale(0.95); opacity: 0 } to { transform: translateY(0) scale(1); opacity: 1 } }
 
-    /* Subtle background pattern */
     .bg-soft {
       background:
         radial-gradient(900px 500px at 20% -10%, rgba(255,193,7,.18), transparent 55%),
@@ -84,38 +82,28 @@
       background-attachment: fixed;
     }
 
-    /* Drawer scroll & fix */
     .drawer-scroll { max-height: calc(100vh - 80px); overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: calc(20px + var(--safe-b)); }
 
-    /* Flashing alert */
-    .flash-active {
-        animation: flashBg 0.6s infinite alternate;
-    }
-    @keyframes flashBg {
-        0% { background-color: #ffffff; }
-        100% { background-color: #FFC107; }
-    }
+    .flash-active { animation: flashBg 0.6s infinite alternate; }
+    @keyframes flashBg { 0% { background-color: #ffffff; } 100% { background-color: #FFC107; } }
 
     .no-interact { pointer-events: none; user-select: none; filter: blur(2px); }
 
-    /* iOS/Safari fixed centering helpers */
     .ios-fixed {
       position: fixed;
       inset: 0;
       width: 100vw;
       height: 100vh;
-      height: 100dvh; /* Dynamic viewport height for mobile browsers */
+      height: 100dvh;
     }
 
-    /* Custom Scrollbar for desktop */
     @media (min-width: 1024px) {
       ::-webkit-scrollbar { width: 8px; height: 8px; }
       ::-webkit-scrollbar-track { background: transparent; }
       ::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 4px; }
       ::-webkit-scrollbar-thumb:hover { background: #D1D5DB; }
     }
-      
-    /* Animations */
+
     @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
     .animate-slideInRight { animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -133,10 +121,6 @@
   <script type="text/babel">
     const { useEffect, useMemo, useRef, useState, useCallback } = React;
 
-    /* =========================================================
-        API CONFIG
-       ========================================================= */
-
     const API = {
       login: "/api/admin/login",
       stats: "/api/admin/stats",
@@ -146,10 +130,6 @@
       events: "/api/admin/stream",
       promocodes: "/api/admin/promocodes",
     };
-
-    /* =======================
-        Utils
-       ========================================================= */
 
     const toNumber = (v) => {
       if (v === null || v === undefined) return 0;
@@ -211,7 +191,7 @@
       const o = order || {};
       const pmRaw = o.paymentMethod || o.paymentType || o.method || null;
       const pm = String(pmRaw || "").trim().toLowerCase();
-        
+
       if (pm.includes("cash") || pm === "gotowka" || pm === "gotówka") {
         return { kind: "offline_cash", label: "Gotówka przy odbiorze", badge: "GOTÓWKA" };
       }
@@ -257,46 +237,42 @@
         return d.toLocaleString("pl-PL");
       } catch { return String(iso); }
     };
-      
-    /* =======================
-        Icons (Font Awesome Adapter)
-       ========================================================= */
-      
+
     const ICON_MAP = {
-        "layout-dashboard": "fa-table-columns",
-        "clipboard-list": "fa-clipboard-list",
-        "megaphone": "fa-bullhorn",
-        "users": "fa-users",
-        "log-out": "fa-right-from-bracket",
-        "search": "fa-magnifying-glass",
-        "refresh-cw": "fa-rotate",
-        "check": "fa-check",
-        "x": "fa-xmark",
-        "eye": "fa-eye",
-        "trash-2": "fa-trash",
-        "send": "fa-paper-plane",
-        "chevron-right": "fa-chevron-right",
-        "user-plus": "fa-user-plus",
-        "bell-ring": "fa-bell",
-        "calendar-clock": "fa-calendar-plus",
-        "utensils": "fa-utensils",
-        "edit": "fa-pen-to-square",
-        "image": "fa-image",
-        "file-text": "fa-file-lines",
-        "tags": "fa-tags",
-        "shopping-bag": "fa-bag-shopping",
-        "calendar": "fa-calendar-days",
-        "wallet": "fa-wallet",
-        "banknote": "fa-money-bill-wave",
-        "credit-card": "fa-credit-card",
-        "chart-line": "fa-chart-line",
-        "circle-dashed": "fa-circle-notch",
-        "check-circle-2": "fa-circle-check",
-        "check-circle": "fa-circle-check",
-        "clock-3": "fa-clock",
-        "x-circle": "fa-circle-xmark",
-        "bike": "fa-bicycle",
-        "chef-hat": "fa-utensils",
+      "layout-dashboard": "fa-table-columns",
+      "clipboard-list": "fa-clipboard-list",
+      "megaphone": "fa-bullhorn",
+      "users": "fa-users",
+      "log-out": "fa-right-from-bracket",
+      "search": "fa-magnifying-glass",
+      "refresh-cw": "fa-rotate",
+      "check": "fa-check",
+      "x": "fa-xmark",
+      "eye": "fa-eye",
+      "trash-2": "fa-trash",
+      "send": "fa-paper-plane",
+      "chevron-right": "fa-chevron-right",
+      "user-plus": "fa-user-plus",
+      "bell-ring": "fa-bell",
+      "calendar-clock": "fa-calendar-plus",
+      "utensils": "fa-utensils",
+      "edit": "fa-pen-to-square",
+      "image": "fa-image",
+      "file-text": "fa-file-lines",
+      "tags": "fa-tags",
+      "shopping-bag": "fa-bag-shopping",
+      "calendar": "fa-calendar-days",
+      "wallet": "fa-wallet",
+      "banknote": "fa-money-bill-wave",
+      "credit-card": "fa-credit-card",
+      "chart-line": "fa-chart-line",
+      "circle-dashed": "fa-circle-notch",
+      "check-circle-2": "fa-circle-check",
+      "check-circle": "fa-circle-check",
+      "clock-3": "fa-clock",
+      "x-circle": "fa-circle-xmark",
+      "bike": "fa-bicycle",
+      "chef-hat": "fa-utensils",
     };
 
     const Icon = ({ name, className="" }) => {
@@ -304,9 +280,6 @@
       return <i className={`fa-solid ${faClass} ${className}`}></i>;
     };
 
-    /* =======================
-        Toast
-       ========================================================= */
     const ToastContext = React.createContext();
     const useToast = () => React.useContext(ToastContext);
 
@@ -359,9 +332,6 @@
       );
     };
 
-    /* =======================
-        Components: Shell
-       ========================================================= */
     const Logo = () => (
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-2xl bg-white border border-gray-200 shadow-soft grid place-items-center overflow-hidden shrink-0">
@@ -410,9 +380,6 @@
       );
     };
 
-    /* =======================
-        Improved Audio Alert (ROBUST & AGGRESSIVE)
-       ========================================================= */
     const useBeep = () => {
       const audioRef = useRef(null);
 
@@ -423,7 +390,7 @@
               ctx.resume().catch(() => {});
             }
         };
-        
+
         document.addEventListener('click', unlock);
         document.addEventListener('touchstart', unlock);
         return () => {
@@ -450,7 +417,7 @@
         if (s.interval) return;
 
         if (s.ctx.state === 'suspended') {
-              s.ctx.resume().catch(e => console.error("Force resume failed", e));
+              s.ctx.resume().catch(() => {});
         }
 
         const playTone = () => {
@@ -459,11 +426,11 @@
 
             const osc = s.ctx.createOscillator();
             const g = s.ctx.createGain();
-            
-            osc.type = "sawtooth"; 
+
+            osc.type = "sawtooth";
             osc.frequency.setValueAtTime(880, s.ctx.currentTime);
             osc.frequency.exponentialRampToValueAtTime(440, s.ctx.currentTime + 0.5);
-            
+
             const now = s.ctx.currentTime;
             g.gain.setValueAtTime(0.5, now);
             g.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
@@ -473,7 +440,7 @@
 
             osc.start(now);
             osc.stop(now + 0.5);
-          } catch(e) { console.error("Tone error", e); }
+          } catch(e) {}
         };
 
         playTone();
@@ -491,9 +458,6 @@
       return { start, stop };
     };
 
-    /* =======================
-        New Order Overlay (FIXED)
-       ========================================================= */
     const NewOrderOverlay = ({ open, orderPreview, onAcknowledge }) => {
       const { start, stop } = useBeep();
 
@@ -579,9 +543,6 @@
       );
     };
 
-    /* =======================
-        Login
-       ========================================================= */
     const Key = ({ label, onClick, variant="default" }) => {
       const base = "w-full h-16 sm:h-14 rounded-2xl border shadow-soft font-extrabold text-xl active:scale-[0.95] transition touch-manipulation";
       const styles =
@@ -643,7 +604,6 @@
           toast.show("ok", "Logowanie", "Zalogowano.");
           onAuth(data.token);
         } catch (e) {
-          console.log(e);
           toast.show("error", "Logowanie", "Błąd połączenia z serwerem.");
           setPin("");
         } finally {
@@ -688,9 +648,6 @@
       );
     };
 
-    /* =======================
-        Layout
-       ========================================================= */
     const NavItem = ({ active, icon, label, onClick, badge }) => (
       <button
         type="button"
@@ -745,7 +702,9 @@
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold">{title}</div>
-            <div className="mt-1 md:mt-2 text-2xl md:text-3xl font-black tracking-tight text-gray-900">{loading ? <Skeleton className="h-9 w-32" /> : value}</div>
+            <div className="mt-1 md:mt-2 text-2xl md:text-3xl font-black tracking-tight text-gray-900">
+              {loading ? <Skeleton className="h-9 w-32" /> : value}
+            </div>
             {hint && <div className="text-[11px] md:text-xs text-gray-500 mt-1">{hint}</div>}
           </div>
           <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-brand-yellow/20 border border-brand-yellow/30 grid place-items-center shrink-0">
@@ -755,17 +714,10 @@
       </div>
     );
 
-    /* =======================
-        Dashboard
-       ========================================================= */
     const Dashboard = ({ token, refreshSignal }) => {
       const toast = useToast();
       const [loading, setLoading] = useState(true);
-      const [stats, setStats] = useState({ 
-          ordersTotal: 0, 
-          ordersToday: 0, 
-          usersTotal: 0 
-      });
+      const [stats, setStats] = useState({ ordersTotal: 0, ordersToday: 0, usersTotal: 0 });
 
       const load = async (opts={}) => {
         const { silent=false } = opts;
@@ -778,14 +730,13 @@
             if(!silent) setLoading(false);
             return;
           }
-            
+
           setStats({
             ordersTotal: Number(data.ordersTotal || 0),
             ordersToday: Number(data.ordersToday || 0),
             usersTotal: Number(data.usersTotal || 0),
           });
         } catch (e) {
-          console.log(e);
           if(!silent) toast.show("error", "Dashboard", "Błąd połączenia.");
         } finally {
           if(!silent) setLoading(false);
@@ -816,9 +767,6 @@
       );
     };
 
-    /* =======================
-        Transactions (NEW LAYOUT: by period rows)
-       ========================================================= */
     const Transactions = ({ token }) => {
       const toast = useToast();
       const [loading, setLoading] = useState(true);
@@ -829,7 +777,11 @@
          try {
            const r = await fetch(API.orders, { headers: { ...authHeader(token) } });
            const data = await safeJson(r);
-           if (!r.ok) return toast.show("error", "Transakcje", "Błąd pobierania");
+           if (!r.ok) {
+             toast.show("error", "Transakcje", "Błąd pobierania");
+             setLoading(false);
+             return;
+           }
            setOrders(Array.isArray(data.orders) ? data.orders : []);
          } catch(e) {
            toast.show("error", "Transakcje", "Błąd sieci");
@@ -842,139 +794,109 @@
 
       const stats = useMemo(() => {
         const now = new Date();
+        const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
+        const todayEnd = new Date(now); todayEnd.setHours(23,59,59,999);
 
-        // Today boundaries
-        const startToday = new Date(now);
-        startToday.setHours(0,0,0,0);
-        const endToday = new Date(now);
-        endToday.setHours(23,59,59,999);
+        const year = now.getFullYear();
+        const month = now.getMonth();
 
-        // Week (Mon-Sun)
-        const day = now.getDay(); // 0 Sun, 1 Mon ... 6 Sat
-        const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
-        const startWeek = new Date(now);
-        startWeek.setDate(diff);
-        startWeek.setHours(0,0,0,0);
-        const endWeek = new Date(startWeek);
-        endWeek.setDate(startWeek.getDate() + 6);
-        endWeek.setHours(23,59,59,999);
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+        const weekStart = new Date(now);
+        weekStart.setDate(diff);
+        weekStart.setHours(0,0,0,0);
 
-        // Month
-        const startMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0,0,0,0);
-        const endMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23,59,59,999);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23,59,59,999);
 
-        // Year
-        const startYear = new Date(now.getFullYear(), 0, 1, 0,0,0,0);
-        const endYear = new Date(now.getFullYear(), 11, 31, 23,59,59,999);
+        const make = () => ({ payu: 0, card: 0, cash: 0, total: 0 });
+        const out = { today: make(), week: make(), month: make(), year: make(), allTime: make() };
 
-        const bucket = () => ({ payu: 0, card: 0, cash: 0, total: 0 });
-
-        const out = {
-          today: bucket(),
-          week: bucket(),
-          month: bucket(),
-          year: bucket(),
-          all: bucket(),
-          grandAllTime: 0, // łączny zarobek z wszystkich metod od początku
-        };
-
-        const addTo = (b, kind, val) => {
-          if (!b) return;
-          if (kind === "online") b.payu += val;
-          else if (kind === "offline_card") b.card += val;
-          else if (kind === "offline_cash") b.cash += val;
-          b.total += val;
+        const add = (bucket, kind, val) => {
+          if (kind === "online") bucket.payu += val;
+          else if (kind === "offline_card") bucket.card += val;
+          else if (kind === "offline_cash") bucket.cash += val;
+          bucket.total += val;
         };
 
         orders.forEach(o => {
-          const created = pickCreatedAt(o);
-          const date = created ? new Date(created) : null;
+          const dateRaw = pickCreatedAt(o);
+          const date = dateRaw ? new Date(dateRaw) : null;
           const val = getOrderTotalPLN(o);
-          const pay = resolvePayment(o);
+          const p = resolvePayment(o);
 
-          // all time
-          addTo(out.all, pay.kind, val);
-          out.grandAllTime += val;
+          add(out.allTime, p.kind, val);
 
-          if (!date || !Number.isFinite(date.getTime())) return;
-
-          // today
-          if (date >= startToday && date <= endToday) addTo(out.today, pay.kind, val);
-
-          // week
-          if (date >= startWeek && date <= endWeek) addTo(out.week, pay.kind, val);
-
-          // month
-          if (date >= startMonth && date <= endMonth) addTo(out.month, pay.kind, val);
-
-          // year
-          if (date >= startYear && date <= endYear) addTo(out.year, pay.kind, val);
+          if (date && date >= todayStart && date <= todayEnd) add(out.today, p.kind, val);
+          if (date && date >= weekStart && date <= weekEnd) add(out.week, p.kind, val);
+          if (date && date.getFullYear() === year && date.getMonth() === month) add(out.month, p.kind, val);
+          if (date && date.getFullYear() === year) add(out.year, p.kind, val);
         });
 
         return out;
       }, [orders]);
 
-      const PeriodBlock = ({ label, data }) => (
-        <div className="bg-white border border-gray-200 rounded-3xl shadow-soft p-5 md:p-6">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold">FINANSE</div>
-              <div className="text-xl font-black">{label}</div>
-            </div>
-            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-[10px] uppercase tracking-[0.18em] font-black text-gray-600">
-              PayU • Karta • Gotówka • Total
-            </span>
-          </div>
+      const PeriodRow = ({ label, data }) => {
+        const cards = [
+          { title: "PayU", value: currency(data.payu), icon: "credit-card", hint: "Online" },
+          { title: "Karta", value: currency(data.card), icon: "wallet", hint: "Przy odbiorze" },
+          { title: "Gotówka", value: currency(data.cash), icon: "banknote", hint: "Przy odbiorze" },
+          { title: "Total", value: currency(data.total), icon: "chart-line", hint: "Suma" },
+        ];
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
-              <div className="text-[10px] uppercase tracking-[0.16em] font-black text-gray-500">PayU (online)</div>
-              <div className="mt-1 text-2xl font-black text-gray-900">{loading ? "..." : currency(data.payu)}</div>
+        return (
+          <div className="mb-8">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div className="font-extrabold text-lg">{label}</div>
+              <div className="text-xs text-gray-500 font-semibold">PayU · Karta · Gotówka · Total</div>
             </div>
-            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
-              <div className="text-[10px] uppercase tracking-[0.16em] font-black text-gray-500">Karta (odbiór)</div>
-              <div className="mt-1 text-2xl font-black text-gray-900">{loading ? "..." : currency(data.card)}</div>
+
+            <div className="lg:hidden -mx-4 px-4">
+              <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scroll-smooth">
+                {cards.map((c, i) => (
+                  <div key={i} className="min-w-[240px] snap-start">
+                    <Card title={c.title} value={loading ? "..." : c.value} icon={c.icon} loading={false} hint={c.hint} />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 text-[11px] text-gray-500 font-medium">Przesuń palcem w bok, aby zobaczyć więcej.</div>
             </div>
-            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
-              <div className="text-[10px] uppercase tracking-[0.16em] font-black text-gray-500">Gotówka (odbiór)</div>
-              <div className="mt-1 text-2xl font-black text-gray-900">{loading ? "..." : currency(data.cash)}</div>
-            </div>
-            <div className="bg-gray-900 border border-black/10 rounded-2xl p-4 text-white">
-              <div className="text-[10px] uppercase tracking-[0.16em] font-black text-gray-300">Total</div>
-              <div className="mt-1 text-2xl font-black text-brand-yellow">{loading ? "..." : currency(data.total)}</div>
+
+            <div className="hidden lg:grid grid-cols-4 gap-4">
+              {cards.map((c, i) => (
+                <Card key={i} title={c.title} value={loading ? "..." : c.value} icon={c.icon} loading={false} hint={c.hint} />
+              ))}
             </div>
           </div>
-        </div>
-      );
+        );
+      };
 
       return (
-        <div className="p-4 md:p-6 pb-24 space-y-6">
-          <div className="flex items-center justify-between">
+        <div className="p-4 md:p-6 pb-24">
+          <div className="flex items-center justify-between mb-8">
             <h2 className="text-xl font-extrabold">Finanse</h2>
-            <button onClick={load} className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2 shadow-soft hover:bg-gray-50 active:scale-95 transition font-extrabold text-xs">
-              <Icon name="refresh-cw" className="w-4 h-4" /> Odśwież
+            <button onClick={load} className="p-2 bg-white border border-gray-200 rounded-xl shadow-sm hover:bg-gray-50">
+              <Icon name="refresh-cw" className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Wiersze okresów: Dziś / Tydzień / Miesiąc / Rok */}
-          <PeriodBlock label="Dziś" data={stats.today} />
-          <PeriodBlock label="Ten tydzień" data={stats.week} />
-          <PeriodBlock label="Ten miesiąc" data={stats.month} />
-          <PeriodBlock label="Ten rok" data={stats.year} />
+          <PeriodRow label="Dziś" data={stats.today} />
+          <PeriodRow label="Ten tydzień" data={stats.week} />
+          <PeriodRow label="Ten miesiąc" data={stats.month} />
+          <PeriodRow label="Ten rok" data={stats.year} />
 
-          {/* Łączny zarobek od początku */}
-          <div className="bg-gray-900 rounded-3xl p-6 md:p-8 shadow-kiosk text-white flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="mt-10 bg-gray-900 rounded-3xl p-6 md:p-8 shadow-kiosk text-white flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
               <div className="text-sm font-bold uppercase tracking-[0.2em] text-gray-400 mb-2">Łączny zarobek z wszystkich metod od początku</div>
-              <div className="text-xs text-gray-500">Suma (PayU + Karta + Gotówka) z całej historii sprzedaży.</div>
+              <div className="text-xs text-gray-500">Suma (PayU + Gotówka + Karta) z całej historii sprzedaży.</div>
             </div>
             <div className="text-4xl md:text-5xl font-black text-brand-yellow tracking-tight">
-              {loading ? "..." : currency(stats.grandAllTime)}
+              {loading ? "..." : currency(stats.allTime.total)}
             </div>
           </div>
 
-          {/* Ostatnie transakcje */}
-          <div className="bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
+          <div className="mt-12 bg-white border border-gray-200 rounded-3xl shadow-soft overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 font-extrabold text-sm uppercase tracking-wide text-gray-500">Ostatnie transakcje</div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -988,30 +910,25 @@
                 <tbody className="divide-y divide-gray-100">
                   {loading ? [1,2].map(i => (
                     <tr key={i}><td colSpan="3" className="p-4"><Skeleton className="h-6 w-full" /></td></tr>
-                  )) : (
-                    orders.slice(0, 8).map((o, idx) => {
-                      const pay = resolvePayment(o);
-                      return (
-                        <tr key={idx} className="hover:bg-gray-50 transition">
-                          <td className="px-6 py-3 text-sm font-bold text-gray-900">{o.customer?.imieNazwisko || "—"}</td>
-                          <td className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">{pay.badge}</td>
-                          <td className="px-6 py-3 text-sm font-black text-right">{currency(getOrderTotalPLN(o))}</td>
-                        </tr>
-                      );
-                    })
-                  )}
+                  )) :
+                  orders.slice(0, 5).map((o, idx) => {
+                    const pay = resolvePayment(o);
+                    return (
+                      <tr key={idx} className="hover:bg-gray-50 transition">
+                        <td className="px-6 py-3 text-sm font-bold text-gray-900">{o.customer?.imieNazwisko || "—"}</td>
+                        <td className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">{pay.badge}</td>
+                        <td className="px-6 py-3 text-sm font-black text-right">{currency(getOrderTotalPLN(o))}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
-
         </div>
       );
     };
 
-    /* =======================
-        Orders & Details
-       ========================================================= */
     const StatusPill = ({ status }) => {
       const s = String(status || "").toLowerCase();
       const cls =
@@ -1041,7 +958,7 @@
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
       }, [open, onClose]);
-        
+
       if (!open) return null;
 
       return (
@@ -1092,13 +1009,13 @@
           if (c.deliveryTime) return `${method}: ${c.deliveryTime}`;
           return null;
       };
-      
+
       const deliveryString = getDeliveryDate();
 
       const productsValue = cart.reduce((sum, item) => {
          return sum + (getItemUnitPricePLN(item) * (item.qty || 1));
       }, 0);
-        
+
       let deliveryCost = 0;
       if (productsValue < 50) deliveryCost = 10;
       else if (productsValue < 80) deliveryCost = 5;
@@ -1118,7 +1035,6 @@
           toast.show("ok", "Status", `Zmieniono na: ${newStatus}`);
           onRefresh?.();
         } catch (e) {
-          console.error(e);
           toast.show("error", "Błąd", "Nie udało się zmienić statusu");
         } finally {
           setUpdating(false);
@@ -1140,7 +1056,7 @@
               </div>
             </div>
           )}
-            
+
           <div className="bg-white border border-gray-200 rounded-3xl p-5 shadow-sm">
             <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold mb-3">Akcje (Zmień status)</div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -1199,12 +1115,12 @@
                 const name = resolveProductName(it);
                 const unitPricePLN = getItemUnitPricePLN(it);
                 const linePLN = unitPricePLN * qty;
-                 
+
                 return (
                   <div key={i} className="border border-gray-200 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="font-bold text-gray-900 text-sm leading-tight">{name}</div>
-                        
+
                       {Array.isArray(it.addons) && it.addons.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">
                           {it.addons.map((a, idx) => (
@@ -1262,7 +1178,7 @@
       const date = fmtDate(pickCreatedAt(o));
 
       return (
-        <div 
+        <div
           onClick={() => onSelect(o)}
           className="bg-white border border-gray-200 rounded-3xl p-4 shadow-soft active:scale-[0.98] transition cursor-pointer relative overflow-hidden group"
         >
@@ -1289,7 +1205,7 @@
 
     const STORAGE_LAST_ACK = "eatmi-admin-last-ack-v2";
 
-    const Orders = ({ token, onNewOrderDetected, setOrdersCount, refreshSignal }) => {
+    const Orders = ({ token, setOrdersCount, refreshSignal }) => {
       const toast = useToast();
       const [loading, setLoading] = useState(true);
       const [orders, setOrders] = useState([]);
@@ -1320,17 +1236,7 @@
               const updatedSelected = list.find(o => o.extOrderId === selected.extOrderId);
               if(updatedSelected) setSelected(updatedSelected);
           }
-
-          const newest = list[0];
-          if (newest) {
-            const newestKey = String(newest.extOrderId);
-            const rawAck = localStorage.getItem(STORAGE_LAST_ACK) || "";
-            if (newestKey !== rawAck) {
-              onNewOrderDetected?.(newest);
-            }
-          }
         } catch (e) {
-          console.log(e);
           if (!silent) toast.show("error", "Zamówienia", "Błąd sieci.");
         } finally {
           if (!silent) setLoading(false);
@@ -1430,9 +1336,6 @@
       );
     };
 
-    /* =======================
-        Lunch Manager (Menu Editor)
-       ========================================================= */
     const LunchManager = ({ token }) => {
       const toast = useToast();
       const [loading, setLoading] = useState(true);
@@ -1497,7 +1400,7 @@
           });
 
           if (!r.ok) throw new Error("Błąd zapisu");
-          
+
           toast.show("ok", "Menu", "Zapisano zmiany!");
           setEditingItem(null);
           load();
@@ -1525,13 +1428,13 @@
                       {currency(lunch.price / 100)}
                     </div>
                   </div>
-                  
+
                   <div className="p-5 flex-1 flex flex-col">
                     <div className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1">ID: {lunch.id}</div>
                     <h3 className="text-lg font-extrabold text-gray-900 leading-tight mb-2">{lunch.name}</h3>
                     <p className="text-sm text-gray-600 line-clamp-3 mb-4 flex-1">{lunch.description}</p>
-                    
-                    <button 
+
+                    <button
                       onClick={() => openEdit(lunch)}
                       className="mt-auto w-full flex items-center justify-center gap-2 bg-gray-50 border border-gray-200 hover:bg-brand-yellow hover:border-brand-yellow/50 hover:text-gray-900 text-gray-600 font-bold py-3 rounded-2xl transition"
                     >
@@ -1551,8 +1454,8 @@
                   <div className="w-20 h-20 rounded-2xl bg-gray-100 border border-gray-200 overflow-hidden shrink-0">
                     {form.image ? <img src={form.image} className="w-full h-full object-cover" onError={(e)=>e.target.style.display='none'} /> : <div className="grid place-items-center h-full"><Icon name="image" className="text-gray-300"/></div>}
                   </div>
-                  <textarea 
-                    value={form.image} 
+                  <textarea
+                    value={form.image}
                     onChange={e => setForm({...form, image: e.target.value})}
                     className="input-focus flex-1 bg-white border border-gray-200 rounded-2xl px-4 py-3 text-sm"
                     placeholder="https://imgur.com/..."
@@ -1562,8 +1465,8 @@
 
               <div>
                 <label className="block text-xs uppercase font-extrabold text-gray-500 mb-2 ml-1">Nazwa wyświetlana</label>
-                <input 
-                  value={form.name} 
+                <input
+                  value={form.name}
                   onChange={e => setForm({...form, name: e.target.value})}
                   className="input-focus w-full bg-white border border-gray-200 rounded-2xl px-4 py-3.5 font-bold text-gray-900"
                 />
@@ -1572,10 +1475,10 @@
               <div>
                 <label className="block text-xs uppercase font-extrabold text-gray-500 mb-2 ml-1">Cena (PLN)</label>
                 <div className="relative">
-                  <input 
+                  <input
                     type="number"
                     step="0.01"
-                    value={form.pricePLN} 
+                    value={form.pricePLN}
                     onChange={e => setForm({...form, pricePLN: e.target.value})}
                     className="input-focus w-full bg-white border border-gray-200 rounded-2xl pl-4 pr-12 py-3.5 font-mono text-lg font-bold"
                   />
@@ -1585,15 +1488,15 @@
 
               <div>
                 <label className="block text-xs uppercase font-extrabold text-gray-500 mb-2 ml-1">Opis / Składniki</label>
-                <textarea 
-                  value={form.description} 
+                <textarea
+                  value={form.description}
                   onChange={e => setForm({...form, description: e.target.value})}
                   className="input-focus w-full bg-white border border-gray-200 rounded-2xl px-4 py-3.5 min-h-[120px]"
                   placeholder="Opisz co wchodzi w skład zestawu..."
                 />
               </div>
 
-              <button 
+              <button
                 onClick={save}
                 disabled={saving}
                 className="w-full bg-gray-900 text-white font-extrabold rounded-2xl py-4 shadow-glass hover:bg-black active:scale-[0.98] transition mt-4"
@@ -1606,9 +1509,6 @@
       );
     };
 
-    /* =======================
-        ✅ PROMO CODES COMPONENT
-       ========================================================= */
     const PromoCodes = ({ token }) => {
       const toast = useToast();
       const [codes, setCodes] = useState([]);
@@ -1658,7 +1558,7 @@
           });
           const d = await safeJson(r);
           if(!r.ok) throw new Error(d.error || "Błąd");
-          
+
           toast.show("ok", "Kody", "Utworzono kod!");
           setForm({ code: "", discountPercent: "", durationMinutes: "1440", usageLimit: "" });
           load();
@@ -1684,27 +1584,27 @@
               <div className="w-10 h-10 rounded-xl bg-brand-yellow/20 grid place-items-center"><Icon name="tags" className="w-5 h-5 text-gray-900" /></div>
               <div className="font-extrabold text-lg">Nowy Kod</div>
             </div>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-gray-500 uppercase ml-1">Nazwa kodu</label>
-                <input 
-                  className="input-focus w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-base font-bold uppercase tracking-wider" 
-                  placeholder="np. FERIE2026" 
-                  value={form.code} 
-                  onChange={e=>setForm({...form, code: e.target.value.toUpperCase()})} 
+                <input
+                  className="input-focus w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-base font-bold uppercase tracking-wider"
+                  placeholder="np. FERIE2026"
+                  value={form.code}
+                  onChange={e=>setForm({...form, code: e.target.value.toUpperCase()})}
                 />
               </div>
 
               <div>
                 <label className="text-xs font-bold text-gray-500 uppercase ml-1">Rabat (%)</label>
                 <div className="relative">
-                  <input 
-                    type="number" 
-                    className="input-focus w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-base font-mono" 
-                    placeholder="np. 5" 
-                    value={form.discountPercent} 
-                    onChange={e=>setForm({...form, discountPercent: e.target.value})} 
+                  <input
+                    type="number"
+                    className="input-focus w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-base font-mono"
+                    placeholder="np. 5"
+                    value={form.discountPercent}
+                    onChange={e=>setForm({...form, discountPercent: e.target.value})}
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-gray-400">%</span>
                 </div>
@@ -1712,7 +1612,7 @@
 
               <div>
                 <label className="text-xs font-bold text-gray-500 uppercase ml-1">Czas trwania</label>
-                <select 
+                <select
                   className="input-focus w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-base"
                   value={form.durationMinutes}
                   onChange={e=>setForm({...form, durationMinutes: e.target.value})}
@@ -1723,18 +1623,18 @@
 
               <div>
                 <label className="text-xs font-bold text-gray-500 uppercase ml-1">Limit użyć (opcjonalne)</label>
-                <input 
+                <input
                   type="number"
-                  className="input-focus w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-base font-mono" 
-                  placeholder="Puste = nielimitowany" 
-                  value={form.usageLimit} 
-                  onChange={e=>setForm({...form, usageLimit: e.target.value})} 
+                  className="input-focus w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-base font-mono"
+                  placeholder="Puste = nielimitowany"
+                  value={form.usageLimit}
+                  onChange={e=>setForm({...form, usageLimit: e.target.value})}
                 />
               </div>
 
-              <button 
-                onClick={create} 
-                disabled={creating} 
+              <button
+                onClick={create}
+                disabled={creating}
                 className="w-full bg-gray-900 text-white font-extrabold rounded-2xl py-3.5 shadow-glass hover:bg-gray-800 active:scale-[0.98] transition mt-2"
               >
                 {creating ? "Tworzenie..." : "Utwórz Kod"}
@@ -1753,7 +1653,7 @@
                 const isExpired = new Date(c.expiresAt) < new Date();
                 const isLimitReached = c.usageLimit !== null && c.usedCount >= c.usageLimit;
                 const statusColor = isExpired || isLimitReached ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700";
-                
+
                 return (
                   <div key={c._id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-gray-200 rounded-2xl gap-3">
                     <div>
@@ -1777,14 +1677,10 @@
               })}
             </div>
           </div>
-
         </div>
       );
     };
 
-    /* =======================
-        Push
-       ========================================================= */
     const Push = ({ token }) => {
       const toast = useToast();
       const [title, setTitle] = useState("");
@@ -1825,25 +1721,25 @@
             <div className="space-y-4">
               <div>
                 <label className="block text-xs uppercase font-extrabold text-gray-500 mb-2 ml-1">Tytuł</label>
-                <input 
-                  className="input-focus w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-base" 
-                  placeholder="np. Promocja na lunch" 
-                  value={title} 
-                  onChange={e => setTitle(e.target.value)} 
+                <input
+                  className="input-focus w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-base"
+                  placeholder="np. Promocja na lunch"
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
                 />
               </div>
               <div>
                 <label className="block text-xs uppercase font-extrabold text-gray-500 mb-2 ml-1">Treść</label>
-                <textarea 
-                  className="input-focus w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 min-h-[140px] text-base" 
-                  placeholder="Wpisz tutaj treść powiadomienia..." 
-                  value={body} 
-                  onChange={e => setBody(e.target.value)} 
+                <textarea
+                  className="input-focus w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 min-h-[140px] text-base"
+                  placeholder="Wpisz tutaj treść powiadomienia..."
+                  value={body}
+                  onChange={e => setBody(e.target.value)}
                 />
               </div>
-              <button 
-                onClick={send} 
-                disabled={loading} 
+              <button
+                onClick={send}
+                disabled={loading}
                 className="w-full bg-gray-900 text-white font-extrabold rounded-2xl py-4 shadow-glass hover:bg-gray-800 active:scale-[0.98] transition flex items-center justify-center gap-2"
               >
                 {loading ? "Wysyłanie..." : <><Icon name="send" className="w-4 h-4" /> Wyślij teraz</>}
@@ -1854,9 +1750,6 @@
       );
     };
 
-    /* =======================
-        Staff
-       ========================================================= */
     const Staff = ({ token }) => {
       const toast = useToast();
       const [list, setList] = useState([]);
@@ -1952,9 +1845,6 @@
        );
     };
 
-    /* =======================
-        App Shell & Logic
-       ========================================================= */
     const STORAGE_KEY = "eatmi-admin-token";
 
     const AppShell = ({ token, onLogout }) => {
@@ -1967,13 +1857,13 @@
 
       const titleData = {
         dashboard: { t: "Dashboard", s: "Przegląd statystyk" },
-        transactions: { t: "Finanse", s: "PayU / Karta / Gotówka + okresy" },
+        transactions: { t: "Finanse", s: "PayU / karta / gotówka" },
         orders: { t: "Zamówienia", s: "Zarządzanie zamówieniami" },
         schedule: { t: "Harmonogram", s: "Planowane dostawy" },
         push: { t: "Powiadomienia", s: "Wysyłka PUSH" },
         staff: { t: "Obsługa", s: "Zarządzanie personelem" },
-        menu_lunch: { t: "Menu Lunche", s: "Edycja zestawów lunchowych" }, 
-        promocodes: { t: "Kody Rabatowe", s: "Zarządzanie promocjami" }, 
+        menu_lunch: { t: "Menu Lunche", s: "Edycja zestawów lunchowych" },
+        promocodes: { t: "Kody Rabatowe", s: "Zarządzanie promocjami" },
       };
       const curT = titleData[tab] || {t:"Panel",s:""};
 
@@ -1991,13 +1881,13 @@
       };
 
       const triggerTestAlert = () => {
-          const miniOrder = { 
-              extOrderId: "TEST-" + Math.floor(Math.random()*1000), 
+          const miniOrder = {
+              extOrderId: "TEST-" + Math.floor(Math.random()*1000),
               totalPLN: 99.00,
               customer: { imieNazwisko: "TEST ALARMU" },
               status: "Nowe",
               paymentMethod: "payu",
-              createdAt: new Date().toISOString() 
+              createdAt: new Date().toISOString()
           };
           setAlertOrder(miniOrder);
           setAlertOpen(true);
@@ -2015,14 +1905,13 @@
         try {
           const url = `${API.events}?token=${token}`;
           es = new EventSource(url);
-            
-          es.onopen = () => console.log("SSE Connected");
-            
+
           es.addEventListener("new_order", (e) => {
               try {
                   const d = JSON.parse(e.data);
+
                   setRefreshSignal(Date.now());
-                  
+
                   const custName = (d.customer && typeof d.customer === 'object' ? d.customer.name : d.customer) || "Klient";
                   const miniOrder = {
                       extOrderId: d.extOrderId || "Nowe",
@@ -2030,9 +1919,9 @@
                       customer: { imieNazwisko: custName },
                       status: d.status || "Nowe",
                       paymentMethod: d.paymentMethod || "online",
-                      createdAt: new Date().toISOString() 
+                      createdAt: new Date().toISOString()
                   };
-                  
+
                   setAlertOrder(miniOrder);
                   setAlertOpen(true);
 
@@ -2044,7 +1933,6 @@
                   }
 
               } catch (err) {
-                  console.error("SSE Parse Error:", err, e.data);
                   setAlertOrder({ extOrderId: "BŁĄD", customer: { imieNazwisko: "Sprawdź listę" }, totalPLN: 0 });
                   setAlertOpen(true);
                   if ("Notification" in window && Notification.permission === "granted") {
@@ -2056,13 +1944,9 @@
           es.addEventListener("order_update", () => {
               setRefreshSignal(Date.now());
           });
-            
-          es.onerror = () => { console.log("SSE Error - reconnecting..."); };
 
-        } catch (err) {
-          console.error("SSE Setup Error", err);
-        }
-          
+        } catch (err) {}
+
         return () => {
           if (es) es.close();
         };
@@ -2100,7 +1984,7 @@
                    { id: "orders", icon: "clipboard-list", label: "Zam.", badge: ordersCount },
                    { id: "transactions", icon: "wallet", label: "Kasa" },
                    { id: "menu_lunch", icon: "utensils", label: "Menu" },
-                   { id: "promocodes", icon: "tags", label: "Kody" } 
+                   { id: "promocodes", icon: "tags", label: "Kody" }
                  ].map(item => (
                    <button
                      key={item.id}
@@ -2123,10 +2007,9 @@
                 {tab === "dashboard" && <Dashboard token={token} refreshSignal={refreshSignal} />}
                 {tab === "transactions" && <Transactions token={token} />}
                 {tab === "orders" && (
-                    <Orders 
-                        token={token} 
-                        setOrdersCount={setOrdersCount} 
-                        onNewOrderDetected={(o) => {}} 
+                    <Orders
+                        token={token}
+                        setOrdersCount={setOrdersCount}
                         refreshSignal={refreshSignal}
                     />
                 )}
@@ -2137,7 +2020,6 @@
                 {tab === "staff" && <Staff token={token} />}
               </div>
             </main>
-
           </div>
         </div>
       );
