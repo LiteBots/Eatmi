@@ -273,6 +273,7 @@
       "x-circle": "fa-circle-xmark",
       "bike": "fa-bicycle",
       "chef-hat": "fa-utensils",
+      "percent": "fa-percent",
     };
 
     const Icon = ({ name, className="" }) => {
@@ -697,8 +698,8 @@
       </div>
     );
 
-    const Card = ({ title, value, icon, hint, loading }) => (
-      <div className="bg-white border border-gray-200 rounded-3xl p-5 shadow-soft hover:shadow-md transition">
+    const Card = ({ title, value, icon, hint, loading, highlight=false }) => (
+      <div className={`bg-white border border-gray-200 rounded-3xl p-5 shadow-soft hover:shadow-md transition ${highlight ? 'ring-2 ring-brand-yellow/30 bg-yellow-50/30' : ''}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold">{title}</div>
@@ -707,7 +708,7 @@
             </div>
             {hint && <div className="text-[11px] md:text-xs text-gray-500 mt-1">{hint}</div>}
           </div>
-          <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-brand-yellow/20 border border-brand-yellow/30 grid place-items-center shrink-0">
+          <div className={`w-10 h-10 md:w-11 md:h-11 rounded-2xl border grid place-items-center shrink-0 ${highlight ? 'bg-brand-yellow text-gray-900 border-black/5' : 'bg-brand-yellow/20 border-brand-yellow/30'}`}>
             <Icon name={icon} className="w-5 h-5 md:w-6 md:h-6" />
           </div>
         </div>
@@ -718,24 +719,68 @@
       const toast = useToast();
       const [loading, setLoading] = useState(true);
       const [stats, setStats] = useState({ ordersTotal: 0, ordersToday: 0, usersTotal: 0 });
+      const [paymentStats, setPaymentStats] = useState({ payu: 0, card: 0, cash: 0 });
+      const [promoStats, setPromoStats] = useState([]); // List of {code, count, revenue}
 
       const load = async (opts={}) => {
         const { silent=false } = opts;
         if(!silent) setLoading(true);
         try {
-          const r = await fetch(API.stats, { headers: { ...authHeader(token) } });
-          const data = await safeJson(r);
-          if (!r.ok) {
-            if(!silent) toast.show("error", "Dashboard", data.error || "Błąd pobierania danych.");
+          // 1. Pobierz ogólne statystyki
+          const rStats = await fetch(API.stats, { headers: { ...authHeader(token) } });
+          const dStats = await safeJson(rStats);
+          
+          if (!rStats.ok) {
+            if(!silent) toast.show("error", "Dashboard", dStats.error || "Błąd pobierania danych.");
             if(!silent) setLoading(false);
             return;
           }
 
           setStats({
-            ordersTotal: Number(data.ordersTotal || 0),
-            ordersToday: Number(data.ordersToday || 0),
-            usersTotal: Number(data.usersTotal || 0),
+            ordersTotal: Number(dStats.ordersTotal || 0),
+            ordersToday: Number(dStats.ordersToday || 0),
+            usersTotal: Number(dStats.usersTotal || 0),
           });
+
+          // 2. Pobierz zamówienia, aby obliczyć podział płatności i przychód z kodów
+          const rOrders = await fetch(API.orders, { headers: { ...authHeader(token) } });
+          const dOrders = await safeJson(rOrders);
+          const orders = Array.isArray(dOrders.orders) ? dOrders.orders : [];
+
+          // Obliczanie metod płatności
+          const pStats = { payu: 0, card: 0, cash: 0 };
+          
+          // Obliczanie przychodu z kodów
+          const codeRevenueMap = {}; // code -> { count, revenue }
+
+          orders.forEach(o => {
+            // Płatności
+            const p = resolvePayment(o);
+            if (p.kind === 'online') pStats.payu++;
+            else if (p.kind === 'offline_card') pStats.card++;
+            else if (p.kind === 'offline_cash') pStats.cash++;
+
+            // Kody rabatowe
+            if (o.promoCode || o.discountCode) {
+                const code = (o.promoCode || o.discountCode).toUpperCase();
+                const total = getOrderTotalPLN(o);
+                
+                if (!codeRevenueMap[code]) codeRevenueMap[code] = { count: 0, revenue: 0 };
+                codeRevenueMap[code].count++;
+                codeRevenueMap[code].revenue += total;
+            }
+          });
+
+          setPaymentStats(pStats);
+
+          // Sortowanie kodów po przychodzie
+          const sortedPromos = Object.keys(codeRevenueMap).map(key => ({
+             code: key,
+             ...codeRevenueMap[key]
+          })).sort((a, b) => b.revenue - a.revenue).slice(0, 3); // Top 3
+
+          setPromoStats(sortedPromos);
+
         } catch (e) {
           if(!silent) toast.show("error", "Dashboard", "Błąd połączenia.");
         } finally {
@@ -758,10 +803,60 @@
               <Icon name="refresh-cw" className="w-3 h-3 md:w-4 md:h-4" /> Odśwież
             </button>
           </div>
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+          
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-3 mb-8">
             <Card title="Zamówienia łącznie" value={stats.ordersTotal.toLocaleString("pl-PL")} icon="shopping-bag" loading={loading} hint="Suma zamówień (all time)." />
             <Card title="Zamówienia dziś" value={stats.ordersToday.toLocaleString("pl-PL")} icon="calendar" loading={loading} hint="Licznik zerowany o północy." />
             <Card title="Użytkownicy" value={stats.usersTotal.toLocaleString("pl-PL")} icon="users" loading={loading} hint="Zarejestrowani. - Nie mylić z kupującymi" />
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
+             {/* Metody Płatności */}
+             <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-soft">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-gray-100 grid place-items-center"><Icon name="wallet" className="w-5 h-5" /></div>
+                    <div className="font-extrabold text-lg">Metody Płatności (Ilość)</div>
+                </div>
+                {loading ? <Skeleton className="h-24 w-full" /> : (
+                    <div className="grid grid-cols-3 gap-2">
+                        <div className="p-4 rounded-2xl bg-sky-50 border border-sky-100 text-center">
+                            <div className="text-[10px] font-black uppercase tracking-widest text-sky-800">PAYU</div>
+                            <div className="text-2xl font-black text-sky-900 mt-1">{paymentStats.payu}</div>
+                        </div>
+                        <div className="p-4 rounded-2xl bg-violet-50 border border-violet-100 text-center">
+                            <div className="text-[10px] font-black uppercase tracking-widest text-violet-800">KARTA</div>
+                            <div className="text-2xl font-black text-violet-900 mt-1">{paymentStats.card}</div>
+                        </div>
+                        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100 text-center">
+                            <div className="text-[10px] font-black uppercase tracking-widest text-amber-800">GOTÓWKA</div>
+                            <div className="text-2xl font-black text-amber-900 mt-1">{paymentStats.cash}</div>
+                        </div>
+                    </div>
+                )}
+             </div>
+
+             {/* Statystyki Kodów */}
+             <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-soft">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-gray-100 grid place-items-center"><Icon name="tags" className="w-5 h-5" /></div>
+                    <div className="font-extrabold text-lg">Statystyki Kodów (Top 3)</div>
+                </div>
+                 {loading ? <Skeleton className="h-24 w-full" /> : promoStats.length === 0 ? <div className="text-gray-500 text-sm italic">Brak danych o użyciu kodów.</div> : (
+                     <div className="space-y-3">
+                         {promoStats.map(p => (
+                             <div key={p.code} className="flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-gray-50/50">
+                                 <div className="flex items-center gap-3">
+                                     <span className="font-black text-sm bg-gray-200 px-2 py-1 rounded text-gray-700">{p.code}</span>
+                                     <span className="text-xs text-gray-500 font-bold">{p.count} użyć</span>
+                                 </div>
+                                 <div className="text-sm font-black text-emerald-600">
+                                     +{currency(p.revenue)}
+                                 </div>
+                             </div>
+                         ))}
+                     </div>
+                 )}
+             </div>
           </div>
         </div>
       );
@@ -773,21 +868,21 @@
       const [orders, setOrders] = useState([]);
 
       const load = async () => {
-         setLoading(true);
-         try {
-           const r = await fetch(API.orders, { headers: { ...authHeader(token) } });
-           const data = await safeJson(r);
-           if (!r.ok) {
-             toast.show("error", "Transakcje", "Błąd pobierania");
-             setLoading(false);
-             return;
-           }
-           setOrders(Array.isArray(data.orders) ? data.orders : []);
-         } catch(e) {
-           toast.show("error", "Transakcje", "Błąd sieci");
-         } finally {
-           setLoading(false);
-         }
+          setLoading(true);
+          try {
+            const r = await fetch(API.orders, { headers: { ...authHeader(token) } });
+            const data = await safeJson(r);
+            if (!r.ok) {
+              toast.show("error", "Transakcje", "Błąd pobierania");
+              setLoading(false);
+              return;
+            }
+            setOrders(Array.isArray(data.orders) ? data.orders : []);
+          } catch(e) {
+            toast.show("error", "Transakcje", "Błąd sieci");
+          } finally {
+            setLoading(false);
+          }
       };
 
       useEffect(() => { load(); }, []);
@@ -1514,6 +1609,7 @@
       const [codes, setCodes] = useState([]);
       const [loading, setLoading] = useState(true);
       const [creating, setCreating] = useState(false);
+      const [codeRevenue, setCodeRevenue] = useState({});
 
       const [form, setForm] = useState({
         code: "",
@@ -1535,9 +1631,27 @@
       const load = async () => {
         setLoading(true);
         try {
-          const r = await fetch(API.promocodes, { headers: { ...authHeader(token) } });
-          const d = await safeJson(r);
-          if (r.ok) setCodes(d.codes || []);
+          // Pobranie kodów
+          const rCodes = await fetch(API.promocodes, { headers: { ...authHeader(token) } });
+          const dCodes = await safeJson(rCodes);
+          
+          if (rCodes.ok) setCodes(dCodes.codes || []);
+
+          // Pobranie zamówień, aby obliczyć przychód
+          const rOrders = await fetch(API.orders, { headers: { ...authHeader(token) } });
+          const dOrders = await safeJson(rOrders);
+          
+          if(rOrders.ok && Array.isArray(dOrders.orders)) {
+             const revMap = {};
+             dOrders.orders.forEach(o => {
+                 if(o.promoCode || o.discountCode) {
+                     const c = (o.promoCode || o.discountCode).toUpperCase();
+                     revMap[c] = (revMap[c] || 0) + getOrderTotalPLN(o);
+                 }
+             });
+             setCodeRevenue(revMap);
+          }
+
         } catch {
           toast.show("error", "Kody", "Błąd pobierania.");
         } finally {
@@ -1653,11 +1767,13 @@
                 const isExpired = new Date(c.expiresAt) < new Date();
                 const isLimitReached = c.usageLimit !== null && c.usedCount >= c.usageLimit;
                 const statusColor = isExpired || isLimitReached ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700";
+                
+                const revenue = codeRevenue[c.code] || 0;
 
                 return (
                   <div key={c._id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-gray-200 rounded-2xl gap-3">
                     <div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-wrap">
                         <span className="font-black text-lg tracking-widest bg-gray-100 px-2 py-1 rounded-lg">{c.code}</span>
                         <span className="font-bold text-brand-yellow text-sm">-{c.discountPercent}%</span>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${statusColor}`}>
@@ -1667,8 +1783,13 @@
                       <div className="text-xs text-gray-500 mt-1 font-medium">
                         Wygasa: {fmtDate(c.expiresAt)}
                       </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        Użyto: <b>{c.usedCount}</b> {c.usageLimit ? `/ ${c.usageLimit}` : "(bez limitu)"}
+                      <div className="flex items-center gap-4 mt-1">
+                          <div className="text-xs text-gray-500">
+                            Użyto: <b>{c.usedCount}</b> {c.usageLimit ? `/ ${c.usageLimit}` : "(bez limitu)"}
+                          </div>
+                          <div className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                             Przychód: {currency(revenue)}
+                          </div>
                       </div>
                     </div>
                     <button onClick={() => remove(c._id)} className="text-red-500 p-2 hover:bg-red-50 rounded-xl transition self-end sm:self-center"><Icon name="trash-2" className="w-4 h-4" /></button>
