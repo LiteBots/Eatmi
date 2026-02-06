@@ -720,13 +720,12 @@
       const [loading, setLoading] = useState(true);
       const [stats, setStats] = useState({ ordersTotal: 0, ordersToday: 0, usersTotal: 0 });
       const [paymentStats, setPaymentStats] = useState({ payu: 0, card: 0, cash: 0 });
-      const [promoStats, setPromoStats] = useState([]); // List of {code, count, revenue}
+      const [promoStats, setPromoStats] = useState([]);
 
       const load = async (opts={}) => {
         const { silent=false } = opts;
         if(!silent) setLoading(true);
         try {
-          // 1. Pobierz ogólne statystyki
           const rStats = await fetch(API.stats, { headers: { ...authHeader(token) } });
           const dStats = await safeJson(rStats);
           
@@ -742,42 +741,56 @@
             usersTotal: Number(dStats.usersTotal || 0),
           });
 
-          // 2. Pobierz zamówienia, aby obliczyć podział płatności i przychód z kodów
+          // Pobierz kody, aby znać % rabatu
+          const rCodes = await fetch(API.promocodes, { headers: { ...authHeader(token) } });
+          const dCodes = await safeJson(rCodes);
+          const codesList = Array.isArray(dCodes.codes) ? dCodes.codes : [];
+          // Mapa: kod -> procent rabatu
+          const codePercentMap = {};
+          codesList.forEach(c => {
+             if(c.code) codePercentMap[c.code.toUpperCase()] = Number(c.discountPercent) || 0;
+          });
+
           const rOrders = await fetch(API.orders, { headers: { ...authHeader(token) } });
           const dOrders = await safeJson(rOrders);
           const orders = Array.isArray(dOrders.orders) ? dOrders.orders : [];
 
-          // Obliczanie metod płatności
           const pStats = { payu: 0, card: 0, cash: 0 };
-          
-          // Obliczanie przychodu z kodów
-          const codeRevenueMap = {}; // code -> { count, revenue }
+          const codeRevenueMap = {}; // code -> { count, revenue (saved by user) }
 
           orders.forEach(o => {
-            // Płatności
             const p = resolvePayment(o);
             if (p.kind === 'online') pStats.payu++;
             else if (p.kind === 'offline_card') pStats.card++;
             else if (p.kind === 'offline_cash') pStats.cash++;
 
-            // Kody rabatowe
             if (o.promoCode || o.discountCode) {
                 const code = (o.promoCode || o.discountCode).toUpperCase();
-                const total = getOrderTotalPLN(o);
                 
+                // Obliczanie oszczędności (zarobku kodu)
+                const percent = codePercentMap[code] || 0;
+                const paid = getOrderTotalPLN(o);
+                let saved = 0;
+                
+                if (percent > 0 && percent < 100) {
+                     // paid = original * (1 - percent/100)
+                     // original = paid / (1 - percent/100)
+                     const original = paid / (1 - (percent / 100));
+                     saved = original - paid;
+                }
+
                 if (!codeRevenueMap[code]) codeRevenueMap[code] = { count: 0, revenue: 0 };
                 codeRevenueMap[code].count++;
-                codeRevenueMap[code].revenue += total;
+                codeRevenueMap[code].revenue += saved;
             }
           });
 
           setPaymentStats(pStats);
 
-          // Sortowanie kodów po przychodzie
           const sortedPromos = Object.keys(codeRevenueMap).map(key => ({
              code: key,
              ...codeRevenueMap[key]
-          })).sort((a, b) => b.revenue - a.revenue).slice(0, 3); // Top 3
+          })).sort((a, b) => b.revenue - a.revenue).slice(0, 3);
 
           setPromoStats(sortedPromos);
 
@@ -811,7 +824,6 @@
           </div>
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
-             {/* Metody Płatności */}
              <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-soft">
                 <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-xl bg-gray-100 grid place-items-center"><Icon name="wallet" className="w-5 h-5" /></div>
@@ -835,7 +847,6 @@
                 )}
              </div>
 
-             {/* Statystyki Kodów */}
              <div className="bg-white border border-gray-200 rounded-3xl p-6 shadow-soft">
                 <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-xl bg-gray-100 grid place-items-center"><Icon name="tags" className="w-5 h-5" /></div>
@@ -850,7 +861,7 @@
                                      <span className="text-xs text-gray-500 font-bold">{p.count} użyć</span>
                                  </div>
                                  <div className="text-sm font-black text-emerald-600">
-                                     +{currency(p.revenue)}
+                                     +{currency(p.revenue)} (oszczędzono)
                                  </div>
                              </div>
                          ))}
@@ -1199,6 +1210,15 @@
               <KV k="Uwagi" v={c.uwagi} />
               <KV k="Faktura" v={c.faktura ? "Tak" : "Nie"} />
               {c.faktura && <><KV k="NIP" v={c.nip} mono /><KV k="Firma" v={c.firma} /></>}
+              {/* Wyświetlanie kodu w danych klienta */}
+              {(order.promoCode || order.discountCode) && (
+                 <div className="flex items-start justify-between gap-4 border-b border-gray-100 py-3 last:border-0 bg-brand-yellow/10 -mx-5 px-5 mt-2">
+                     <div className="text-[11px] uppercase tracking-widest text-gray-600 font-extrabold shrink-0 mt-0.5">Użyty kod rabatowy</div>
+                     <div className="text-sm text-gray-900 text-right font-black break-words max-w-[70%]">
+                        {order.promoCode || order.discountCode}
+                     </div>
+                 </div>
+              )}
             </div>
           </div>
 
@@ -1634,10 +1654,16 @@
           // Pobranie kodów
           const rCodes = await fetch(API.promocodes, { headers: { ...authHeader(token) } });
           const dCodes = await safeJson(rCodes);
+          const codesList = Array.isArray(dCodes.codes) ? dCodes.codes : [];
           
-          if (rCodes.ok) setCodes(dCodes.codes || []);
+          if (rCodes.ok) setCodes(codesList);
+          
+          const codePercentMap = {};
+          codesList.forEach(c => {
+             if(c.code) codePercentMap[c.code.toUpperCase()] = Number(c.discountPercent) || 0;
+          });
 
-          // Pobranie zamówień, aby obliczyć przychód
+          // Pobranie zamówień, aby obliczyć przychód (oszczędność)
           const rOrders = await fetch(API.orders, { headers: { ...authHeader(token) } });
           const dOrders = await safeJson(rOrders);
           
@@ -1646,7 +1672,15 @@
              dOrders.orders.forEach(o => {
                  if(o.promoCode || o.discountCode) {
                      const c = (o.promoCode || o.discountCode).toUpperCase();
-                     revMap[c] = (revMap[c] || 0) + getOrderTotalPLN(o);
+                     const paid = getOrderTotalPLN(o);
+                     const percent = codePercentMap[c] || 0;
+                     let saved = 0;
+                     if (percent > 0 && percent < 100) {
+                         // paid = original * (1 - percent/100)
+                         const original = paid / (1 - (percent / 100));
+                         saved = original - paid;
+                     }
+                     revMap[c] = (revMap[c] || 0) + saved;
                  }
              });
              setCodeRevenue(revMap);
@@ -1788,7 +1822,7 @@
                             Użyto: <b>{c.usedCount}</b> {c.usageLimit ? `/ ${c.usageLimit}` : "(bez limitu)"}
                           </div>
                           <div className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                             Przychód: {currency(revenue)}
+                             Oszczędność klientów: {currency(revenue)}
                           </div>
                       </div>
                     </div>
