@@ -75,7 +75,6 @@
     .input-focus { outline: none; }
     .input-focus:focus { box-shadow: 0 0 0 3px rgba(255,193,7,.35); border-color: rgba(255,193,7,.75); }
 
-    /* Wymuszenie żółtego dla CTA */
     .btn-yellow{
       background: #FFC107 !important;
       color: #111827 !important;
@@ -86,21 +85,18 @@
       box-shadow: 0 0 0 3px rgba(255,193,7,.30);
     }
 
-    /* App-like: treść nie może chować się pod tabbarem (i CTA) */
     .app-content-pad {
       padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + 18px);
     }
     .app-content-pad.has-cta {
       padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--cta-h) + 22px);
     }
-    /* Jeśli jest aktywny tracker, dodajemy więcej miejsca na dole */
     .app-content-pad.has-tracker {
       padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + 200px); 
     }
 
     .no-overscroll { overscroll-behavior: none; }
 
-    /* Simple spinner */
     @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
     .spin { animation: spin 1s linear infinite; }
 
@@ -110,9 +106,6 @@
       color: #111827;
     }
 
-    /* =======================
-       Left slide-in account nudge
-       ======================= */
     @keyframes nudgeIn {
       from { transform: translateX(-110%); opacity: 0; }
       to   { transform: translateX(0); opacity: 1; }
@@ -124,33 +117,22 @@
     .nudge-in { animation: nudgeIn .38s cubic-bezier(.2,.9,.2,1) both; }
     .nudge-out { animation: nudgeOut .26s ease-in both; }
 
-    /* =======================
-       Add-ons modal (fade)
-       ======================= */
     @keyframes popIn {
       from { transform: translateY(10px) scale(.98); opacity: 0; }
       to   { transform: translateY(0) scale(1); opacity: 1; }
     }
     .pop-in { animation: popIn .18s ease-out both; }
       
-    /* =======================
-       Order Tracker Animation
-       ======================= */
     @keyframes slideUp {
       from { transform: translateY(100%); opacity: 0; }
       to { transform: translateY(0); opacity: 1; }
     }
     .tracker-enter { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
-    /* =======================
-       PWA Header Fix
-       Dodajemy extra padding od góry, aby ominąć zegarek/status bar
-       ======================= */
     .header-pwa-fix {
        padding-top: calc(env(safe-area-inset-top) + 12px);
     }
 
-    /* Custom scrollbar hide for calendar grid */
     .no-scrollbar::-webkit-scrollbar {
         display: none;
     }
@@ -188,9 +170,6 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo, createContext, useContext, useRef } = React;
 
-    /* =======================
-       PWA HELPER: VAPID CONVERSION
-       ======================= */
     function urlBase64ToUint8Array(base64String) {
       const padding = '='.repeat((4 - base64String.length % 4) % 4);
       const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
@@ -202,10 +181,6 @@
       return outputArray;
     }
 
-    /* =======================
-       MENU - DEFINICJE KATEGORII
-       ======================= */
-
     const PRODUCT_CATEGORIES = [
       { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open', description: 'Małe, średnie i duże zestawy. Także VEGE.', image: 'https://i.imgur.com/qtZTWY1.jpeg' },
       { id: 'lunche', name: 'Lunche', icon: 'utensils-crossed', description: 'Lunch tygodnia, miesiąca i vege (12:00–16:00).', image: 'https://i.imgur.com/sn5VMfS.jpeg' },
@@ -214,10 +189,6 @@
       { id: 'slodkie', name: 'Słodkie', icon: 'ice-cream', description: 'Desery, pancakes, tost francuski i smoothie.', image: 'https://i.imgur.com/yKYFN0z.jpeg' },
       { id: 'napoje', name: 'Napoje', icon: 'cup-soda', description: 'Kawy, herbaty, lemoniada i sok.', image: 'https://i.imgur.com/QiPsFDo.jpeg' },
     ];
-
-    /* =======================
-       MENU - DANE STATYCZNE (Poza Lunchami)
-       ======================= */
 
     const BREAKFAST_BOXES = [
       { id:'bs-small-1', name:'Box śniadaniowy mały nr 1', price: 43, image:'https://i.imgur.com/eom3rVn.jpeg', subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Sok pomarańczowy 250 ml' },
@@ -236,7 +207,6 @@
       { id:'bs-big-vege', name:'Box śniadaniowy duży VEGE', price: 87, image:'https://i.imgur.com/Gtl4J4b.jpeg', subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Vege club sandwich z camembert i awokado, majonez, sałata, pomidor • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Domowa granola z jogurtem greckim, owocami i miodem • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
     ];
 
-    // ✅ DEFAULT LUNCHES (Fallback - używane jeśli serwer nie odpowie)
     const DEFAULT_LUNCHES = [
       { id:'lunch-week', name:'Lunch tygodnia', price: 55, image:'https://i.imgur.com/sn5VMfS.jpeg', subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Corn Flake Chicken: panierowana w płatkach kukurydzianych pierś z kurczaka z ziemniaczanym puree i coleslawem • Domowa lemoniada 250 ml' },
       { id:'lunch-month', name:'Lunch miesiąca', price: 65, image:'https://i.imgur.com/xGCYJZQ.jpeg', subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Kurczak Supreme: pieczona pierś z kurczaka z ziemniaczanym puree, warzywami i sosem demi glace • Domowa lemoniada 250 ml' },
@@ -286,19 +256,14 @@
       { id:'extra-deser', name:'Deser czekoladowy', price: 20, image:'https://i.imgur.com/mVjnusq.jpeg' },
     ];
 
-    // ✅ STATIC_PRODUCTS - Mapa, która zostanie połączona z dynamicznymi lunchami
     const STATIC_PRODUCTS = {
       'boxy-sniadaniowe': BREAKFAST_BOXES,
-      // 'lunche': Będą tutaj wstawione przez Context
       'kanapki': SANDWICHES,
       'zdrowe': HEALTHY,
       'slodkie': SWEETS,
       'napoje': DRINKS,
     };
 
-    /* =======================
-       MENU PROVIDER (DYNAMIC LUNCHES - ZMIANY)
-       ======================= */
     const MenuContext = createContext();
     const useMenu = () => useContext(MenuContext);
 
@@ -306,20 +271,18 @@
       const [lunches, setLunches] = useState(DEFAULT_LUNCHES);
 
       useEffect(() => {
-        // ✅ FETCHUJEMY Z PUBLICZNEGO ENDPOINTU (bez /admin/)
         const fetchLunches = async () => {
           try {
             const res = await fetch('/api/products/lunche'); 
             if (res.ok) {
               const data = await res.json();
               if (data.lunche && Array.isArray(data.lunche) && data.lunche.length > 0) {
-                // Mapowanie danych z bazy (grosze -> pln)
                 const mapped = data.lunche.map(item => ({
                   id: item.id,
                   name: item.name,
-                  price: item.price / 100, // Grosze na złotówki
+                  price: item.price / 100, 
                   image: item.image,
-                  subtitle: item.description // Baza: description -> UI: subtitle
+                  subtitle: item.description 
                 }));
                 
                 setLunches(mapped);
@@ -333,7 +296,6 @@
         fetchLunches();
       }, []);
 
-      // Łączymy statyczne kategorie z dynamicznymi lunchami
       const productsMap = useMemo(() => ({
         ...STATIC_PRODUCTS,
         'lunche': lunches
@@ -345,10 +307,6 @@
         </MenuContext.Provider>
       );
     };
-
-    /* =======================
-       ADD-ONS (kawa/herbata)
-       ======================= */
 
     const DRINK_ADDONS = [
       { id: "milk-oat", label: "Mleko owsiane", price: 2 },
@@ -366,10 +324,6 @@
       if (categoryId !== "napoje") return false;
       return isCoffeeOrTea(item?.name || "");
     };
-
-    /* =======================
-       UTIL
-       ======================= */
 
     const useLocalStorage = (key, initial) => {
       const [state, setState] = useState(() => {
@@ -396,7 +350,6 @@
       return isMobile;
     };
 
-    // ✅ Customer localStorage helpers
     const CUSTOMER_STORAGE_KEY = "eatmi-customer";
 
     const safeParse = (raw, fallback) => {
@@ -427,7 +380,6 @@
       try { localStorage.removeItem(CUSTOMER_STORAGE_KEY); } catch {}
     };
 
-    // ✅ AUTH token
     const AUTH_TOKEN_KEY = "eatmi-auth-token";
 
     const loadAuthToken = () => {
@@ -440,7 +392,6 @@
       try { localStorage.removeItem(AUTH_TOKEN_KEY); } catch {}
     };
 
-    // ✅ API helper
     async function apiFetch(url, { method="GET", body=null, token=null } = {}) {
       const headers = { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
@@ -459,10 +410,6 @@
       }
       return data;
     }
-
-    /* =======================
-       TOAST
-       ======================= */
 
     const ToastContext = createContext();
     const useToast = () => useContext(ToastContext);
@@ -513,10 +460,6 @@
       );
     };
 
-    /* =======================
-       ACTIVE ORDER CONTEXT
-       (Widget na dole)
-       ======================= */
     const ActiveOrderContext = createContext();
     const useActiveOrder = () => useContext(ActiveOrderContext);
 
@@ -527,7 +470,7 @@
         const now = Date.now();
         setActiveOrder({
           ...orderData,
-          status: orderData.status || 'PENDING', // Startowy status
+          status: orderData.status || 'PENDING', 
           statusTimestamp: now,
           timestamp: now
         });
@@ -535,22 +478,18 @@
 
       const clearActiveOrder = () => setActiveOrder(null);
 
-      // ✅ NOWOŚĆ: Odpytywanie serwera o status (Polling)
       useEffect(() => {
         if (!activeOrder || !activeOrder.extOrderId) return;
 
-        // Jeśli zamówienie jest już zakończone, przestajemy pytać (oszczędność baterii/danych)
         if (['COMPLETED', 'CANCELED', 'Zrealizowane', 'Anulowane'].includes(activeOrder.status)) return;
 
         const checkStatus = async () => {
           try {
-            // Pytamy backend o status tego konkretnego zamówienia
             const res = await fetch(`/api/orders/${activeOrder.extOrderId}`);
             if (!res.ok) return;
               
             const data = await res.json();
               
-            // Jeśli status na serwerze jest inny niż u nas -> aktualizujemy
             if (data.status && data.status !== activeOrder.status) {
               setActiveOrder(prev => ({
                 ...prev,
@@ -558,7 +497,6 @@
                 statusTimestamp: Date.now()
               }));
                 
-              // Opcjonalnie: wibracja przy zmianie statusu
               try { if (navigator.vibrate) navigator.vibrate([100, 50, 100]); } catch {}
             }
           } catch (e) {
@@ -566,21 +504,17 @@
           }
         };
 
-        // Sprawdzaj co 10 sekund
         const interval = setInterval(checkStatus, 10000);
           
-        // Sprawdź też od razu po załadowaniu
         checkStatus();
 
         return () => clearInterval(interval);
       }, [activeOrder, setActiveOrder]);
 
-      // Auto-hide logic: po 15 minutach od 'Zrealizowane' lub 'Anulowane'
       useEffect(() => {
         if (!activeOrder) return;
         const finalStatuses = ['COMPLETED', 'CANCELED', 'Zrealizowane', 'Anulowane', 'Odbierz'];
           
-        // Sprawdzamy czy status zawiera się w liście końcowej (również mapowanie z PayU)
         const isFinal = finalStatuses.some(s => 
            String(activeOrder.status).toUpperCase().includes(s.toUpperCase())
         );
@@ -588,7 +522,6 @@
         if (isFinal) {
           const now = Date.now();
           const diff = now - (activeOrder.statusTimestamp || 0);
-          // 15 min = 900000 ms (dajemy klientowi czas na dojście)
           if (diff > 900000) {
             clearActiveOrder();
           }
@@ -601,10 +534,6 @@
         </ActiveOrderContext.Provider>
       );
     };
-
-    /* =======================
-       AUTH (CONTEXT)
-       ======================= */
 
     const AuthContext = createContext();
     const useAuth = () => useContext(AuthContext);
@@ -686,17 +615,13 @@
       );
     };
 
-    /* =======================
-       CART
-       ======================= */
-
     const CartContext = createContext();
     const useCart = () => useContext(CartContext);
 
     const CartProvider = ({children}) => {
       const [cart, setCart] = useLocalStorage('eatmi-cart', []);
-      const [promoCode, setPromoCode] = useState(null); // ✅ STAN KODU
-      const [discount, setDiscount] = useState(0);      // ✅ STAN ZNIŻKI (PLN)
+      const [promoCode, setPromoCode] = useState(null); 
+      const [discount, setDiscount] = useState(0);      
 
       const toast = useToast();
       const show = toast?.show;
@@ -749,10 +674,8 @@
         return (base + addOns) * (i.qty || 1);
       };
 
-      // ✅ Obliczamy wartość koszyka
       const cartValue = useMemo(() => cart.reduce((s,i)=> s + lineTotal(i), 0), [cart]);
 
-      // ✅ FUNKCJA DO APLIKOWANIA KODU
       const applyPromo = async (code) => {
           if(!code) return;
           try {
@@ -770,7 +693,6 @@
                   return false;
               }
               
-              // Oblicz zniżkę
               const discVal = Math.round(cartValue * (data.discountPercent / 100));
               setDiscount(discVal);
               setPromoCode(data.code);
@@ -782,22 +704,11 @@
           }
       };
 
-      // Przeliczanie rabatu jeśli zmienia się wartość koszyka (uproszczone)
       useEffect(() => {
           if (promoCode && discount > 0 && cartValue > 0) {
-              // W prawdziwej appce tutaj ponawialibyśmy verify, ale dla uproszczenia
-              // zakładamy, że % się nie zmienił, a discount trzeba przeskalować
-              // ODKRYJEMY % ZNIŻKI WSTECZNIE:
-              // discount = cartValue * percent
-              // percent = discount / oldCartValue
-              // NewDiscount = currentCartValue * percent
-              // To jest trochę ryzykowne, lepiej zresetować kod przy zmianie koszyka lub trzymać % w stanie
-              // ZRESETUJMY DLA BEZPIECZEŃSTWA (lub zostawmy jak jest, user wpisze jeszcze raz)
-              // setPromoCode(null); setDiscount(0);
           }
       }, [cartValue]);
 
-      // ✅ Wartość po rabacie
       const valueAfterDiscount = Math.max(0, cartValue - discount);
         
       const deliveryCost = useMemo(() => {
@@ -815,35 +726,30 @@
           cart, add, remove, updateItem, setQty, incQty, decQty, clear,
           lineTotal, total, cartValue, deliveryCost, count,
           addonsTotalPerUnit,
-          promoCode, discount, applyPromo // Export promo logic
+          promoCode, discount, applyPromo 
         }}>
           {children}
         </CartContext.Provider>
       );
     };
 
-    /* =======================
-       ORDER TRACKER WIDGET (ZMODYFIKOWANY)
-       ======================= */
     const OrderTrackerWidget = () => {
       const { activeOrder } = useActiveOrder();
       const [expanded, setExpanded] = useState(false);
 
       if (!activeOrder) return null;
 
-      // Status styling - Dodano "Oczekuje na przyjęcie"
       const getStatusStyles = (s) => {
         switch(s) {
           case 'Zrealizowane': return 'bg-green-100 text-green-700 border-green-200';
           case 'Anulowane': return 'bg-red-100 text-red-700 border-red-200';
           case 'W drodze': return 'bg-brand-yellow/20 text-yellow-800 border-brand-yellow/40';
           case 'Opóźniony': return 'bg-orange-100 text-orange-700 border-orange-200';
-          case 'Oczekuje na przyjęcie': return 'bg-blue-100 text-blue-700 border-blue-200'; // NOWY STYL
+          case 'Oczekuje na przyjęcie': return 'bg-blue-100 text-blue-700 border-blue-200'; 
           default: return 'bg-gray-100 text-gray-700 border-gray-200';
         }
       };
 
-      // Formatowanie czasu (data i godzina)
       const formatTimeDisplay = () => {
           if (activeOrder.customer && activeOrder.customer.deliveryTime) {
               return (
@@ -855,7 +761,6 @@
                 </>
               );
           }
-          // Fallback
           const ts = activeOrder.timestamp;
           if (!ts) return "";
           const date = new Date(ts);
@@ -868,7 +773,6 @@
         <div className="fixed inset-x-0 bottom-[calc(var(--tabbar-h)+var(--safe-b)+10px)] z-[60] px-3 md:px-0 md:bottom-10 md:right-10 md:left-auto md:w-96 tracker-enter">
           <div className="bg-white border border-gray-200 shadow-kiosk rounded-2xl overflow-hidden">
               
-            {/* Header */}
             <div className="bg-gray-900 text-white p-4 flex items-center justify-between">
               <div>
                 <div className="text-[10px] uppercase tracking-widest font-semibold opacity-80">Twoje zamówienie</div>
@@ -885,7 +789,6 @@
               </div>
             </div>
 
-            {/* Body */}
             <div className="p-4 bg-white">
               <div className="flex items-start justify-between gap-3 text-sm">
                   <div>
@@ -911,7 +814,6 @@
                   </div>
               </div>
 
-              {/* Items Toggle */}
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <button 
                   onClick={() => setExpanded(!expanded)}
@@ -938,10 +840,6 @@
         </div>
       );
     };
-
-    /* =======================
-       HEADER / LOGO / CART BTN
-       ======================= */
 
     const Logo = () => (
       <a href="#/" className="flex items-center gap-3 group">
@@ -1035,10 +933,6 @@
         </header>
       );
     };
-
-    /* =======================
-       HERO / UI
-       ======================= */
 
     const Hero = () => (
       <section className="relative overflow-hidden">
@@ -1227,10 +1121,6 @@
       );
     };
 
-    /* =======================
-       MODAL: dodatki do kawy/herbaty
-       ======================= */
-
     const lockBodyScroll = (lock) => {
       const body = document.body;
       if (!body) return;
@@ -1390,10 +1280,6 @@
       );
     };
 
-    /* =======================
-       CategoryPage
-       ======================= */
-
     const CategoryPage = ({ categoryId }) => {
       const { add } = useCart();
       const productsMap = useMenu();
@@ -1401,7 +1287,6 @@
       const category = PRODUCT_CATEGORIES.find(c => c.id === categoryId);
       const items = productsMap[categoryId] || [];
 
-      // ✅ modal dodatków do kawy/herbaty
       const [addonsOpen, setAddonsOpen] = useState(false);
       const [addonsCartItemId, setAddonsCartItemId] = useState("");
       const [addonsTitle, setAddonsTitle] = useState("");
@@ -1489,10 +1374,6 @@
       );
     };
 
-    /* =======================
-       Koszyk
-       ======================= */
-
     const Koszyk = () => {
       const { cart, remove, clear, total, cartValue, deliveryCost, incQty, decQty, setQty, lineTotal, add, addonsTotalPerUnit, promoCode, setPromoCode, discount, applyPromo } = useCart();
       const goToCheckout = () => window.location.hash = '#/zamowienie';
@@ -1538,7 +1419,6 @@
                             <div className="min-w-0 flex-1">
                               <div className="font-bold break-words">{item.name}</div>
 
-                              {/* ✅ pokazujemy dodatki */}
                               {Array.isArray(item.addons) && item.addons.length > 0 && (
                                 <div className="mt-1 flex flex-wrap gap-1.5">
                                   {item.addons.map((a) => (
@@ -1607,7 +1487,6 @@
                         </div>
                     </div>
 
-                    {/* ✅ KOD RABATOWY */}
                     <div className="mb-4 pb-4 border-b border-gray-100">
                         <label className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Kod rabatowy</label>
                         <div className="flex gap-2 mt-1">
@@ -1688,14 +1567,9 @@
       );
     };
 
-    /* =======================
-       CALENDAR WIDGET (POLISH GRID)
-       ======================= */
     const CalendarWidget = ({ onDateSelect, selectedDateStr, maxDateStr, now }) => {
-        // State for current view month
         const [viewDate, setViewDate] = useState(now);
 
-        // ✅ FIXED DATE HELPER: Constructs YYYY-MM-DD manually to avoid UTC shifts
         const toYMD = (date) => {
             const y = date.getFullYear();
             const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -1703,32 +1577,21 @@
             return `${y}-${m}-${d}`;
         };
 
-        // Polish Month Names
         const PL_MONTHS = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
 
-        // Navigation
         const nextMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
         const prevMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
 
-        // Logic check
         const isDateDisabled = (d) => {
             const ymd = toYMD(d);
             const todayYMD = toYMD(now);
             const maxYMD = maxDateStr;
 
-            // 1. Past dates (before today)
-            // Compare YMD strings to be timezone safe
             if (ymd < todayYMD) return true;
 
-            // 2. Logic: If today is Friday > 16:00, today is disabled
-            // (We handle this by passing `now` which might be logically shifted, 
-            // but here we just check if it's strictly before `now` passed as prop)
-            
-            // 3. Weekend check
             const day = d.getDay();
-            if (day === 0 || day === 6) return true; // 0=Sun, 6=Sat
+            if (day === 0 || day === 6) return true; 
 
-            // 4. Max date check
             if (ymd > maxYMD) return true;
 
             return false;
@@ -1738,30 +1601,22 @@
             const year = viewDate.getFullYear();
             const month = viewDate.getMonth();
             
-            // First day of month
-            const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0=Sun, 1=Mon...
-            // Polish grid starts on Monday (1). 
-            // If 1 (Mon) -> offset 0. If 0 (Sun) -> offset 6.
+            const firstDayOfMonth = new Date(year, month, 1).getDay(); 
             const startOffset = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
 
             const daysInMonth = new Date(year, month + 1, 0).getDate();
             const days = [];
 
-            // Empty slots for start offset
             for (let i = 0; i < startOffset; i++) {
                 days.push(<div key={`empty-${i}`} className="h-10"></div>);
             }
 
-            // Days
             for (let d = 1; d <= daysInMonth; d++) {
                 const dateObj = new Date(year, month, d);
                 const ymd = toYMD(dateObj);
                 const disabled = isDateDisabled(dateObj);
                 const isSelected = selectedDateStr === ymd;
                 
-                // ✅ ZMIANA: Usunąłem isToday i powiązany styl.
-                // Teraz tylko isSelected dostaje styl.
-
                 days.push(
                     <button
                         key={ymd}
@@ -1788,7 +1643,6 @@
 
         return (
             <div className="bg-white border border-gray-200 rounded-xl p-4 select-none">
-                {/* Header */}
                 <div className="flex items-center justify-between mb-4">
                     <button type="button" onClick={prevMonth} className="p-1 hover:bg-gray-100 rounded-lg text-gray-500">
                         <i data-lucide="chevron-left" className="w-5 h-5"></i>
@@ -1801,14 +1655,12 @@
                     </button>
                 </div>
 
-                {/* Days Header (Pn Wt...) */}
                 <div className="grid grid-cols-7 gap-1 text-center mb-2">
                     {['Pn','Wt','Śr','Cz','Pt','So','Nd'].map(d => (
                         <div key={d} className="text-xs font-bold text-gray-400 uppercase">{d}</div>
                     ))}
                 </div>
 
-                {/* Grid */}
                 <div className="grid grid-cols-7 gap-1">
                     {renderCalendarGrid()}
                 </div>
@@ -1816,19 +1668,12 @@
         );
     };
 
-    /* =======================
-       ZAMOWIENIE (3 metody płatności + 2 metody realizacji + DATA/CZAS)
-       ======================= */
-    
-    // ✅ DEFINICJA SLOTÓW CZASOWYCH I ICH PROGÓW ODCIĘCIA (dla DZISIAJ)
-    // cutoff: minuty od początku dnia (np. 8:00 = 8*60 = 480)
-    // Jeśli aktualny czas w minutach > cutoff, slot jest niedostępny dzisiaj.
     const TIME_SLOTS_DEF = [
-      { id: 'slot-1', label: '08:30 – 09:30', cutoff: 8 * 60 },      // 8:00
-      { id: 'slot-2', label: '10:00 – 11:00', cutoff: 10 * 60 },      // 10:00 (implies > 9:59)
-      { id: 'slot-3', label: '11:30 – 12:30', cutoff: 11 * 60 + 30 },// 11:30 (implies > 11:29)
-      { id: 'slot-4', label: '13:00 – 14:00', cutoff: 13 * 60 },      // 13:00 (implies > 12:59)
-      { id: 'slot-5', label: '15:00 – 16:00', cutoff: 15 * 60 }        // 15:00 - koniec dnia
+      { id: 'slot-1', label: '08:30 – 09:30', cutoff: 8 * 60 },      
+      { id: 'slot-2', label: '10:00 – 11:00', cutoff: 10 * 60 },      
+      { id: 'slot-3', label: '11:30 – 12:30', cutoff: 11 * 60 + 30 },
+      { id: 'slot-4', label: '13:00 – 14:00', cutoff: 13 * 60 },      
+      { id: 'slot-5', label: '15:00 – 16:00', cutoff: 15 * 60 }        
     ];
 
     const Zamowienie = () => {
@@ -1844,26 +1689,20 @@
         return () => clearInterval(interval);
       }, []);
 
-      // ✅ REFS FOR SCROLLING
       const timeSlotRef = useRef(null);
       const fulfillmentRef = useRef(null);
       const detailsRef = useRef(null);
 
-      // ✅ Lista obsługiwanych miast
       const ALLOWED_CITIES = [
           'Słupsk', 'Redzikowo', 'Bierkowo', 'Łosiono', 'Krępa Słupska', 'Głobino', 'Włynkówko', 'Siemianice', 'Kobylnica'
       ];
 
-      // ✅ Metody realizacji i płatności
-      const [fulfillmentMethod, setFulfillmentMethod] = useState('delivery'); // 'delivery' | 'pickup'
-      const [paymentMethod, setPaymentMethod] = useState("payu"); // 'payu' | 'card' | 'cash'
+      const [fulfillmentMethod, setFulfillmentMethod] = useState('delivery'); 
+      const [paymentMethod, setPaymentMethod] = useState("payu"); 
       const [busyPay, setBusyPay] = useState(false);
       
-      // ✅ Stan błędów walidacji
       const [errors, setErrors] = useState({});
 
-      // ✅ LOGIKA DATY I CZASU
-      // 1. Wykryj, czy w koszyku jest lunch
       const hasLunch = useMemo(() => cart.some(i => i.category === 'lunche'), [cart]);
 
       const getAvailableSlots = (targetDateStr) => {
@@ -1871,15 +1710,12 @@
           const targetDate = new Date(targetDateStr);
           const isToday = targetDate.toDateString() === now.toDateString();
 
-          // Jeśli dzisiaj: filtrujemy po godzinie (ukrywamy minione)
           if (isToday) {
              const currentMinutes = now.getHours() * 60 + now.getMinutes();
              slots = slots.filter(slot => currentMinutes < slot.cutoff);
           }
 
-          // ✅ LUNCH CONSTRAINT: Jeśli w koszyku jest lunch, ukrywamy sloty 1 i 2 (przed 11:30)
           if (hasLunch) {
-              // Slot 1 (08:30) i Slot 2 (10:00) są za wcześnie na lunch
               const lunchBlockedIds = ['slot-1', 'slot-2'];
               slots = slots.filter(s => !lunchBlockedIds.includes(s.id));
           }
@@ -1888,13 +1724,9 @@
       };
 
       const dateConfig = useMemo(() => {
-          // Ustalamy datę minimalną. 
-          // Jeśli jest po 16:00 (lub brak slotów na dziś), min data to jutro (jeśli roboczy)
-          // Ale CalendarWidget i tak filtruje sloty.
           
           let startDate = new Date(now);
           
-          // ✅ FIX: Manual helper to ensure consistent YMD format for comparisons
           const toYMD = (d) => {
              const y = d.getFullYear();
              const m = String(d.getMonth()+1).padStart(2,'0');
@@ -1902,20 +1734,18 @@
              return `${y}-${m}-${day}`;
           };
 
-          // Jeśli dzisiaj brak slotów, przeskocz na jutro logicznie jako start
           const slotsToday = getAvailableSlots(toYMD(startDate));
           if (slotsToday.length === 0) {
               startDate.setDate(startDate.getDate() + 1);
           }
           
-          // Max date calculation (Current + 7 WORKING days strictly)
           let maxDate = new Date(startDate);
           let workingDaysAdded = 0;
           let safetyCounter = 0;
           while (workingDaysAdded < 7 && safetyCounter < 20) {
               maxDate.setDate(maxDate.getDate() + 1);
               const d = maxDate.getDay();
-              if (d !== 0 && d !== 6) { // Not Sun (0) or Sat (6)
+              if (d !== 0 && d !== 6) { 
                   workingDaysAdded++;
               }
               safetyCounter++;
@@ -1929,15 +1759,13 @@
       
       const [dateParams, setDateParams] = useState({
          selectedDate: dateConfig.minStr, 
-         selectedTimeSlot: null // Przechowujemy cały obiekt slotu lub ID
+         selectedTimeSlot: null 
       });
 
-      // Jeśli selectedDate jest niepoprawna (np. sobota), przesuń na poniedziałek
       useEffect(() => {
           const d = new Date(dateParams.selectedDate);
           const day = d.getDay();
           
-          // Helper to format
           const toYMD = (dt) => {
              const y = dt.getFullYear();
              const m = String(dt.getMonth()+1).padStart(2,'0');
@@ -1954,11 +1782,9 @@
           }
       }, [dateParams.selectedDate]);
 
-      // ✅ Automatyczny wybór pierwszego dostępnego slotu po zmianie daty
       const availableSlots = useMemo(() => getAvailableSlots(dateParams.selectedDate), [dateParams.selectedDate, now, hasLunch]);
 
       useEffect(() => {
-          // Jeśli aktualnie wybrany slot nie jest dostępny w nowej liście, zresetuj lub wybierz pierwszy
           const isValid = dateParams.selectedTimeSlot && availableSlots.find(s => s.id === dateParams.selectedTimeSlot.id);
           
           if (!isValid && availableSlots.length > 0) {
@@ -1969,7 +1795,6 @@
       }, [availableSlots]);
 
 
-      // Formularz
       const emptyForm = {
         imieNazwisko:'', telefon:'', email:'', miasto:'', kod:'', ulica:'', nrBud:'', pietro:'', lokal:'', uwagi:'', faktura:false, nip:'', firma:''
       };
@@ -1987,7 +1812,6 @@
         return base;
       });
 
-      // Nasłuch na miasto (ukrywanie żółtego boxa)
       const isCityValid = useMemo(() => {
           if (!form.miasto) return false;
           const normalizedInput = form.miasto.toLowerCase().trim();
@@ -2008,7 +1832,6 @@
       const [remember, setRemember] = useState(true);
       const [hadSaved, setHadSaved] = useState(() => !!loadSavedCustomer());
 
-      // ✅ Zmodyfikowany handle - czyści błąd podczas pisania
       const handle = (k,v)=> {
           setForm(s=> ({...s,[k]:v}));
           if (errors[k]) {
@@ -2031,7 +1854,6 @@
         setForm({ ...emptyForm });
       };
 
-      // ✅ Pomocnik do stylów inputów (czerwona ramka przy błędzie)
       const getInputClass = (field) => {
           const base = "input-focus w-full border rounded-xl px-4 py-3 min-h-[44px] ";
           if (errors[field]) {
@@ -2040,7 +1862,6 @@
           return base + "border-gray-200 bg-white";
       };
 
-      // ✅ Zmodyfikowana walidacja
       const validateBeforeOrder = () => {
         const newErrors = {};
         let isValid = true;
@@ -2057,7 +1878,6 @@
         if (!isValid) {
             setErrors(newErrors);
             showToast('Uzupełnij wymagane pola zaznaczone na czerwono 🔴');
-            // Wibracja przy błędzie
             try { if (navigator.vibrate) navigator.vibrate(200); } catch {}
             return false;
         }
@@ -2084,7 +1904,6 @@
 
          setBusyPay(true);
 
-         // Budujemy opis czasu dostawy
          const selDate = new Date(dateParams.selectedDate);
          const isToday = selDate.toDateString() === now.toDateString();
          const dayName = isToday ? "Dzisiaj" : selDate.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -2095,8 +1914,8 @@
            const payload = {
              customer: {
                  ...form,
-                 deliveryTime: deliveryTimeInfo, // Wysyłamy sformatowany czas
-                 fulfillmentMethod: fulfillmentMethod // 'delivery' lub 'pickup'
+                 deliveryTime: deliveryTimeInfo, 
+                 fulfillmentMethod: fulfillmentMethod 
              },
              cart: cart.map(i => ({
                productId: i.productId,
@@ -2109,7 +1928,6 @@
              promoCode: promoCode
            };
 
-           // --- PŁATNOŚĆ ONLINE (PAYU) ---
            if (paymentMethod === "payu") {
              const r = await fetch("/api/payu/order", {
                method: "POST",
@@ -2141,7 +1959,6 @@
              return;
            }
 
-           // --- PŁATNOŚĆ OFFLINE (KARTA / GOTÓWKA) ---
            const offlinePayload = { ...payload, paymentMethod: paymentMethod };
 
            const r2 = await fetch("/api/order/offline", {
@@ -2156,14 +1973,13 @@
                throw new Error(data2.error || "Błąd zamówienia");
            }
 
-           // ✅ TUTAJ ZMIANA: Ustawiamy status na "Oczekuje na przyjęcie"
            saveOrder({
                extOrderId: data2.extOrderId,
                customer: payload.customer,
                items: cart,
                total: total,
                paymentMethod: paymentMethod,
-               status: 'Oczekuje na przyjęcie', // <--- ZMIENIONO Z DOMYŚLNEGO
+               status: 'Oczekuje na przyjęcie', 
                timestamp: Date.now()
            });
 
@@ -2185,7 +2001,6 @@
       
       const submitLabel = fulfillmentMethod === 'pickup' ? "Zamawiam z odbiorem" : "Zamawiam z dostawą";
 
-      // ✅ LOGIKA OBLICZANIA CZY TO DZISIAJ
       const selD = new Date(dateParams.selectedDate);
       const isToday = selD.toDateString() === now.toDateString();
 
@@ -2200,17 +2015,14 @@
             <div className="mt-6 grid lg:grid-cols-3 gap-6 items-start">
               <div className="lg:col-span-2 space-y-6">
                   
-                  {/* 1. SPOSÓB REALIZACJI I CZAS */}
                   <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-soft">
                       <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold mb-4">1. Sposób i czas realizacji</div>
                       
-                      {/* Wybór Daty - NOWY KALENDARZ (PRZENIESIONY NA GÓRĘ) */}
                       <div className="mb-6">
                           <label className="text-sm font-semibold text-gray-900 block mb-2">Wybierz dzień:</label>
                           <CalendarWidget 
                               onDateSelect={(val) => {
                                   setDateParams(p => ({ ...p, selectedDate: val }));
-                                  // Scroll to time slots
                                   setTimeout(() => {
                                       timeSlotRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                   }, 200);
@@ -2220,7 +2032,6 @@
                               now={now} 
                           />
                             
-                          {/* ✅ NOWY KOMUNIKAT NA CZERWONO Z DYNAMICZNYM TEKSTEM */}
                           {!isToday && (
                             <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-start gap-3">
                               <i data-lucide="calendar" className="w-5 h-5 shrink-0 mt-0.5 text-red-600"></i>
@@ -2238,7 +2049,6 @@
                           )}
                       </div>
 
-                      {/* Wybór Godziny (NOWA LOGIKA SLOTÓW) */}
                       <div className="mb-6 scroll-mt-24" ref={timeSlotRef}>
                           <label className="text-sm font-semibold text-gray-900 block mb-2">Wybierz godzinę realizacji:</label>
                           
@@ -2256,7 +2066,6 @@
                                               type="button"
                                               onClick={() => {
                                                   setDateParams(p => ({ ...p, selectedTimeSlot: slot }));
-                                                  // Scroll to fulfillment
                                                   setTimeout(() => {
                                                       fulfillmentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                                   }, 200);
@@ -2275,7 +2084,6 @@
                           )}
                       </div>
 
-                      {/* Toggle Dostawa / Odbiór (PRZENIESIONE NA DÓŁ) */}
                       <div className="scroll-mt-24" ref={fulfillmentRef}>
                           <label className="text-sm font-semibold text-gray-900 block mb-2">Sposób realizacji:</label>
                           <div className="grid grid-cols-2 gap-3">
@@ -2307,13 +2115,11 @@
                       </div>
                   </div>
 
-                  {/* 2. DANE DOSTAWY / ODBIORU */}
                   <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-soft scroll-mt-32" ref={detailsRef}>
                       <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold mb-4">
                           {fulfillmentMethod === 'delivery' ? '2. Adres dostawy' : '2. Dane odbierającego'}
                       </div>
                       
-                      {/* ✅ Żółty Box - pojawia się TYLKO gdy jest tekst ORAZ miasto nie jest na liście */}
                       {fulfillmentMethod === 'delivery' && form.miasto.trim().length > 0 && !isCityValid && (
                           <div className="mb-4 p-4 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm flex items-start gap-3 shadow-sm transition-all duration-500">
                               <i data-lucide="info" className="w-5 h-5 shrink-0 mt-0.5"></i>
@@ -2344,7 +2150,6 @@
                               className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
                           </div>
 
-                          {/* Pola adresu - UKRYTE przy odbiorze osobistym */}
                           {fulfillmentMethod === 'delivery' && (
                               <>
                                   <div>
@@ -2354,7 +2159,6 @@
                                   </div>
                                   <div>
                                     <label className="text-xs uppercase tracking-wider text-gray-500">Kod pocztowy</label>
-                                    {/* ✅ Usunięty placeholder */}
                                     <input value={form.kod} onChange={e=>handle('kod', e.target.value)}
                                       className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
                                   </div>
@@ -2410,7 +2214,6 @@
                       </div>
                   </div>
 
-                  {/* 3. METODA PŁATNOŚCI */}
                   <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-soft">
                       <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold mb-4">3. Płatność</div>
                       <div className="grid md:grid-cols-3 gap-3">
@@ -2455,7 +2258,6 @@
                       </div>
                   </div>
 
-                  {/* Logowanie / Zapisywanie danych */}
                   {!user && (
                     <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-soft flex flex-col md:flex-row md:items-center justify-between gap-3">
                       <div>
@@ -2476,7 +2278,6 @@
 
               </div>
 
-              {/* PODSUMOWANIE (STICKY) */}
               <aside className="bg-white border border-gray-200 rounded-2xl p-5 sticky top-[84px]">
                 <div className="font-semibold text-lg mb-4">Podsumowanie</div>
                 <div className="space-y-3 max-h-64 overflow-auto pr-2 mb-4 custom-scrollbar">
@@ -2526,7 +2327,6 @@
                             const isToday = d.toDateString() === now.toDateString();
                             const label = dateParams.selectedTimeSlot.label;
                             if (isToday) return `Dziś ${label}`;
-                            // Format: D.MM
                             const day = d.getDate();
                             const m = d.getMonth() + 1;
                             const mStr = m < 10 ? '0' + m : m;
@@ -2563,10 +2363,6 @@
         </section>
       );
     };
-
-    /* =======================
-       AUTH MODAL (bez kodów)
-       ======================= */
 
     const AuthModal = ({ open, onClose, initialStep }) => {
       const { user, login, register, logout } = useAuth();
@@ -2814,21 +2610,15 @@
       );
     };
 
-    /* =======================
-       HOME (bez formularza kontaktowego)
-       ======================= */
-
     const Home = () => {
-      // Sprawdzamy, czy jest weekend, aby wyświetlić komunikat
       const now = new Date();
       const plString = now.toLocaleString("en-US", {timeZone: "Europe/Warsaw"});
       const dateObj = new Date(plString);
-      const day = dateObj.getDay(); // 0=Sun, 6=Sat
+      const day = dateObj.getDay(); 
       const isWeekend = day === 0 || day === 6;
 
       return (
         <>
-          {/* Komunikat o weekendzie */}
           {isWeekend && (
             <div className="bg-red-600 text-white text-center py-2 px-4 text-sm font-bold shadow-md relative z-10">
               Zamówienia realizujemy od poniedziałku do piątku
@@ -2848,10 +2638,6 @@
         </>
       );
     };
-
-    /* =======================
-       Router (hash) — FIX (route split '?')
-       ======================= */
 
     const Router = () => {
       const [route, setRoute] = useState(window.location.hash || '#/');
@@ -2874,10 +2660,6 @@
       if(pathOnly === '#/zamowienie') return <Zamowienie />;
       return <Home />;
     };
-
-    /* =======================
-       Mobile components
-       ======================= */
 
     const CategorySheet = ({ open, onClose }) => {
       useEffect(() => {
@@ -3060,10 +2842,6 @@
       );
     };
 
-    /* =======================
-       APP
-       ======================= */
-
     const App = () => {
       const [authOpen, setAuthOpen] = useState(false);
       const [authInitialStep, setAuthInitialStep] = useState("login");
@@ -3078,24 +2856,25 @@
         return () => window.removeEventListener("hashchange", onHash);
       }, []);
 
-      // ✅ BLOKADA DEVTOOLS I PPM (dodana na żądanie)
       useEffect(() => {
         const handleContextMenu = (e) => {
           e.preventDefault();
         };
 
         const handleKeyDown = (e) => {
-          // F12
           if (e.key === 'F12') {
             e.preventDefault();
+            return;
           }
-          // Ctrl+Shift+I (Inspector), J (Console), C (Element Select)
-          if (e.ctrlKey && e.shiftKey && ['I', 'J', 'C', 'i', 'j', 'c'].includes(e.key)) {
+          if ((e.ctrlKey && e.shiftKey && ['I', 'J', 'C', 'i', 'j', 'c'].includes(e.key)) ||
+              (e.metaKey && e.altKey && ['I', 'J', 'C', 'i', 'j', 'c'].includes(e.key))) {
             e.preventDefault();
+            return;
           }
-          // Ctrl+U (View Source)
-          if (e.ctrlKey && ['U', 'u'].includes(e.key)) {
+          if ((e.ctrlKey && ['U', 'u'].includes(e.key)) ||
+              (e.metaKey && ['U', 'u'].includes(e.key))) {
             e.preventDefault();
+            return;
           }
         };
 
@@ -3112,11 +2891,8 @@
       const { user, loading } = useAuth();
       const { activeOrder } = useActiveOrder();
 
-      // ✅ AUTOMATYCZNA REJESTRACJA PUSH TYLKO W TRYBIE PWA
-      // Zmiana: nasłuchiwanie na pierwsze kliknięcie, aby ominąć blokadę przeglądarki
       useEffect(() => {
         const initPushInPWA = async () => {
-          // 1. Sprawdź, czy jesteśmy w trybie STANDALONE (PWA)
           const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
            
           if (!isStandalone) {
@@ -3124,10 +2900,8 @@
               return; 
           }
 
-          // 2. Jeśli już mamy zgodę lub odmowę, nie robimy nic
           if (Notification.permission !== 'default') return;
 
-          // 3. Jeśli 'default', musimy czekać na kliknięcie
           if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
 
           const handleFirstUserInteraction = async () => {
@@ -3136,7 +2910,6 @@
                   if (permission === 'granted') {
                       const reg = await navigator.serviceWorker.ready;
                       
-                      // Get Key
                       const response = await fetch('/api/push/vapid-public-key');
                       if(!response.ok) return;
                       const data = await response.json();
@@ -3144,13 +2917,11 @@
 
                       if(!vapidKey) return;
 
-                      // Subscribe
                       const subscription = await reg.pushManager.subscribe({
                         userVisibleOnly: true,
                         applicationServerKey: urlBase64ToUint8Array(vapidKey)
                       });
 
-                      // Send to backend
                       await fetch('/api/push/subscribe', {
                         method: 'POST',
                         body: JSON.stringify(subscription),
@@ -3162,15 +2933,13 @@
               } catch (e) {
                   console.error("PWA Auto-Subscribe Error:", e);
               } finally {
-                  // Usuwamy listener po pierwszym kliknięciu (niezależnie od wyniku)
                   window.removeEventListener('click', handleFirstUserInteraction);
                   window.removeEventListener('touchstart', handleFirstUserInteraction);
               }
           };
 
-          // Dodajemy nasłuch na całe okno
           window.addEventListener('click', handleFirstUserInteraction);
-          window.addEventListener('touchstart', handleFirstUserInteraction); // Dla dotyku mobilnego
+          window.addEventListener('touchstart', handleFirstUserInteraction); 
         };
 
         initPushInPWA();
@@ -3178,13 +2947,11 @@
 
       useEffect(() => { window.lucide?.createIcons?.(); }, [authOpen, orderOpen, route, count, user, loading, activeOrder]);
 
-      // ✅ Rejestracja SW tylko jako "instalacja", bez subskrypcji
       useEffect(() => { 
         if ("serviceWorker" in navigator) {
            navigator.serviceWorker.register("/sw.js", { scope: "/" })
             .then(reg => {
                 console.log("SW Registered");
-                // Listen for updates
                 reg.addEventListener("updatefound", () => {
                     const newWorker = reg.installing;
                     newWorker.addEventListener("statechange", () => {
@@ -3211,7 +2978,6 @@
           <main className={`app-content-pad ${showCTA ? "has-cta" : ""} ${activeOrder ? "has-tracker" : ""}`}>
             <Router />
 
-            {/*✅ FOOTER Z DANYMI PRZEDSIĘBIORCY */}
             <footer className="py-12 text-sm text-gray-600 border-t border-gray-200">
               <div className="max-w-6xl mx-auto px-4">
                 <div className="text-center">
