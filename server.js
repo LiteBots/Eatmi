@@ -2,64 +2,55 @@ import express from "express";
 import path from "path";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
-
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
-import webpush from "web-push"; // ✅ Biblioteka do Pushy
+import webpush from "web-push";
+import helmet from "helmet";
+import cors from "cors";
+import rateLimit from "express-rate-limit";
+import slowDown from "express-slow-down";
 
 console.log("NODE VERSION:", process.version);
 
 const app = express();
-// ZWIĘKSZONY LIMIT DLA ZDJĘĆ BASE64 (ważne przy edycji lunchy)
+
+app.set("trust proxy", 1);
+
 app.use(express.json({ limit: "10mb" }));
 
-// ====== Serve static files from ROOT ======
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 app.use(express.static(__dirname));
 
-// ====== ENV ======
 const {
-  // ====== PAYU ======
-  PAYU_ENV = "prod", // "prod" albo "sandbox"
+  PAYU_ENV = "prod",
   PAYU_POS_ID,
   PAYU_CLIENT_ID,
   PAYU_CLIENT_SECRET,
-  PAYU_MD5_SECOND_KEY, // unused (na start)
+  PAYU_MD5_SECOND_KEY,
   PAYU_NOTIFY_URL,
   PAYU_CONTINUE_URL,
-
-  // ====== ADMIN ======
-  ADMIN_PIN, // 4 cyfry
+  ADMIN_PIN,
   ADMIN_TOKEN_SECRET = "CHANGE_ME_LONG_SECRET_64CHARS_MIN",
   ADMIN_PIN_SALT = "CHANGE_ME_SALT",
-
-  // ====== AUTH ======
   JWT_SECRET,
-
-  // ====== SMTP ======
   SMTP_HOST,
   SMTP_PORT = 465,
   SMTP_SECURE = "true",
   SMTP_USER,
   SMTP_PASS,
   MAIL_FROM,
-
-  // ====== MANAGEMENT PANEL ======
-  // hasło (krok 1) i pin (krok 2) — ustaw w Railway Variables
   MGMT_PASSWORD,
   MGMT_PIN,
-  // osobny sekret tokenów panelu (jak nie ustawisz, poleci na ADMIN_TOKEN_SECRET)
   MGMT_TOKEN_SECRET,
-
-  // ====== PUSH VAPID KEYS ======
   VAPID_PUBLIC_KEY,
-  VAPID_PRIVATE_KEY
+  VAPID_PRIVATE_KEY,
+  ALLOWED_ORIGINS
 } = process.env;
 
-// Railway daje MONGO_URL (czasem ludzie mają MONGO_URI) — wspieramy oba
 const MONGO_URI_EFFECTIVE = process.env.MONGO_URI || process.env.MONGO_URL;
 
 const PAYU_BASE =
@@ -69,21 +60,174 @@ function requireEnv(name, value) {
   if (!value) console.warn(`⚠️ Warning: Missing env var: ${name}`);
 }
 
-// ===============================
-// KONFIGURACJA WEB PUSH (VAPID)
-// ===============================
-const VAPID_EMAIL = "mailto:admin@eatmi.pl"; // Kontakt dla serwisu push
+const allowedOriginsSet = new Set(
+  String(ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+);
+
+if (!allowedOriginsSet.size) {
+  allowedOriginsSet.add("https://eatmi.pl");
+  allowedOriginsSet.add("https://www.eatmi.pl");
+  allowedOriginsSet.add("http://localhost:3000");
+  allowedOriginsSet.add("http://127.0.0.1:3000");
+}
+
+app.use(
+  cors({
+    origin(origin, cb) {
+      if (!origin) return cb(null, true);
+      if (allowedOriginsSet.has(origin)) return cb(null, true);
+      return cb(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+  })
+);
+
+const isProd = String(process.env.NODE_ENV || "").toLowerCase() === "production";
+
+app.use(
+  helmet({
+    crossOriginEmbedderPolicy: false,
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        imgSrc: ["'self'", "data:", "https://i.imgur.com"],
+        fontSrc: ["'self'", "data:"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+          "https://cdn.tailwindcss.com",
+          "https://unpkg.com"
+        ],
+        styleSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://cdn.tailwindcss.com",
+          "https://unpkg.com"
+        ],
+        connectSrc: ["'self'"],
+        manifestSrc: ["'self'"],
+        workerSrc: ["'self'"],
+        upgradeInsecureRequests: isProd ? [] : null
+      }
+    }
+  })
+);
+
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  if (isProd) {
+    res.setHeader(
+      "Strict-Transport-Security",
+      "max-age=15552000; includeSubDomains; preload"
+    );
+  }
+  next();
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Za dużo zapytań. Spróbuj ponownie za chwilę." }
+});
+
+app.use("/api", apiLimiter);
+
+const loginSlow = slowDown({
+  windowMs: 15 * 60 * 1000,
+  delayAfter: 5,
+  delayMs: () => 500
+});
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Za dużo prób logowania. Odczekaj 15 minut." }
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Za dużo rejestracji. Spróbuj później." }
+});
+
+const promoLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Za dużo prób kodów. Spróbuj za kilka minut." }
+});
+
+const payuLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Za dużo prób płatności. Spróbuj ponownie za chwilę." }
+});
+
+const ordersLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 180,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Za dużo odpytań o status. Zwolnij." }
+});
+
+const adminLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 240,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Za dużo żądań (admin)." }
+});
+
+const mgmtLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 180,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Za dużo żądań (management)." }
+});
+
+app.use("/api/auth/login", loginSlow, loginLimiter);
+app.use("/api/auth/register", registerLimiter);
+app.use("/api/promo/verify", promoLimiter);
+app.use("/api/payu", payuLimiter);
+app.use("/api/orders", ordersLimiter);
+app.use("/api/admin", adminLimiter);
+app.use("/api/management", mgmtLimiter);
+
+const VAPID_EMAIL = "mailto:admin@eatmi.pl";
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
   console.log("[PUSH] VAPID initialized ✅");
 } else {
-  console.warn("[PUSH] VAPID keys missing - notifications will not work! Generate them with 'npx web-push generate-vapid-keys'");
+  console.warn(
+    "[PUSH] VAPID keys missing - notifications will not work! Generate them with 'npx web-push generate-vapid-keys'"
+  );
 }
 
-// ===============================
-// SMTP (home.pl) — MAIL POWITALNY
-// ===============================
 function escapeHtml(str) {
   return String(str ?? "")
     .replaceAll("&", "&amp;")
@@ -99,7 +243,7 @@ const mailer = smtpEnabled
   ? nodemailer.createTransport({
       host: SMTP_HOST,
       port: Number(SMTP_PORT),
-      secure: String(SMTP_SECURE) === "true", // 465 => true
+      secure: String(SMTP_SECURE) === "true",
       auth: { user: SMTP_USER, pass: SMTP_PASS },
       connectionTimeout: 5000,
       greetingTimeout: 5000,
@@ -149,9 +293,6 @@ async function sendWelcomeEmail({ to, fullName }) {
   });
 }
 
-// ===============================
-// MONGO CONNECT + MODELS
-// ===============================
 requireEnv("MONGO_URL (or MONGO_URI)", MONGO_URI_EFFECTIVE);
 requireEnv("JWT_SECRET", JWT_SECRET);
 
@@ -159,16 +300,11 @@ mongoose.set("strictQuery", true);
 await mongoose.connect(MONGO_URI_EFFECTIVE);
 console.log("Mongo connected");
 
-// -------------------------------
-// USERS (kolekcja: users)
-// -------------------------------
 const UserSchema = new mongoose.Schema(
   {
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     fullName: { type: String, required: true, trim: true },
     passwordHash: { type: String, required: true },
-
-    // Panel fields:
     firstName: { type: String, default: "", trim: true },
     lastName: { type: String, default: "", trim: true },
     phone: { type: String, default: "", trim: true },
@@ -181,9 +317,6 @@ UserSchema.index({ email: 1 }, { unique: true });
 
 const User = mongoose.models.User || mongoose.model("User", UserSchema);
 
-// -------------------------------
-// STAFF (kolekcja: staff)
-// -------------------------------
 const StaffSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
@@ -193,34 +326,23 @@ const StaffSchema = new mongoose.Schema(
   { timestamps: true, collection: "staff" }
 );
 
-// unikalność pinHash (żeby nie było duplikatów PIN-ów)
 StaffSchema.index({ pinHash: 1 }, { unique: true });
 
 const Staff = mongoose.models.Staff || mongoose.model("Staff", StaffSchema);
 
-// -------------------------------
-// ORDERS (kolekcja: orders)
-// -------------------------------
 const OrderSchema = new mongoose.Schema(
   {
     extOrderId: { type: String, required: true, unique: true, index: true },
     payuOrderId: { type: String, default: null, index: true },
     status: { type: String, default: "PENDING", index: true },
-
-    // payu | card | cash
     paymentMethod: { type: String, default: "payu", index: true },
     isOffline: { type: Boolean, default: false, index: true },
-
-    totalAmount: { type: Number, required: true }, // grosze (produkty + dostawa - rabat)
-    totalPLN: { type: Number, required: true }, // zł
-
-    // ✅ NOWE POLA DLA KODÓW RABATOWYCH
+    totalAmount: { type: Number, required: true },
+    totalPLN: { type: Number, required: true },
     promoCode: { type: String, default: null },
-    discountAmount: { type: Number, default: 0 }, // W groszach
-
+    discountAmount: { type: Number, default: 0 },
     customer: { type: Object, default: {} },
     cart: { type: Array, default: [] },
-
     payuRaw: { type: Object, default: null }
   },
   { timestamps: true, collection: "orders" }
@@ -232,26 +354,21 @@ OrderSchema.index({ "customer.telefon": 1 });
 
 const Order = mongoose.models.Order || mongoose.model("Order", OrderSchema);
 
-// -------------------------------
-// PRODUCT (kolekcja: products) - NOWOŚĆ DLA LUNCH BOXÓW
-// -------------------------------
 const ProductSchema = new mongoose.Schema(
   {
-    id: { type: String, required: true, unique: true }, // np. "lunch-week"
+    id: { type: String, required: true, unique: true },
     name: { type: String, required: true },
-    price: { type: Number, required: true }, // grosze
+    price: { type: Number, required: true },
     description: { type: String, default: "" },
     image: { type: String, default: "" },
-    category: { type: String, default: "lunch" }, // 'lunch', 'breakfast' etc.
+    category: { type: String, default: "lunch" },
     isVisible: { type: Boolean, default: true }
   },
   { timestamps: true, collection: "products" }
 );
+
 const Product = mongoose.models.Product || mongoose.model("Product", ProductSchema);
 
-// -------------------------------
-// ✅ PUSH SUBSCRIPTION (kolekcja: push_subs)
-// -------------------------------
 const PushSubSchema = new mongoose.Schema({
   endpoint: { type: String, required: true, unique: true },
   keys: {
@@ -260,28 +377,24 @@ const PushSubSchema = new mongoose.Schema({
   },
   createdAt: { type: Date, default: Date.now }
 });
-const PushSubscription = mongoose.models.PushSubscription || mongoose.model("PushSubscription", PushSubSchema);
 
-// -------------------------------
-// ✅ PROMO CODE (kolekcja: promocodes)
-// -------------------------------
+const PushSubscription =
+  mongoose.models.PushSubscription || mongoose.model("PushSubscription", PushSubSchema);
+
 const PromoCodeSchema = new mongoose.Schema(
   {
     code: { type: String, required: true, unique: true, uppercase: true, trim: true },
     discountPercent: { type: Number, required: true, min: 1, max: 100 },
     expiresAt: { type: Date, required: true },
-    usageLimit: { type: Number, default: null }, // null = nielimitowany
+    usageLimit: { type: Number, default: null },
     usedCount: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true }
   },
   { timestamps: true, collection: "promocodes" }
 );
+
 const PromoCode = mongoose.models.PromoCode || mongoose.model("PromoCode", PromoCodeSchema);
 
-
-// ===============================
-// AUTH HELPERS (USER)
-// ===============================
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
@@ -303,11 +416,6 @@ function authRequired(req, res, next) {
   }
 }
 
-// ===============================
-// AUTH API (bez kodu mailowego)
-// ===============================
-
-// Register
 app.post("/api/auth/register", async (req, res) => {
   try {
     const email = normalizeEmail(req.body?.email);
@@ -337,8 +445,9 @@ app.post("/api/auth/register", async (req, res) => {
       lastName
     });
 
-    sendWelcomeEmail({ to: user.email, fullName: user.fullName })
-      .catch((e) => console.log("WELCOME EMAIL ERROR:", e?.message || e));
+    sendWelcomeEmail({ to: user.email, fullName: user.fullName }).catch((e) =>
+      console.log("WELCOME EMAIL ERROR:", e?.message || e)
+    );
 
     const token = signAuthToken(user);
 
@@ -357,7 +466,6 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-// Login
 app.post("/api/auth/login", async (req, res) => {
   try {
     const email = normalizeEmail(req.body?.email);
@@ -383,10 +491,11 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-// Me
 app.get("/api/auth/me", authRequired, async (req, res) => {
   try {
-    const user = await User.findById(req.user.uid).select("email fullName firstName lastName phone address createdAt");
+    const user = await User.findById(req.user.uid).select(
+      "email fullName firstName lastName phone address createdAt"
+    );
     if (!user) return res.status(404).json({ error: "Not found" });
     return res.json({ ok: true, user });
   } catch (e) {
@@ -395,20 +504,17 @@ app.get("/api/auth/me", authRequired, async (req, res) => {
   }
 });
 
-// ===============================
-// ADMIN HELPERS (STAFF + TOKENS)
-// ===============================
 function hashPin(pin) {
   return crypto.createHash("sha256").update(`${ADMIN_PIN_SALT}:${pin}`).digest("hex");
 }
 
-// ====== Minimal token (HMAC) ======
 function signToken(payload, secret) {
   const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const sig = crypto.createHmac("sha256", secret).update(`${header}.${body}`).digest("base64url");
   return `${header}.${body}.${sig}`;
 }
+
 function verifyToken(token, secret) {
   const [h, b, s] = String(token || "").split(".");
   if (!h || !b || !s) return null;
@@ -420,12 +526,12 @@ function verifyToken(token, secret) {
     return null;
   }
 }
+
 function getBearer(req) {
   const auth = req.headers.authorization || "";
   return auth.startsWith("Bearer ") ? auth.slice(7) : "";
 }
 
-// ====== Admin middleware (existing) ======
 function requireStaff(req, res, next) {
   const token = getBearer(req);
   const data = verifyToken(token, ADMIN_TOKEN_SECRET);
@@ -433,6 +539,7 @@ function requireStaff(req, res, next) {
   req.admin = data;
   next();
 }
+
 function requireAdminOnly(req, res, next) {
   const token = getBearer(req);
   const data = verifyToken(token, ADMIN_TOKEN_SECRET);
@@ -441,6 +548,7 @@ function requireAdminOnly(req, res, next) {
   req.admin = data;
   next();
 }
+
 function requireStaffForStream(req, res, next) {
   const token = String(req.query.token || "");
   const data = verifyToken(token, ADMIN_TOKEN_SECRET);
@@ -449,8 +557,8 @@ function requireStaffForStream(req, res, next) {
   next();
 }
 
-// ====== SSE clients ======
 const sseClients = new Set();
+
 function sseBroadcast(event, data) {
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   for (const res of sseClients) {
@@ -460,9 +568,6 @@ function sseBroadcast(event, data) {
   }
 }
 
-// ===============================
-// PAYU HELPERS & PRICING
-// ===============================
 function safeCustomer(customer) {
   const c = customer || {};
   return {
@@ -479,8 +584,8 @@ function safeCustomer(customer) {
     faktura: !!c.faktura,
     nip: c.nip || "",
     firma: c.firma || "",
-    deliveryTime: c.deliveryTime || "", // ✅ ZAPISUJEMY GODZINĘ DOSTAWY
-    fulfillmentMethod: c.fulfillmentMethod || "" // ✅ ZAPISUJEMY METODĘ
+    deliveryTime: c.deliveryTime || "",
+    fulfillmentMethod: c.fulfillmentMethod || ""
   };
 }
 
@@ -491,7 +596,6 @@ function isPaidStatus(status) {
 
 const OFFLINE_PENDING_STATUS = "AWAITING_PICKUP_PAYMENT";
 
-// ====== PRICE LIST (FALLBACK / STATIC) ======
 const PRICE_LIST = {
   "bs-small-1": 4300,
   "bs-small-2": 4500,
@@ -538,7 +642,6 @@ const PRICE_LIST = {
   "extra-deser": 2000
 };
 
-// ✅ ADD-ONS PRICE LIST
 const ADDONS_PRICE_LIST = {
   "milk-oat": 200,
   "milk-coconut": 200,
@@ -546,7 +649,6 @@ const ADDONS_PRICE_LIST = {
   "honey-50": 300
 };
 
-// ✅ ADD-ONS NAME LIST
 const ADDONS_NAME_LIST = {
   "milk-oat": "Mleko owsiane",
   "milk-coconut": "Mleko kokosowe",
@@ -554,7 +656,6 @@ const ADDONS_NAME_LIST = {
   "honey-50": "Miód 50 ml"
 };
 
-// STATIC NAME LIST (FALLBACK)
 const NAME_LIST = {
   "bs-small-1": "Box śniadaniowy mały nr 1",
   "bs-small-2": "Box śniadaniowy mały nr 2",
@@ -601,35 +702,35 @@ const NAME_LIST = {
   "extra-deser": "Deser czekoladowy (extra)"
 };
 
-// ===============================
-// ✅ PRODUCT INITIALIZATION (SEEDING)
-// ===============================
 async function seedLunche() {
   try {
     const LUNCH_DEFAULTS = [
-      { 
-        id: "lunch-week", 
-        name: "Lunch tygodnia", 
-        price: 5500, 
-        description: "Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Corn Flake Chicken: panierowana w płatkach kukurydzianych pierś z kurczaka z ziemniaczanym puree i coleslawem • Domowa lemoniada 250 ml",
+      {
+        id: "lunch-week",
+        name: "Lunch tygodnia",
+        price: 5500,
+        description:
+          "Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Corn Flake Chicken: panierowana w płatkach kukurydzianych pierś z kurczaka z ziemniaczanym puree i coleslawem • Domowa lemoniada 250 ml",
         image: "https://i.imgur.com/sn5VMfS.jpeg",
         category: "lunch",
         isVisible: true
       },
-      { 
-        id: "lunch-month", 
-        name: "Lunch miesiąca", 
-        price: 6500, 
-        description: "Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Kurczak Supreme: pieczona pierś z kurczaka z ziemniaczanym puree, warzywami i sosem demi glace • Domowa lemoniada 250 ml",
+      {
+        id: "lunch-month",
+        name: "Lunch miesiąca",
+        price: 6500,
+        description:
+          "Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Kurczak Supreme: pieczona pierś z kurczaka z ziemniaczanym puree, warzywami i sosem demi glace • Domowa lemoniada 250 ml",
         image: "https://i.imgur.com/xGCYJZQ.jpeg",
         category: "lunch",
         isVisible: true
       },
-      { 
-        id: "lunch-vege", 
-        name: "Lunch VEGE", 
-        price: 5500, 
-        description: "Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Tagliatelle z warzywami, oliwą z oliwek i pastą truflową • Domowa lemoniada 250 ml",
+      {
+        id: "lunch-vege",
+        name: "Lunch VEGE",
+        price: 5500,
+        description:
+          "Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Tagliatelle z warzywami, oliwą z oliwek i pastą truflową • Domowa lemoniada 250 ml",
         image: "https://i.imgur.com/0hvAvxJ.jpeg",
         category: "lunch",
         isVisible: true
@@ -637,69 +738,47 @@ async function seedLunche() {
     ];
 
     for (const lunch of LUNCH_DEFAULTS) {
-      await Product.findOneAndUpdate(
-        { id: lunch.id }, 
-        { $set: lunch }, 
-        { upsert: true, new: true }
-      );
+      await Product.findOneAndUpdate({ id: lunch.id }, { $set: lunch }, { upsert: true, new: true });
     }
-    console.log("✅ Lunche zaktualizowane do wersji 'Corn Flake Chicken' w bazie danych.");
-  } catch(e) {
+    console.log("✅ Lunche zaktualizowane w bazie danych.");
+  } catch (e) {
     console.error("SEED ERROR:", e);
   }
 }
 seedLunche();
 
-// ===============================
-// ✅ ASYNC CART VALIDATION (DB AWARE)
-// ===============================
-
-// Helper: Get product info from DB or fallback to static lists
 async function getProductInfo(id) {
-  // 1. Sprawdź bazę danych (głównie dla Lunchy)
   const doc = await Product.findOne({ id }).lean();
-  if (doc) {
-    return { price: doc.price, name: doc.name };
-  }
-  // 2. Jeśli brak w bazie, użyj listy statycznej (kawy, śniadania itp.)
-  if (PRICE_LIST[id] !== undefined) {
-    return { price: PRICE_LIST[id], name: NAME_LIST[id] || "Produkt" };
-  }
+  if (doc) return { price: doc.price, name: doc.name };
+  if (PRICE_LIST[id] !== undefined) return { price: PRICE_LIST[id], name: NAME_LIST[id] || "Produkt" };
   return null;
 }
 
-// Zmienione na ASYNC, żeby móc pytać bazę danych
 async function validateAndBuildCart(cart) {
   const arr = Array.isArray(cart) ? cart : [];
   if (!arr.length) throw new Error("Empty cart");
 
   const normalized = [];
-  
+
   for (const i of arr) {
     const productId = i?.productId;
     const qty = Number(i?.qty || 1);
 
-    // ✅ Pobieranie info (Cena/Nazwa) dynamicznie
     const info = await getProductInfo(productId);
-    
-    if (!info) {
-      throw new Error(`Unknown productId: ${productId}`);
-    }
-    if (!Number.isFinite(qty) || qty < 1 || qty > 50) {
-      throw new Error(`Invalid qty for ${productId}`);
-    }
 
-    // Add-ons Logic
-    let rawAddons = Array.isArray(i.addons) ? i.addons : [];
+    if (!info) throw new Error(`Unknown productId: ${productId}`);
+    if (!Number.isFinite(qty) || qty < 1 || qty > 50) throw new Error(`Invalid qty for ${productId}`);
+
+    const rawAddons = Array.isArray(i.addons) ? i.addons : [];
     const validAddons = rawAddons.filter((a) => a && ADDONS_PRICE_LIST[a.id]);
     const addonsCost = validAddons.reduce((sum, a) => sum + ADDONS_PRICE_LIST[a.id], 0);
 
-    const basePrice = info.price; // cena z bazy lub statyczna
+    const basePrice = info.price;
     const unitEffectivePrice = basePrice + addonsCost;
 
     normalized.push({
       productId,
-      name: info.name, // przechowujemy nazwę z momentu zakupu
+      name: info.name,
       qty,
       addons: validAddons,
       unitBasePrice: basePrice,
@@ -711,20 +790,14 @@ async function validateAndBuildCart(cart) {
   return normalized;
 }
 
-// ✅ UPDATED: calcTotalProductsValue uses unitEffectivePrice (sum of products ONLY)
 function calcTotalProductsValue(cartNorm) {
   return cartNorm.reduce((sum, i) => sum + i.unitEffectivePrice * i.qty, 0);
 }
 
-// ✅ NEW: Calculate Delivery Cost based on thresholds
-// 0-49.99 PLN -> 10 PLN
-// 50-79.99 PLN -> 5 PLN
-// 80+ PLN -> 0 PLN
-// Values in grosze!
 function calcDeliveryCost(cartValue) {
-  if (cartValue < 5000) return 1000; // 10.00 PLN
-  if (cartValue < 8000) return 500;  // 5.00 PLN
-  return 0; // Free delivery
+  if (cartValue < 5000) return 1000;
+  if (cartValue < 8000) return 500;
+  return 0;
 }
 
 async function getPayuToken() {
@@ -755,6 +828,7 @@ async function getPayuToken() {
   } catch {
     data = {};
   }
+
   if (!data?.access_token) {
     console.log("PAYU OAUTH BAD JSON:", raw);
     throw new Error("PayU OAuth: missing access_token");
@@ -763,48 +837,32 @@ async function getPayuToken() {
   return data;
 }
 
-// ===============================
-// ORDER STORE (Mongo) - UPSERT
-// ===============================
 async function upsertOrderMongo(patch) {
   if (!patch?.extOrderId) throw new Error("upsertOrderMongo: missing extOrderId");
   const now = new Date();
 
   const updated = await Order.findOneAndUpdate(
     { extOrderId: patch.extOrderId },
-    {
-      $set: { ...patch, updatedAt: now },
-      $setOnInsert: { createdAt: now }
-    },
+    { $set: { ...patch, updatedAt: now }, $setOnInsert: { createdAt: now } },
     { upsert: true, new: true }
   ).lean();
 
   return updated;
 }
 
-// ===============================
-// ✅ PUSH PUBLIC API (Subskrypcja)
-// ===============================
-
-// 1. Udostępnij klucz publiczny dla frontendu
 app.get("/api/push/vapid-public-key", (req, res) => {
   res.json({ publicKey: VAPID_PUBLIC_KEY });
 });
 
-// 2. Zapisz subskrypcję użytkownika
 app.post("/api/push/subscribe", async (req, res) => {
   try {
     const subscription = req.body;
-    if (!subscription || !subscription.endpoint) {
-      return res.status(400).json({ error: "Invalid subscription" });
-    }
+    if (!subscription || !subscription.endpoint) return res.status(400).json({ error: "Invalid subscription" });
 
-    // Upsert: zapisz lub zaktualizuj, jeśli endpoint już istnieje
-    await PushSubscription.findOneAndUpdate(
-      { endpoint: subscription.endpoint },
-      subscription,
-      { upsert: true, new: true }
-    );
+    await PushSubscription.findOneAndUpdate({ endpoint: subscription.endpoint }, subscription, {
+      upsert: true,
+      new: true
+    });
 
     res.status(201).json({ ok: true });
   } catch (e) {
@@ -813,47 +871,31 @@ app.post("/api/push/subscribe", async (req, res) => {
   }
 });
 
-// ===============================
-// ✅ PROMO CODES VERIFY API
-// ===============================
 app.post("/api/promo/verify", async (req, res) => {
   try {
     const codeStr = String(req.body.code || "").toUpperCase().trim();
     const promo = await PromoCode.findOne({ code: codeStr, isActive: true });
 
     if (!promo) return res.status(404).json({ error: "Kod nieprawidłowy" });
-    
-    if (new Date() > promo.expiresAt) {
-      return res.status(400).json({ error: "Kod wygasł" });
-    }
+
+    if (new Date() > promo.expiresAt) return res.status(400).json({ error: "Kod wygasł" });
 
     if (promo.usageLimit !== null && promo.usedCount >= promo.usageLimit) {
       return res.status(400).json({ error: "Limit użyć kodu wyczerpany" });
     }
 
-    res.json({ 
-      ok: true, 
-      code: promo.code, 
-      discountPercent: promo.discountPercent 
-    });
-  } catch (e) {
+    res.json({ ok: true, code: promo.code, discountPercent: promo.discountPercent });
+  } catch {
     res.status(500).json({ error: "Błąd weryfikacji" });
   }
 });
 
-// ===============================
-// ✅ ORDER APIs (OFFLINE + PAYU) WITH PROMO
-// ===============================
-
-// 1. OFFLINE ORDER
 app.post("/api/order/offline", async (req, res) => {
   try {
     const methodRaw = String(req.body?.paymentMethod || "").trim().toLowerCase();
     const paymentMethod = methodRaw === "card" ? "card" : methodRaw === "cash" ? "cash" : "";
 
-    if (!paymentMethod) {
-      return res.status(400).json({ error: "Invalid paymentMethod (expected 'card' or 'cash')" });
-    }
+    if (!paymentMethod) return res.status(400).json({ error: "Invalid paymentMethod (expected 'card' or 'cash')" });
 
     const customer = safeCustomer(req.body?.customer);
 
@@ -861,24 +903,28 @@ app.post("/api/order/offline", async (req, res) => {
       return res.status(400).json({ error: "Missing required customer fields" });
     }
 
-    // AWAIT here is crucial now
     const cartNorm = await validateAndBuildCart(req.body?.cart);
-    
-    // ✅ Calculate delivery
+
     const productsValue = calcTotalProductsValue(cartNorm);
 
-    // ✅ PROMO LOGIC
     let discountAmount = 0;
     let usedPromoCode = null;
+
     if (req.body.promoCode) {
-        const promo = await PromoCode.findOne({ code: req.body.promoCode.toUpperCase(), isActive: true });
-        if (promo && new Date() <= promo.expiresAt && (promo.usageLimit === null || promo.usedCount < promo.usageLimit)) {
-            const discount = Math.round(productsValue * (promo.discountPercent / 100));
-            discountAmount = discount;
-            usedPromoCode = promo.code;
-            
-            await PromoCode.updateOne({ _id: promo._id }, { $inc: { usedCount: 1 } });
-        }
+      const promo = await PromoCode.findOne({
+        code: String(req.body.promoCode || "").toUpperCase(),
+        isActive: true
+      });
+
+      if (
+        promo &&
+        new Date() <= promo.expiresAt &&
+        (promo.usageLimit === null || promo.usedCount < promo.usageLimit)
+      ) {
+        discountAmount = Math.round(productsValue * (promo.discountPercent / 100));
+        usedPromoCode = promo.code;
+        await PromoCode.updateOne({ _id: promo._id }, { $inc: { usedCount: 1 } });
+      }
     }
 
     const productsValueAfterDiscount = Math.max(0, productsValue - discountAmount);
@@ -911,30 +957,19 @@ app.post("/api/order/offline", async (req, res) => {
       paymentMethod: saved.paymentMethod
     });
 
-    return res.json({
-      ok: true,
-      orderId: saved.extOrderId,
-      extOrderId: saved.extOrderId,
-      status: saved.status
-    });
+    return res.json({ ok: true, orderId: saved.extOrderId, extOrderId: saved.extOrderId, status: saved.status });
   } catch (e) {
     console.log("OFFLINE ORDER ERROR:", e?.message, e);
     return res.status(500).json({ error: e?.message || "Server error" });
   }
 });
 
-// ✅ ADDED: GET PUBLIC ORDER STATUS (for Client Modal / Tracker)
 app.get("/api/orders/:extOrderId", async (req, res) => {
   try {
     const { extOrderId } = req.params;
-    // Find by extOrderId, return limited data
     const order = await Order.findOne({ extOrderId }).lean();
+    if (!order) return res.status(404).json({ error: "Order not found" });
 
-    if (!order) {
-      return res.status(404).json({ error: "Order not found" });
-    }
-
-    // Return safe public data
     res.json({
       extOrderId: order.extOrderId,
       status: order.status,
@@ -946,7 +981,7 @@ app.get("/api/orders/:extOrderId", async (req, res) => {
         imieNazwisko: order.customer?.imieNazwisko,
         miasto: order.customer?.miasto,
         ulica: order.customer?.ulica,
-        deliveryTime: order.customer?.deliveryTime, // ✅ Return delivery time
+        deliveryTime: order.customer?.deliveryTime,
         fulfillmentMethod: order.customer?.fulfillmentMethod
       }
     });
@@ -956,70 +991,54 @@ app.get("/api/orders/:extOrderId", async (req, res) => {
   }
 });
 
-// 2. PAYU ORDER
 app.post("/api/payu/order", async (req, res) => {
   try {
     requireEnv("PAYU_POS_ID", PAYU_POS_ID);
     requireEnv("PAYU_NOTIFY_URL", PAYU_NOTIFY_URL);
     requireEnv("PAYU_CONTINUE_URL", PAYU_CONTINUE_URL);
 
-    // AWAIT validation
     const cartNorm = await validateAndBuildCart(req.body?.cart);
 
-    // ✅ PROMO LOGIC
     let discountAmount = 0;
     let usedPromoCode = null;
     const productsValue = calcTotalProductsValue(cartNorm);
 
     if (req.body.promoCode) {
-        const promo = await PromoCode.findOne({ code: req.body.promoCode.toUpperCase(), isActive: true });
-        if (promo && new Date() <= promo.expiresAt && (promo.usageLimit === null || promo.usedCount < promo.usageLimit)) {
-            const discount = Math.round(productsValue * (promo.discountPercent / 100));
-            discountAmount = discount;
-            usedPromoCode = promo.code;
-            
-            await PromoCode.updateOne({ _id: promo._id }, { $inc: { usedCount: 1 } });
-        }
+      const promo = await PromoCode.findOne({
+        code: String(req.body.promoCode || "").toUpperCase(),
+        isActive: true
+      });
+
+      if (
+        promo &&
+        new Date() <= promo.expiresAt &&
+        (promo.usageLimit === null || promo.usedCount < promo.usageLimit)
+      ) {
+        discountAmount = Math.round(productsValue * (promo.discountPercent / 100));
+        usedPromoCode = promo.code;
+        await PromoCode.updateOne({ _id: promo._id }, { $inc: { usedCount: 1 } });
+      }
     }
 
-    // ✅ UPDATED: Include add-ons in name and use calculated price
     const products = cartNorm.map((i) => {
-      // Use name from normalized cart (fetched from DB or Static list)
       let name = i.name || "Pozycja";
-
-      // Append add-ons labels to name
       if (i.addons && i.addons.length > 0) {
         const addonNames = i.addons.map((a) => ADDONS_NAME_LIST[a.id] || a.label).join(", ");
         name += ` (+ ${addonNames})`;
       }
-
-      return {
-        name: name,
-        unitPrice: String(i.unitEffectivePrice),
-        quantity: String(i.qty)
-      };
+      return { name, unitPrice: String(i.unitEffectivePrice), quantity: String(i.qty) };
     });
 
-    // Add Discount Line Item (Negative Price)
     if (discountAmount > 0) {
-        products.push({
-            name: `Rabat: ${usedPromoCode}`,
-            unitPrice: String(-discountAmount),
-            quantity: "1"
-        });
+      products.push({ name: `Rabat: ${usedPromoCode}`, unitPrice: String(-discountAmount), quantity: "1" });
     }
 
     const valueAfterDiscount = Math.max(0, productsValue - discountAmount);
     const deliveryCost = calcDeliveryCost(valueAfterDiscount);
     const totalAmount = valueAfterDiscount + deliveryCost;
 
-    // ✅ Add delivery to PayU products list if > 0
     if (deliveryCost > 0) {
-      products.push({
-        name: "Dostawa",
-        unitPrice: String(deliveryCost),
-        quantity: "1"
-      });
+      products.push({ name: "Dostawa", unitPrice: String(deliveryCost), quantity: "1" });
     }
 
     const { access_token } = await getPayuToken();
@@ -1042,7 +1061,7 @@ app.post("/api/payu/order", async (req, res) => {
       totalAmount,
       totalPLN: totalAmount / 100,
       customer,
-      cart: cartNorm, // Saves cart with addons AND proper names
+      cart: cartNorm,
       promoCode: usedPromoCode,
       discountAmount
     });
@@ -1062,10 +1081,7 @@ app.post("/api/payu/order", async (req, res) => {
     const r = await fetch(`${PAYU_BASE}/api/v2_1/orders`, {
       method: "POST",
       redirect: "manual",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${access_token}`
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${access_token}` },
       body: JSON.stringify(orderBody)
     });
 
@@ -1081,9 +1097,7 @@ app.post("/api/payu/order", async (req, res) => {
       }
     }
 
-    if (data?.orderId) {
-      await upsertOrderMongo({ extOrderId, payuOrderId: data.orderId });
-    }
+    if (data?.orderId) await upsertOrderMongo({ extOrderId, payuOrderId: data.orderId });
 
     if ((r.status === 301 || r.status === 302 || r.status === 303) && location) {
       return res.json({ redirectUri: location, orderId: data?.orderId || null, extOrderId });
@@ -1107,9 +1121,6 @@ app.post("/api/payu/order", async (req, res) => {
   }
 });
 
-// ===============================
-// PayU: Webhook notify
-// ===============================
 app.post("/api/payu/notify", async (req, res) => {
   try {
     const body = req.body || {};
@@ -1151,9 +1162,6 @@ app.get("/api/payu/notify", (req, res) => {
   res.status(200).send("OK (PayU notify endpoint expects POST)");
 });
 
-// ===============================
-// ADMIN API (Mongo) — EXISTING
-// ===============================
 app.post("/api/admin/login", async (req, res) => {
   try {
     const pin = String(req.body?.pin || "").trim();
@@ -1161,24 +1169,17 @@ app.post("/api/admin/login", async (req, res) => {
 
     if (!ADMIN_PIN) return res.status(500).json({ error: "ADMIN_PIN not set" });
 
-    // admin PIN (env)
     if (pin === String(ADMIN_PIN)) {
       const token = signToken({ role: "admin", name: "Administrator", iat: Date.now() }, ADMIN_TOKEN_SECRET);
       return res.json({ token });
     }
 
-    // staff w Mongo
     const h = hashPin(pin);
     const found = await Staff.findOne({ pinHash: h }).lean();
     if (!found) return res.status(401).json({ error: "Bad PIN" });
 
     const token = signToken(
-      {
-        role: "staff",
-        name: found.name || "Pracownik",
-        staffId: String(found._id),
-        iat: Date.now()
-      },
+      { role: "staff", name: found.name || "Pracownik", staffId: String(found._id), iat: Date.now() },
       ADMIN_TOKEN_SECRET
     );
     return res.json({ token });
@@ -1202,55 +1203,39 @@ app.get("/api/admin/stream", requireStaffForStream, (req, res) => {
   });
 });
 
-// ==========================================
-// ✅ FIX: USER COUNT + REVENUE TODAY
-// ==========================================
 app.get("/api/admin/stats", requireStaff, async (req, res) => {
   try {
-    // 1. Liczba wszystkich zamówień
     const ordersTotal = await Order.countDocuments({});
 
-    // 2. Liczba zamówień dzisiaj
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
     const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     const ordersToday = await Order.countDocuments({ createdAt: { $gte: start, $lte: end } });
 
-    // 3. Całkowity przychód
     const revenueAgg = await Order.aggregate([
       { $match: { status: { $in: ["PAID", "COMPLETED", "Zrealizowane"] } } },
       { $group: { _id: null, sum: { $sum: "$totalPLN" } } }
     ]);
     const revenueTotal = Number(revenueAgg?.[0]?.sum || 0);
 
-    // 4. Utarg DZISIAJ (NOWE)
     const revenueTodayAgg = await Order.aggregate([
-      { 
-        $match: { 
-          status: { $in: ["PAID", "COMPLETED", "Zrealizowane"] },
-          createdAt: { $gte: start, $lte: end }
-        } 
-      },
+      { $match: { status: { $in: ["PAID", "COMPLETED", "Zrealizowane"] }, createdAt: { $gte: start, $lte: end } } },
       { $group: { _id: null, sum: { $sum: "$totalPLN" } } }
     ]);
     const revenueToday = Number(revenueTodayAgg?.[0]?.sum || 0);
 
-    // 5. Liczba użytkowników (NAPRAWIONE)
     const usersTotal = await User.countDocuments({});
 
-    res.json({ 
-        ordersTotal, 
-        ordersToday, 
-        revenueTotal, 
-        revenueToday, 
-        usersTotal 
-    });
-
+    res.json({ ordersTotal, ordersToday, revenueTotal, revenueToday, usersTotal });
   } catch (e) {
     console.log("ADMIN STATS ERROR:", e?.message, e);
     res.status(500).json({ error: e?.message || "Server error" });
   }
 });
+
+function escapeRegex(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 app.get("/api/admin/orders", requireStaff, async (req, res) => {
   try {
@@ -1261,11 +1246,9 @@ app.get("/api/admin/orders", requireStaff, async (req, res) => {
     if (q) {
       or.push({ extOrderId: { $regex: escapeRegex(q), $options: "i" } });
       or.push({ payuOrderId: { $regex: escapeRegex(q), $options: "i" } });
-
       or.push({ "customer.imieNazwisko": { $regex: escapeRegex(q), $options: "i" } });
       or.push({ "customer.email": { $regex: escapeRegex(q), $options: "i" } });
       or.push({ "customer.telefon": { $regex: escapeRegex(q), $options: "i" } });
-
       or.push({ paymentMethod: { $regex: escapeRegex(q), $options: "i" } });
       or.push({ status: { $regex: escapeRegex(q), $options: "i" } });
     }
@@ -1281,11 +1264,10 @@ app.get("/api/admin/orders", requireStaff, async (req, res) => {
   }
 });
 
-// ✅ ADDED: ADMIN CHANGE STATUS (For admin.html)
 app.patch("/api/admin/orders/:extOrderId/status", requireStaff, async (req, res) => {
   try {
     const { extOrderId } = req.params;
-    const { status } = req.body; // e.g. "W przygotowaniu", "Zrealizowane"
+    const { status } = req.body;
 
     if (!status) return res.status(400).json({ error: "Missing status" });
 
@@ -1295,12 +1277,7 @@ app.patch("/api/admin/orders/:extOrderId/status", requireStaff, async (req, res)
     order.status = status;
     await order.save();
 
-    // Broadcast to Admin Panels
-    sseBroadcast("order_update", {
-      type: "order_update", // explicit type for client
-      extOrderId,
-      status
-    });
+    sseBroadcast("order_update", { type: "order_update", extOrderId, status });
 
     res.json({ ok: true, status });
   } catch (e) {
@@ -1309,7 +1286,6 @@ app.patch("/api/admin/orders/:extOrderId/status", requireStaff, async (req, res)
   }
 });
 
-// ✅ ADMIN: PROMO CODES (NOWE)
 app.get("/api/admin/promocodes", requireStaff, async (req, res) => {
   try {
     const codes = await PromoCode.find({}).sort({ createdAt: -1 });
@@ -1322,12 +1298,10 @@ app.get("/api/admin/promocodes", requireStaff, async (req, res) => {
 app.post("/api/admin/promocodes", requireStaff, async (req, res) => {
   try {
     const { code, discountPercent, durationMinutes, usageLimit } = req.body;
-     
-    if (!code || !discountPercent || !durationMinutes) {
-      return res.status(400).json({ error: "Brak wymaganych danych" });
-    }
 
-    const expiresAt = new Date(Date.now() + durationMinutes * 60000);
+    if (!code || !discountPercent || !durationMinutes) return res.status(400).json({ error: "Brak wymaganych danych" });
+
+    const expiresAt = new Date(Date.now() + Number(durationMinutes) * 60000);
 
     await PromoCode.create({
       code: String(code).toUpperCase(),
@@ -1352,38 +1326,30 @@ app.delete("/api/admin/promocodes/:id", requireStaff, async (req, res) => {
   }
 });
 
-// ✅ ZAKTUALIZOWANY ADMIN PUSH: Wysyłka przez web-push
-// Wysyła powiadomienie do wszystkich subskrybowanych urządzeń
 app.post("/api/admin/push", requireStaff, async (req, res) => {
   try {
     const title = String(req.body?.title || "").trim();
     const body = String(req.body?.body || "").trim();
-     
+
     if (!title || !body) return res.status(400).json({ error: "Missing title or body" });
 
-    // Pobierz wszystkie subskrypcje z bazy
     const subscriptions = await PushSubscription.find({});
-     
-    console.log(`[PUSH] Wysyłam do ${subscriptions.length} urządzeń...`);
 
     const notificationPayload = JSON.stringify({
-      title: title,
-      body: body,
-      icon: '/appicon.png', // ✅ Ikona zgodnie z życzeniem
-      url: "https://eatmi.pl/#/" // Kliknięcie otwiera appkę
+      title,
+      body,
+      icon: "/appicon.png",
+      url: "https://eatmi.pl/#/"
     });
 
-    const promises = subscriptions.map(sub => {
-      return webpush.sendNotification(sub, notificationPayload)
-        .catch(err => {
-          if (err.statusCode === 410 || err.statusCode === 404) {
-            // Subskrypcja wygasła/usunięta - usuwamy z bazy
-            console.log(`[PUSH] Usuwam martwą subskrypcję: ${sub._id}`);
-            return PushSubscription.deleteOne({ _id: sub._id });
-          }
-          console.error("[PUSH] Błąd wysyłki:", err.statusCode);
-        });
-    });
+    const promises = subscriptions.map((sub) =>
+      webpush.sendNotification(sub, notificationPayload).catch((err) => {
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          return PushSubscription.deleteOne({ _id: sub._id });
+        }
+        console.error("[PUSH] Błąd wysyłki:", err.statusCode);
+      })
+    );
 
     await Promise.all(promises);
 
@@ -1423,10 +1389,7 @@ app.post("/api/admin/staff", requireAdminOnly, async (req, res) => {
 
     const item = await Staff.create({ name, pinHash, role: "staff" });
 
-    res.json({
-      ok: true,
-      staff: { id: String(item._id), name: item.name, role: item.role, createdAt: item.createdAt }
-    });
+    res.json({ ok: true, staff: { id: String(item._id), name: item.name, role: item.role, createdAt: item.createdAt } });
   } catch (e) {
     const msg = String(e?.message || "");
     if (msg.includes("E11000") || msg.toLowerCase().includes("duplicate")) {
@@ -1450,12 +1413,6 @@ app.delete("/api/admin/staff/:id", requireAdminOnly, async (req, res) => {
   }
 });
 
-// ==========================================
-// ✅ NOWOŚĆ: API DO ZARZĄDZANIA PRODUKTAMI (LUNCHE)
-// ==========================================
-
-// 1. PUBLICZNE API (Dla index.html - bez hasła!)
-// Dzięki temu plik index.html (strona klienta) może pobrać lunche bez logowania.
 app.get("/api/products/lunche", async (req, res) => {
   try {
     const products = await Product.find({ category: "lunch" }).lean();
@@ -1465,7 +1422,6 @@ app.get("/api/products/lunche", async (req, res) => {
   }
 });
 
-// 2. ADMIN API (Dla admin.html - zabezpieczone tokenem)
 app.get("/api/admin/products/lunche", requireStaff, async (req, res) => {
   try {
     const products = await Product.find({ category: "lunch" }).lean();
@@ -1480,11 +1436,7 @@ app.put("/api/admin/products/lunche/:id", requireStaff, async (req, res) => {
     const { id } = req.params;
     const { name, price, description, image } = req.body;
 
-    const updated = await Product.findOneAndUpdate(
-      { id }, 
-      { name, price, description, image },
-      { new: true }
-    );
+    const updated = await Product.findOneAndUpdate({ id }, { name, price, description, image }, { new: true });
 
     if (!updated) return res.status(404).json({ error: "Not found" });
 
@@ -1494,16 +1446,11 @@ app.put("/api/admin/products/lunche/:id", requireStaff, async (req, res) => {
   }
 });
 
-// ==========================================================
-// ✅ MANAGEMENT PANEL API (users + orders) — NEW
-// ==========================================================
-
 const MGMT_SECRET_EFFECTIVE = MGMT_TOKEN_SECRET || ADMIN_TOKEN_SECRET;
 
-// Cookie name:
 const MGMT_STEP1_COOKIE = "eatmi_mgmt_step1";
-const MGMT_STEP1_TTL_MS = 2 * 60 * 1000; // 2 min
-const MGMT_STEP1_MIN_WAIT_MS = 5 * 1000; // 5 sec
+const MGMT_STEP1_TTL_MS = 2 * 60 * 1000;
+const MGMT_STEP1_MIN_WAIT_MS = 5 * 1000;
 
 function parseCookies(req) {
   const header = String(req.headers.cookie || "");
@@ -1520,13 +1467,7 @@ function parseCookies(req) {
 }
 
 function setCookie(res, name, value, opts = {}) {
-  const {
-    maxAge = 120,
-    httpOnly = true,
-    secure = true,
-    sameSite = "Strict",
-    path = "/"
-  } = opts;
+  const { maxAge = 120, httpOnly = true, secure = true, sameSite = "Strict", path = "/" } = opts;
 
   const parts = [];
   parts.push(`${name}=${encodeURIComponent(value)}`);
@@ -1543,13 +1484,13 @@ function clearCookie(res, name) {
   res.setHeader("Set-Cookie", `${name}=; Path=/; Max-Age=0; SameSite=Strict; HttpOnly; Secure`);
 }
 
-// signed payload for step1 cookie:
 function signMgmtStep1(ts) {
   const payload = { ts, rnd: crypto.randomBytes(8).toString("hex") };
   const b64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const sig = crypto.createHmac("sha256", MGMT_SECRET_EFFECTIVE).update(b64).digest("base64url");
   return `${b64}.${sig}`;
 }
+
 function verifyMgmtStep1(value) {
   const [b64, sig] = String(value || "").split(".");
   if (!b64 || !sig) return null;
@@ -1565,16 +1506,11 @@ function verifyMgmtStep1(value) {
 }
 
 function signMgmtToken(payload) {
-  // exp in ms
   const now = Date.now();
-  const body = {
-    ...payload,
-    scope: "mgmt",
-    iat: now,
-    exp: now + 2 * 60 * 60 * 1000 // 2h
-  };
+  const body = { ...payload, scope: "mgmt", iat: now, exp: now + 2 * 60 * 60 * 1000 };
   return signToken(body, MGMT_SECRET_EFFECTIVE);
 }
+
 function verifyMgmtToken(token) {
   const data = verifyToken(token, MGMT_SECRET_EFFECTIVE);
   if (!data) return null;
@@ -1582,6 +1518,7 @@ function verifyMgmtToken(token) {
   if (typeof data.exp === "number" && Date.now() > data.exp) return null;
   return data;
 }
+
 function requireMgmt(req, res, next) {
   const token = getBearer(req);
   const data = verifyMgmtToken(token);
@@ -1590,7 +1527,6 @@ function requireMgmt(req, res, next) {
   next();
 }
 
-// Helpers do danych usera:
 function splitFullName(fullName) {
   const s = String(fullName || "").trim();
   if (!s) return { firstName: "", lastName: "" };
@@ -1615,17 +1551,10 @@ function normalizeAddress(v) {
 
 function buildAddressFromOrderCustomer(cust) {
   const c = cust || {};
-  const parts = [
-    c.ulica || c.street,
-    c.nrBud || c.houseNumber,
-    c.lokal || c.flatNumber
-  ].filter(Boolean);
+  const parts = [c.ulica || c.street, c.nrBud || c.houseNumber, c.lokal || c.flatNumber].filter(Boolean);
   const line1 = parts.join(" ").trim();
 
-  const line2Parts = [
-    c.kod || c.zip,
-    c.miasto || c.city
-  ].filter(Boolean);
+  const line2Parts = [c.kod || c.zip, c.miasto || c.city].filter(Boolean);
   const line2 = line2Parts.join(" ").trim();
 
   const out = [line1, line2].filter(Boolean).join(", ").trim();
@@ -1645,12 +1574,9 @@ async function countOrdersByEmail(email) {
 function publicUser(u) {
   if (!u) return null;
   const id = String(u._id);
-
-  // prefer explicit first/last, fallback split fullName
   const split = splitFullName(u.fullName);
   const firstName = String(u.firstName || "").trim() || split.firstName;
   const lastName = String(u.lastName || "").trim() || split.lastName;
-
   const phone = String(u.phone || "").trim();
   const address = String(u.address || "").trim();
 
@@ -1668,7 +1594,6 @@ function publicUser(u) {
   };
 }
 
-// STEP 1: password -> set cookie
 app.post("/api/management/login-step1", async (req, res) => {
   try {
     requireEnv("MGMT_PASSWORD", MGMT_PASSWORD);
@@ -1680,7 +1605,6 @@ app.post("/api/management/login-step1", async (req, res) => {
     const ts = Date.now();
     const signed = signMgmtStep1(ts);
 
-    // Secure cookie: w Railway masz HTTPS, więc Secure jest OK.
     setCookie(res, MGMT_STEP1_COOKIE, signed, {
       maxAge: Math.floor(MGMT_STEP1_TTL_MS / 1000),
       httpOnly: true,
@@ -1696,7 +1620,6 @@ app.post("/api/management/login-step1", async (req, res) => {
   }
 });
 
-// STEP 2: pin -> require cookie + min 5s wait -> token
 app.post("/api/management/login-step2", async (req, res) => {
   try {
     requireEnv("MGMT_PIN", MGMT_PIN);
@@ -1715,15 +1638,10 @@ app.post("/api/management/login-step2", async (req, res) => {
       return res.status(401).json({ error: "Step1 expired" });
     }
 
-    if (age < MGMT_STEP1_MIN_WAIT_MS) {
-      return res.status(429).json({ error: "Wait 5 seconds before PIN" });
-    }
+    if (age < MGMT_STEP1_MIN_WAIT_MS) return res.status(429).json({ error: "Wait 5 seconds before PIN" });
 
-    if (pin !== String(MGMT_PIN)) {
-      return res.status(401).json({ error: "Bad PIN" });
-    }
+    if (pin !== String(MGMT_PIN)) return res.status(401).json({ error: "Bad PIN" });
 
-    // success -> clear step1 cookie and return token
     clearCookie(res, MGMT_STEP1_COOKIE);
 
     const token = signMgmtToken({ role: "manager", name: "Management" });
@@ -1734,18 +1652,15 @@ app.post("/api/management/login-step2", async (req, res) => {
   }
 });
 
-// Logout endpoint (optional)
 app.post("/api/management/logout", (req, res) => {
   clearCookie(res, MGMT_STEP1_COOKIE);
   res.json({ ok: true });
 });
 
-// USERS: list
 app.get("/api/management/users", requireMgmt, async (req, res) => {
   try {
     const users = await User.find({}).sort({ createdAt: -1 }).limit(2000).lean();
 
-    // policz orders per email (1 agregacja)
     const emails = users.map((u) => u.email).filter(Boolean);
     const agg = await Order.aggregate([
       { $match: { "customer.email": { $in: emails } } },
@@ -1753,8 +1668,6 @@ app.get("/api/management/users", requireMgmt, async (req, res) => {
     ]);
     const mapCount = new Map(agg.map((x) => [String(x._id || "").toLowerCase(), Number(x.count || 0)]));
 
-    // uzupełnij phone/address z ostatniego zamówienia jeśli brak w user doc
-    // (robimy to oszczędnie: po 1 lookup per user tylko gdy brak danych)
     const out = [];
     for (const u of users) {
       const pu = publicUser(u);
@@ -1778,7 +1691,6 @@ app.get("/api/management/users", requireMgmt, async (req, res) => {
   }
 });
 
-// USERS: get one + derived fields
 app.get("/api/management/users/:id", requireMgmt, async (req, res) => {
   try {
     const id = String(req.params.id || "");
@@ -1803,7 +1715,6 @@ app.get("/api/management/users/:id", requireMgmt, async (req, res) => {
   }
 });
 
-// USERS: patch/edit
 app.patch("/api/management/users/:id", requireMgmt, async (req, res) => {
   try {
     const id = String(req.params.id || "");
@@ -1818,7 +1729,6 @@ app.patch("/api/management/users/:id", requireMgmt, async (req, res) => {
 
     if (email !== undefined) {
       if (!email || !email.includes("@")) return res.status(400).json({ error: "Invalid email" });
-      // unique check
       const exists = await User.findOne({ email, _id: { $ne: user._id } }).lean();
       if (exists) return res.status(409).json({ error: "Email already in use" });
       user.email = email;
@@ -1829,7 +1739,6 @@ app.patch("/api/management/users/:id", requireMgmt, async (req, res) => {
     if (phone !== undefined) user.phone = phone;
     if (address !== undefined) user.address = address;
 
-    // aktualizuj fullName na podstawie first/last jeśli podane
     const fullNameNew = composeFullName(
       firstName !== undefined ? firstName : user.firstName,
       lastName !== undefined ? lastName : user.lastName,
@@ -1852,7 +1761,6 @@ app.patch("/api/management/users/:id", requireMgmt, async (req, res) => {
   }
 });
 
-// USERS: change password
 app.post("/api/management/users/:id/password", requireMgmt, async (req, res) => {
   try {
     const id = String(req.params.id || "");
@@ -1872,7 +1780,6 @@ app.post("/api/management/users/:id/password", requireMgmt, async (req, res) => 
   }
 });
 
-// USERS: delete account
 app.delete("/api/management/users/:id", requireMgmt, async (req, res) => {
   try {
     const id = String(req.params.id || "");
@@ -1881,9 +1788,6 @@ app.delete("/api/management/users/:id", requireMgmt, async (req, res) => {
 
     await User.deleteOne({ _id: id });
 
-    // Celowo NIE usuwamy orders (historia sprzedaży).
-    // Jeśli chcesz anonimizować: można tu np. usunąć customer.email w orders tego usera.
-
     res.json({ ok: true });
   } catch (e) {
     console.log("MGMT USER DELETE ERROR:", e?.message, e);
@@ -1891,7 +1795,6 @@ app.delete("/api/management/users/:id", requireMgmt, async (req, res) => {
   }
 });
 
-// ORDERS per user (by email)
 app.get("/api/management/users/:id/orders", requireMgmt, async (req, res) => {
   try {
     const id = String(req.params.id || "");
@@ -1901,10 +1804,7 @@ app.get("/api/management/users/:id/orders", requireMgmt, async (req, res) => {
     const email = String(user.email || "").toLowerCase();
     if (!email) return res.json({ orders: [] });
 
-    const orders = await Order.find({ "customer.email": email })
-      .sort({ createdAt: -1 })
-      .limit(1000)
-      .lean();
+    const orders = await Order.find({ "customer.email": email }).sort({ createdAt: -1 }).limit(1000).lean();
 
     res.json({ orders });
   } catch (e) {
@@ -1913,16 +1813,6 @@ app.get("/api/management/users/:id/orders", requireMgmt, async (req, res) => {
   }
 });
 
-// ===============================
-// helpers
-// ===============================
-function escapeRegex(s) {
-  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-// ===============================
-// SPA fallback (hash-router)
-// ===============================
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
