@@ -1828,7 +1828,7 @@
       { id: 'slot-2', label: '10:00 – 11:00', cutoff: 10 * 60 },      // 10:00 (implies > 9:59)
       { id: 'slot-3', label: '11:30 – 12:30', cutoff: 11 * 60 + 30 },// 11:30 (implies > 11:29)
       { id: 'slot-4', label: '13:00 – 14:00', cutoff: 13 * 60 },      // 13:00 (implies > 12:59)
-      { id: 'slot-5', label: '15:00 – 16:00', cutoff: 15 * 60 }       // 15:00 - koniec dnia
+      { id: 'slot-5', label: '15:00 – 16:00', cutoff: 15 * 60 }        // 15:00 - koniec dnia
     ];
 
     const Zamowienie = () => {
@@ -3078,6 +3078,36 @@
         return () => window.removeEventListener("hashchange", onHash);
       }, []);
 
+      // ✅ BLOKADA DEVTOOLS I PPM (dodana na żądanie)
+      useEffect(() => {
+        const handleContextMenu = (e) => {
+          e.preventDefault();
+        };
+
+        const handleKeyDown = (e) => {
+          // F12
+          if (e.key === 'F12') {
+            e.preventDefault();
+          }
+          // Ctrl+Shift+I (Inspector), J (Console), C (Element Select)
+          if (e.ctrlKey && e.shiftKey && ['I', 'J', 'C', 'i', 'j', 'c'].includes(e.key)) {
+            e.preventDefault();
+          }
+          // Ctrl+U (View Source)
+          if (e.ctrlKey && ['U', 'u'].includes(e.key)) {
+            e.preventDefault();
+          }
+        };
+
+        document.addEventListener('contextmenu', handleContextMenu);
+        document.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+          document.removeEventListener('contextmenu', handleContextMenu);
+          document.removeEventListener('keydown', handleKeyDown);
+        };
+      }, []);
+
       const { count } = useCart();
       const { user, loading } = useAuth();
       const { activeOrder } = useActiveOrder();
@@ -3088,7 +3118,7 @@
         const initPushInPWA = async () => {
           // 1. Sprawdź, czy jesteśmy w trybie STANDALONE (PWA)
           const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-            
+           
           if (!isStandalone) {
               console.log("Not in PWA/Standalone mode - skipping push auto-subscribe.");
               return; 
