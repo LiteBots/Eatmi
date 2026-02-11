@@ -182,12 +182,20 @@
     }
 
     const PRODUCT_CATEGORIES = [
+      { id: 'paczki', name: 'Pączki (Tłusty Czwartek)', icon: 'star', description: 'Tylko na 12 lutego!', image: 'https://i.imgur.com/Fqo2ckQ.jpeg' },
       { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open', description: 'Małe, średnie i duże zestawy. Także VEGE.', image: 'https://i.imgur.com/qtZTWY1.jpeg' },
       { id: 'lunche', name: 'Lunche', icon: 'utensils-crossed', description: 'Lunch tygodnia, miesiąca i vege (12:00–16:00).', image: 'https://i.imgur.com/sn5VMfS.jpeg' },
       { id: 'kanapki', name: 'Kanapki', icon: 'sandwich', description: 'Kanapki i buritto na maślanym pieczywie.', image: 'https://i.imgur.com/PFoY1Oc.jpeg' },
       { id: 'zdrowe', name: 'Zdrowe', icon: 'leaf', description: 'Granola i sałatki w wersjach fit.', image: 'https://i.imgur.com/RmVJ6d6.jpeg' },
       { id: 'slodkie', name: 'Słodkie', icon: 'ice-cream', description: 'Desery, pancakes, tost francuski i smoothie.', image: 'https://i.imgur.com/yKYFN0z.jpeg' },
       { id: 'napoje', name: 'Napoje', icon: 'cup-soda', description: 'Kawy, herbaty, lemoniada i sok.', image: 'https://i.imgur.com/QiPsFDo.jpeg' },
+    ];
+
+    const DONUTS = [
+      { id: 'p-dubajska', name: 'Dubajska Pistacja', price: 19, image: 'https://i.imgur.com/Fqo2ckQ.jpeg' },
+      { id: 'p-raffaelo', name: 'Raffaelo', price: 19, image: 'https://i.imgur.com/Fqo2ckQ.jpeg' },
+      { id: 'p-kinder', name: 'Kinder Bueno', price: 19, image: 'https://i.imgur.com/Fqo2ckQ.jpeg' },
+      { id: 'p-karmel', name: 'Słony Karmel', price: 19, image: 'https://i.imgur.com/Fqo2ckQ.jpeg' },
     ];
 
     const BREAKFAST_BOXES = [
@@ -257,6 +265,7 @@
     ];
 
     const STATIC_PRODUCTS = {
+      'paczki': DONUTS,
       'boxy-sniadaniowe': BREAKFAST_BOXES,
       'kanapki': SANDWICHES,
       'zdrowe': HEALTHY,
@@ -976,6 +985,21 @@
       </section>
     );
 
+    const BannerPaczki = () => (
+      <div className="w-full h-[250px] relative overflow-hidden my-4 bg-gray-900">
+        <img src="https://i.imgur.com/ymlWxZz.png" alt="Tłusty Czwartek Pączki" className="absolute inset-0 w-full h-full object-cover opacity-90" />
+        <div className="absolute inset-0 bg-black/30"></div>
+        <div className="relative z-10 w-full max-w-6xl mx-auto h-full px-4 flex items-center justify-start">
+          <a 
+            href="#/kategoria/paczki" 
+            className="bg-white text-gray-900 font-extrabold px-8 py-4 rounded-xl shadow-kiosk hover:scale-[1.03] transition flex items-center gap-2 text-lg"
+          >
+            Zamów pączki <i data-lucide="arrow-right" className="w-5 h-5"></i>
+          </a>
+        </div>
+      </div>
+    );
+
     const SectionTitle = ({eyebrow, title, subtitle}) => (
       <div className="text-center max-w-2xl mx-auto">
         {eyebrow && <div className="text-xs uppercase tracking-widest text-gray-500">{eyebrow}</div>}
@@ -1283,14 +1307,14 @@
     const CategoryPage = ({ categoryId }) => {
       const { add } = useCart();
       const productsMap = useMenu();
-       
+        
       const category = PRODUCT_CATEGORIES.find(c => c.id === categoryId);
       const items = productsMap[categoryId] || [];
 
       const [addonsOpen, setAddonsOpen] = useState(false);
       const [addonsCartItemId, setAddonsCartItemId] = useState("");
       const [addonsTitle, setAddonsTitle] = useState("");
-       
+        
       React.useEffect(() => {
         window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       }, [categoryId]);
@@ -1567,7 +1591,7 @@
       );
     };
 
-    const CalendarWidget = ({ onDateSelect, selectedDateStr, maxDateStr, now }) => {
+    const CalendarWidget = ({ onDateSelect, selectedDateStr, maxDateStr, now, allowedDateStr }) => {
         const [viewDate, setViewDate] = useState(now);
 
         const toYMD = (date) => {
@@ -1584,6 +1608,10 @@
 
         const isDateDisabled = (d) => {
             const ymd = toYMD(d);
+            if (allowedDateStr) {
+                return ymd !== allowedDateStr;
+            }
+
             const todayYMD = toYMD(now);
             const maxYMD = maxDateStr;
 
@@ -1704,6 +1732,8 @@
       const [errors, setErrors] = useState({});
 
       const hasLunch = useMemo(() => cart.some(i => i.category === 'lunche'), [cart]);
+      const hasDonuts = useMemo(() => cart.some(i => i.category === 'paczki'), [cart]);
+      const paczkiDate = "2026-02-12";
 
       const getAvailableSlots = (targetDateStr) => {
           let slots = TIME_SLOTS_DEF;
@@ -1724,6 +1754,9 @@
       };
 
       const dateConfig = useMemo(() => {
+          if (hasDonuts) {
+              return { minStr: paczkiDate, maxStr: paczkiDate };
+          }
           
           let startDate = new Date(now);
           
@@ -1755,7 +1788,7 @@
               minStr: toYMD(startDate),
               maxStr: toYMD(maxDate)
           };
-      }, [now, hasLunch]);
+      }, [now, hasLunch, hasDonuts]);
       
       const [dateParams, setDateParams] = useState({
          selectedDate: dateConfig.minStr, 
@@ -1763,6 +1796,13 @@
       });
 
       useEffect(() => {
+          if (hasDonuts) {
+              if (dateParams.selectedDate !== paczkiDate) {
+                  setDateParams(p => ({...p, selectedDate: paczkiDate}));
+              }
+              return;
+          }
+
           const d = new Date(dateParams.selectedDate);
           const day = d.getDay();
           
@@ -1780,7 +1820,7 @@
               }
               setDateParams(p => ({...p, selectedDate: toYMD(nextValid)}));
           }
-      }, [dateParams.selectedDate]);
+      }, [dateParams.selectedDate, hasDonuts]);
 
       const availableSlots = useMemo(() => getAvailableSlots(dateParams.selectedDate), [dateParams.selectedDate, now, hasLunch]);
 
@@ -1827,7 +1867,7 @@
         });
       }, [user]);
 
-      useEffect(() => { window.lucide?.createIcons?.(); }, [fulfillmentMethod, dateParams, errors]); 
+      useEffect(() => { window.lucide?.createIcons?.(); }, [fulfillmentMethod, dateParams, errors, hasDonuts]); 
 
       const [remember, setRemember] = useState(true);
       const [hadSaved, setHadSaved] = useState(() => !!loadSavedCustomer());
@@ -2029,10 +2069,11 @@
                               }}
                               selectedDateStr={dateParams.selectedDate}
                               maxDateStr={dateConfig.maxStr}
+                              allowedDateStr={hasDonuts ? paczkiDate : null}
                               now={now} 
                           />
                             
-                          {!isToday && (
+                          {!isToday && !hasDonuts && (
                             <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-start gap-3">
                               <i data-lucide="calendar" className="w-5 h-5 shrink-0 mt-0.5 text-red-600"></i>
                               <div>
@@ -2046,6 +2087,16 @@
                                 </div>
                               </div>
                             </div>
+                          )}
+
+                          {hasDonuts && (
+                              <div className="mt-3 p-3 rounded-xl bg-brand-yellow/20 border border-brand-yellow/40 text-gray-900 text-sm flex items-start gap-3">
+                                  <i data-lucide="info" className="w-5 h-5 shrink-0 mt-0.5"></i>
+                                  <div>
+                                      <div className="font-bold">Pączki w koszyku!</div>
+                                      <div className="mt-0.5">Twoje zamówienie zawiera pączki na Tłusty Czwartek. Realizacja jest możliwa <strong>tylko 12 lutego</strong>.</div>
+                                  </div>
+                              </div>
                           )}
                       </div>
 
@@ -2626,6 +2677,8 @@
           )}
 
           <Hero />
+          
+          <BannerPaczki />
 
           <section id="kategorie" className="py-12 md:py-20 bg-gradient-to-b from-white to-brand-light">
             <div className="max-w-6xl mx-auto px-4">
@@ -2902,7 +2955,7 @@
       useEffect(() => {
         const initPushInPWA = async () => {
           const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-           
+            
           if (!isStandalone) {
               console.log("Not in PWA/Standalone mode - skipping push auto-subscribe.");
               return; 
@@ -3013,11 +3066,11 @@
                       woj. POMORSKIE, Polska
                     </div>
                   </div>
-           
+            
                   <div className="mt-6 font-semibold text-gray-700">
                     © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
                   </div>
-           
+            
                   <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-sm">
                     <a
                       href="/rule.html"
