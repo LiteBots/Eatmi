@@ -597,6 +597,10 @@ function isPaidStatus(status) {
 const OFFLINE_PENDING_STATUS = "AWAITING_PICKUP_PAYMENT";
 
 const PRICE_LIST = {
+  "p-dubajska": 1900,
+  "p-raffaelo": 1900,
+  "p-kinder": 1900,
+  "p-karmel": 1900,
   "bs-small-1": 4300,
   "bs-small-2": 4500,
   "bs-small-3": 4700,
@@ -657,6 +661,10 @@ const ADDONS_NAME_LIST = {
 };
 
 const NAME_LIST = {
+  "p-dubajska": "Dubajska Pistacja",
+  "p-raffaelo": "Raffaelo",
+  "p-kinder": "Kinder Bueno",
+  "p-karmel": "Słony Karmel",
   "bs-small-1": "Box śniadaniowy mały nr 1",
   "bs-small-2": "Box śniadaniowy mały nr 2",
   "bs-small-3": "Box śniadaniowy mały nr 3",
