@@ -597,10 +597,6 @@ function isPaidStatus(status) {
 const OFFLINE_PENDING_STATUS = "AWAITING_PICKUP_PAYMENT";
 
 const PRICE_LIST = {
-  "p-dubajska": 1900,
-  "p-raffaelo": 1900,
-  "p-kinder": 1900,
-  "p-karmel": 1900,
   "bs-small-1": 4300,
   "bs-small-2": 4500,
   "bs-small-3": 4700,
@@ -661,10 +657,6 @@ const ADDONS_NAME_LIST = {
 };
 
 const NAME_LIST = {
-  "p-dubajska": "Dubajska Pistacja",
-  "p-raffaelo": "Raffaelo",
-  "p-kinder": "Kinder Bueno",
-  "p-karmel": "Słony Karmel",
   "bs-small-1": "Box śniadaniowy mały nr 1",
   "bs-small-2": "Box śniadaniowy mały nr 2",
   "bs-small-3": "Box śniadaniowy mały nr 3",
@@ -936,7 +928,11 @@ app.post("/api/order/offline", async (req, res) => {
     }
 
     const productsValueAfterDiscount = Math.max(0, productsValue - discountAmount);
-    const deliveryCost = calcDeliveryCost(productsValueAfterDiscount);
+    
+    // Zmiana: Jeśli odbiór własny, koszt dostawy = 0
+    const isPickup = customer.fulfillmentMethod === 'pickup';
+    const deliveryCost = isPickup ? 0 : calcDeliveryCost(productsValueAfterDiscount);
+    
     const totalAmount = productsValueAfterDiscount + deliveryCost;
 
     const extOrderId = `eatmi-offline-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -1042,7 +1038,12 @@ app.post("/api/payu/order", async (req, res) => {
     }
 
     const valueAfterDiscount = Math.max(0, productsValue - discountAmount);
-    const deliveryCost = calcDeliveryCost(valueAfterDiscount);
+    
+    // Zmiana: Jeśli odbiór własny, koszt dostawy = 0
+    const customerRaw = req.body?.customer || {};
+    const isPickup = customerRaw.fulfillmentMethod === 'pickup';
+    const deliveryCost = isPickup ? 0 : calcDeliveryCost(valueAfterDiscount);
+    
     const totalAmount = valueAfterDiscount + deliveryCost;
 
     if (deliveryCost > 0) {
