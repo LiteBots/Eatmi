@@ -191,20 +191,12 @@
     }
 
     const PRODUCT_CATEGORIES = [
-      { id: 'paczki', name: 'Pączki (Tłusty Czwartek)', icon: 'star', description: 'Tylko na 12 lutego!', image: 'https://i.imgur.com/Fqo2ckQ.jpeg' },
       { id: 'boxy-sniadaniowe', name: 'Boxy śniadaniowe', icon: 'package-open', description: 'Małe, średnie i duże zestawy. Także VEGE.', image: 'https://i.imgur.com/qtZTWY1.jpeg' },
       { id: 'lunche', name: 'Lunche', icon: 'utensils-crossed', description: 'Lunch tygodnia, miesiąca i vege (12:00–16:00).', image: 'https://i.imgur.com/sn5VMfS.jpeg' },
       { id: 'kanapki', name: 'Kanapki', icon: 'sandwich', description: 'Kanapki i buritto na maślanym pieczywie.', image: 'https://i.imgur.com/PFoY1Oc.jpeg' },
       { id: 'zdrowe', name: 'Zdrowe', icon: 'leaf', description: 'Granola i sałatki w wersjach fit.', image: 'https://i.imgur.com/RmVJ6d6.jpeg' },
       { id: 'slodkie', name: 'Słodkie', icon: 'ice-cream', description: 'Desery, pancakes, tost francuski i smoothie.', image: 'https://i.imgur.com/yKYFN0z.jpeg' },
       { id: 'napoje', name: 'Napoje', icon: 'cup-soda', description: 'Kawy, herbaty, lemoniada i sok.', image: 'https://i.imgur.com/QiPsFDo.jpeg' },
-    ];
-
-    const DONUTS = [
-      { id: 'p-dubajska', name: 'Dubajska Pistacja', price: 19, image: 'https://i.imgur.com/Fqo2ckQ.jpeg' },
-      { id: 'p-raffaelo', name: 'Raffaelo', price: 19, image: 'https://i.imgur.com/Fqo2ckQ.jpeg' },
-      { id: 'p-kinder', name: 'Kinder Bueno', price: 19, image: 'https://i.imgur.com/Fqo2ckQ.jpeg' },
-      { id: 'p-karmel', name: 'Słony Karmel', price: 19, image: 'https://i.imgur.com/Fqo2ckQ.jpeg' },
     ];
 
     const BREAKFAST_BOXES = [
@@ -274,7 +266,6 @@
     ];
 
     const STATIC_PRODUCTS = {
-      'paczki': DONUTS,
       'boxy-sniadaniowe': BREAKFAST_BOXES,
       'kanapki': SANDWICHES,
       'zdrowe': HEALTHY,
@@ -992,21 +983,6 @@
           </div>
         </div>
       </section>
-    );
-
-    const BannerPaczki = () => (
-      <div className="w-full h-[250px] relative overflow-hidden my-4 bg-gray-900">
-        <img src="https://i.imgur.com/ymlWxZz.png" alt="Tłusty Czwartek Pączki" className="absolute inset-0 w-full h-full object-cover opacity-90" />
-        <div className="absolute inset-0 bg-black/30"></div>
-        <div className="relative z-10 w-full max-w-6xl mx-auto h-full px-4 flex items-center justify-start">
-          <a 
-            href="#/kategoria/paczki" 
-            className="bg-white text-gray-900 font-extrabold px-8 py-4 rounded-xl shadow-kiosk hover:scale-[1.03] transition flex items-center gap-2 text-lg"
-          >
-            Zamów pączki <i data-lucide="arrow-right" className="w-5 h-5"></i>
-          </a>
-        </div>
-      </div>
     );
 
     const SectionTitle = ({eyebrow, title, subtitle}) => (
@@ -1741,8 +1717,6 @@
       const [errors, setErrors] = useState({});
 
       const hasLunch = useMemo(() => cart.some(i => i.category === 'lunche'), [cart]);
-      const hasDonuts = useMemo(() => cart.some(i => i.category === 'paczki'), [cart]);
-      const paczkiDate = "2026-02-12";
 
       const getAvailableSlots = (targetDateStr) => {
           let slots = TIME_SLOTS_DEF;
@@ -1763,10 +1737,6 @@
       };
 
       const dateConfig = useMemo(() => {
-          if (hasDonuts) {
-              return { minStr: paczkiDate, maxStr: paczkiDate };
-          }
-          
           let startDate = new Date(now);
           
           const toYMD = (d) => {
@@ -1797,7 +1767,7 @@
               minStr: toYMD(startDate),
               maxStr: toYMD(maxDate)
           };
-      }, [now, hasLunch, hasDonuts]);
+      }, [now, hasLunch]);
       
       const [dateParams, setDateParams] = useState({
          selectedDate: dateConfig.minStr, 
@@ -1805,13 +1775,6 @@
       });
 
       useEffect(() => {
-          if (hasDonuts) {
-              if (dateParams.selectedDate !== paczkiDate) {
-                  setDateParams(p => ({...p, selectedDate: paczkiDate}));
-              }
-              return;
-          }
-
           const d = new Date(dateParams.selectedDate);
           const day = d.getDay();
           
@@ -1829,7 +1792,7 @@
               }
               setDateParams(p => ({...p, selectedDate: toYMD(nextValid)}));
           }
-      }, [dateParams.selectedDate, hasDonuts]);
+      }, [dateParams.selectedDate]);
 
       const availableSlots = useMemo(() => getAvailableSlots(dateParams.selectedDate), [dateParams.selectedDate, now, hasLunch]);
 
@@ -1876,7 +1839,7 @@
         });
       }, [user]);
 
-      useEffect(() => { window.lucide?.createIcons?.(); }, [fulfillmentMethod, dateParams, errors, hasDonuts]); 
+      useEffect(() => { window.lucide?.createIcons?.(); }, [fulfillmentMethod, dateParams, errors]); 
 
       const [remember, setRemember] = useState(true);
       const [hadSaved, setHadSaved] = useState(() => !!loadSavedCustomer());
@@ -2078,11 +2041,11 @@
                               }}
                               selectedDateStr={dateParams.selectedDate}
                               maxDateStr={dateConfig.maxStr}
-                              allowedDateStr={hasDonuts ? paczkiDate : null}
+                              allowedDateStr={null}
                               now={now} 
                           />
                             
-                          {!isToday && !hasDonuts && (
+                          {!isToday && (
                             <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-start gap-3">
                               <i data-lucide="calendar" className="w-5 h-5 shrink-0 mt-0.5 text-red-600"></i>
                               <div>
@@ -2096,16 +2059,6 @@
                                 </div>
                               </div>
                             </div>
-                          )}
-
-                          {hasDonuts && (
-                              <div className="mt-3 p-3 rounded-xl bg-brand-yellow/20 border border-brand-yellow/40 text-gray-900 text-sm flex items-start gap-3">
-                                  <i data-lucide="info" className="w-5 h-5 shrink-0 mt-0.5"></i>
-                                  <div>
-                                      <div className="font-bold">Pączki w koszyku!</div>
-                                      <div className="mt-0.5">Twoje zamówienie zawiera pączki na Tłusty Czwartek. Realizacja jest możliwa <strong>tylko 12 lutego</strong>.</div>
-                                  </div>
-                              </div>
                           )}
                       </div>
 
@@ -2687,8 +2640,6 @@
 
           <Hero />
           
-          <BannerPaczki />
-
           <section id="kategorie" className="py-12 md:py-20 bg-gradient-to-b from-white to-brand-light">
             <div className="max-w-6xl mx-auto px-4">
               <SectionTitle eyebrow="Menu" title="Wybierz z Menu" subtitle="Najpierw wybierz kategorię, potem dodawaj pozycje do koszyka — w kilka kliknięć!" />
@@ -2904,6 +2855,66 @@
       );
     };
 
+    const CookieConsent = () => {
+      const [visible, setVisible] = useState(false);
+
+      useEffect(() => {
+        const consent = localStorage.getItem('eatmi-cookie-consent');
+        if (!consent) {
+          const t = setTimeout(() => setVisible(true), 1000);
+          return () => clearTimeout(t);
+        }
+      }, []);
+
+      const handleAccept = () => {
+        localStorage.setItem('eatmi-cookie-consent', 'true');
+        setVisible(false);
+      };
+
+      useEffect(() => {
+        if (visible && window.lucide?.createIcons) {
+          window.lucide.createIcons();
+        }
+      }, [visible]);
+
+      if (!visible) return null;
+
+      return (
+        <div className="fixed bottom-[calc(var(--tabbar-h)+var(--safe-b)+20px)] left-3 right-3 z-[110] md:left-auto md:right-6 md:bottom-6 md:w-[400px]">
+          <div className="bg-white border border-gray-200 shadow-kiosk rounded-2xl p-5 relative overflow-hidden pop-in">
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-yellow via-orange-300 to-brand-yellow"></div>
+
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-brand-yellow/10 border border-brand-yellow/20 grid place-items-center shrink-0">
+                <i data-lucide="cookie" className="w-6 h-6 text-gray-900"></i>
+              </div>
+              
+              <div className="flex-1">
+                <h4 className="font-extrabold text-gray-900 text-sm uppercase tracking-wide">Pliki Cookies 🍪</h4>
+                <p className="text-xs text-gray-600 mt-2 leading-relaxed">
+                  Ta strona korzysta z plików cookies, aby zapamiętać Twój koszyk i ustawienia (localStorage). 
+                  Korzystając z niej, akceptujesz naszą{' '}
+                  <a href="/rule.html" target="_blank" className="font-bold text-gray-900 underline decoration-brand-yellow decoration-2 underline-offset-2 hover:text-black">
+                    Politykę Prywatności
+                  </a>.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end">
+              <button
+                type="button"
+                onClick={handleAccept}
+                className="w-full md:w-auto bg-brand-yellow text-gray-900 font-extrabold text-sm px-6 py-3 rounded-xl shadow-soft hover:shadow-md hover:brightness-105 transition hover:scale-[1.02] active:scale-[0.98]"
+              >
+                Rozumiem i akceptuję
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
     const App = () => {
       const [authOpen, setAuthOpen] = useState(false);
       const [authInitialStep, setAuthInitialStep] = useState("login");
@@ -3004,7 +3015,7 @@
                   console.error("PWA Auto-Subscribe Error:", e);
               } finally {
                   window.removeEventListener('click', handleFirstUserInteraction);
-                  window.removeEventListener('touchstart', handleFirstUserInteraction);
+                  window.removeEventListener('touchstart', handleFirstUserInteraction); 
               }
           };
 
@@ -3075,11 +3086,11 @@
                       woj. POMORSKIE, Polska
                     </div>
                   </div>
-            
+           
                   <div className="mt-6 font-semibold text-gray-700">
                     © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
                   </div>
-            
+           
                   <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-sm">
                     <a
                       href="/rule.html"
@@ -3115,6 +3126,8 @@
           <FloatingCheckoutCTA visible={showCTA} />
             
           <OrderTrackerWidget />
+          
+          <CookieConsent />
 
           <BottomTabBar
             route={route}
