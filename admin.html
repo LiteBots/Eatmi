@@ -402,12 +402,12 @@
 
       const initAudio = () => {
         if (!audioRef.current) {
-             const Ctx = window.AudioContext || window.webkitAudioContext;
-             if (!Ctx) return;
-             const ctx = new Ctx();
-             const master = ctx.createGain();
-             master.connect(ctx.destination);
-             audioRef.current = { ctx, master, interval: null };
+              const Ctx = window.AudioContext || window.webkitAudioContext;
+              if (!Ctx) return;
+              const ctx = new Ctx();
+              const master = ctx.createGain();
+              master.connect(ctx.destination);
+              audioRef.current = { ctx, master, interval: null };
         }
       };
 
@@ -747,7 +747,7 @@
           
           const codePercentMap = {};
           codesList.forEach(c => {
-             if(c.code) codePercentMap[c.code.toUpperCase()] = Number(c.discountPercent) || 0;
+              if(c.code) codePercentMap[c.code.toUpperCase()] = Number(c.discountPercent) || 0;
           });
 
           const rOrders = await fetch(API.orders, { headers: { ...authHeader(token) } });
@@ -770,8 +770,8 @@
                 let saved = 0;
                 
                 if (percent > 0 && percent < 100) {
-                     const original = paid / (1 - (percent / 100));
-                     saved = original - paid;
+                      const original = paid / (1 - (percent / 100));
+                      saved = original - paid;
                 }
 
                 if (!codeRevenueMap[code]) codeRevenueMap[code] = { count: 0, revenue: 0 };
@@ -1118,9 +1118,11 @@
       }, 0);
 
       let deliveryCost = 0;
-      if (productsValue < 50) deliveryCost = 10;
-      else if (productsValue < 80) deliveryCost = 5;
-      else deliveryCost = 0;
+      if (c.fulfillmentMethod !== 'pickup') {
+          if (productsValue < 50) deliveryCost = 10;
+          else if (productsValue < 80) deliveryCost = 5;
+          else deliveryCost = 0;
+      }
 
       const changeStatus = async (newStatus) => {
         if(updating) return;
