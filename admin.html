@@ -1345,7 +1345,7 @@
 
     const STORAGE_LAST_ACK = "eatmi-admin-last-ack-v2";
 
-    const Orders = ({ token, setOrdersCount, refreshSignal, onLogout }) => {
+    const Orders = ({ token, setOrdersCount, refreshSignal, onLogout, onDrawerStateChange }) => {
       const toast = useToast();
       const [loading, setLoading] = useState(true);
       const [orders, setOrders] = useState([]);
@@ -1385,6 +1385,16 @@
 
       useEffect(() => { load(); }, []);
       useEffect(() => { if(refreshSignal) load({ silent: true }); }, [refreshSignal]);
+      
+      // Notify parent about drawer state
+      useEffect(() => {
+          if (onDrawerStateChange) {
+              onDrawerStateChange(!!selected);
+          }
+          return () => {
+              if (onDrawerStateChange) onDrawerStateChange(false);
+          };
+      }, [selected, onDrawerStateChange]);
 
       const rows = useMemo(() => {
         const q = query.trim().toLowerCase();
@@ -2077,6 +2087,9 @@
       const [alertOpen, setAlertOpen] = useState(false);
       const [alertOrder, setAlertOrder] = useState(null);
       const [refreshSignal, setRefreshSignal] = useState(0);
+      
+      // NEW STATE: Tracks if drawer is open to hide main header on mobile
+      const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
       const titleData = {
         dashboard: { t: "Dashboard", s: "Przegląd statystyk" },
@@ -2225,7 +2238,9 @@
             </div>
 
             <main className="lg:ml-[var(--sidebar-w)] transition-all duration-300">
-              <Topbar title={curT.t} subtitle={curT.s} onLogout={onLogout} onTestAlert={triggerTestAlert} />
+              <div className={isDrawerOpen ? "hidden lg:block" : ""}>
+                  <Topbar title={curT.t} subtitle={curT.s} onLogout={onLogout} onTestAlert={triggerTestAlert} />
+              </div>
               <div className="animate-fadeIn">
                 {tab === "dashboard" && <Dashboard token={token} refreshSignal={refreshSignal} />}
                 {tab === "transactions" && <Transactions token={token} />}
@@ -2235,6 +2250,7 @@
                         setOrdersCount={setOrdersCount}
                         refreshSignal={refreshSignal}
                         onLogout={onLogout}
+                        onDrawerStateChange={setIsDrawerOpen}
                     />
                 )}
                 {tab === "menu_lunch" && <LunchManager token={token} />}
