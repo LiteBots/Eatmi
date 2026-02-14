@@ -1053,7 +1053,7 @@
       );
     };
 
-    const Drawer = ({ open, onClose, title, children }) => {
+    const Drawer = ({ open, onClose, title, children, onLogout }) => {
       useEffect(() => {
         const onKey = (e) => { if (open && e.key === "Escape") onClose?.(); };
         window.addEventListener("keydown", onKey);
@@ -1071,14 +1071,30 @@
                 <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold">Szczegóły</div>
                 <div className="text-lg font-extrabold truncate leading-tight">{title}</div>
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-10 h-10 rounded-2xl border border-gray-200 bg-white shadow-soft grid place-items-center active:scale-90 transition"
-                aria-label="Zamknij"
-              >
-                <Icon name="x" className="w-5 h-5" />
-              </button>
+              
+              <div className="flex items-center gap-2">
+                {/* PRZYCISK WYLOGUJ - WIDOCZNY TYLKO JEŚLI PRZEKAZANY */}
+                {onLogout && (
+                  <button
+                    type="button"
+                    onClick={onLogout}
+                    className="w-10 h-10 rounded-2xl border border-gray-200 bg-white shadow-soft grid place-items-center active:scale-90 transition hover:bg-red-50 hover:text-red-600 hover:border-red-200"
+                    title="Wyloguj"
+                  >
+                    <Icon name="log-out" className="w-5 h-5" />
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-10 h-10 rounded-2xl border border-gray-200 bg-white shadow-soft grid place-items-center active:scale-90 transition"
+                  aria-label="Zamknij"
+                >
+                  <Icon name="x" className="w-5 h-5" />
+                </button>
+              </div>
+
             </div>
             <div className="flex-1 overflow-y-auto drawer-scroll p-4 md:p-6">
               {children}
@@ -1160,7 +1176,6 @@
             </div>
           )}
 
-          {/* NOWE: Data złożenia zamówienia widoczna od razu na górze */}
           <div className="bg-white border border-gray-200 rounded-3xl p-4 shadow-sm flex items-center justify-between">
               <div className="flex items-center gap-3">
                  <div className="w-10 h-10 rounded-xl bg-gray-50 grid place-items-center text-gray-500">
@@ -1330,7 +1345,7 @@
 
     const STORAGE_LAST_ACK = "eatmi-admin-last-ack-v2";
 
-    const Orders = ({ token, setOrdersCount, refreshSignal }) => {
+    const Orders = ({ token, setOrdersCount, refreshSignal, onLogout }) => {
       const toast = useToast();
       const [loading, setLoading] = useState(true);
       const [orders, setOrders] = useState([]);
@@ -1454,7 +1469,12 @@
             </div>
           </div>
 
-          <Drawer open={!!selected} onClose={() => setSelected(null)} title={selected ? "Zamówienie" : ""}>
+          <Drawer 
+            open={!!selected} 
+            onClose={() => setSelected(null)} 
+            title={selected ? "Zamówienie" : ""}
+            onLogout={onLogout}
+          >
               {selected && <OrderDetails order={selected} token={token} onRefresh={() => load({ silent: true })} />}
           </Drawer>
         </div>
@@ -2214,6 +2234,7 @@
                         token={token}
                         setOrdersCount={setOrdersCount}
                         refreshSignal={refreshSignal}
+                        onLogout={onLogout}
                     />
                 )}
                 {tab === "menu_lunch" && <LunchManager token={token} />}
