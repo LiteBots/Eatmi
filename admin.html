@@ -1429,6 +1429,9 @@
           if(newOrder.items.length === 0) return toast.show("error", "Błąd", "Dodaj produkty.");
 
           try {
+              // Calculate total value
+              const totalVal = newOrder.items.reduce((sum, i) => sum + (i.price * i.qty), 0);
+
               // Construct payload matching backend expectations
               const payload = {
                   customer: {
@@ -1439,8 +1442,14 @@
                       uwagi: newOrder.note,
                       fulfillmentMethod: newOrder.fulfillmentMethod
                   },
-                  items: newOrder.items,
+                  items: newOrder.items.map(i => ({
+                      name: i.name,
+                      quantity: i.qty,
+                      price: i.price
+                  })),
                   paymentMethod: newOrder.paymentMethod,
+                  totalAmount: totalVal, // Send explicitly!
+                  totalPLN: totalVal / 100, // Send explicitly!
                   status: "Nowe" // Default status
               };
 
@@ -1450,14 +1459,16 @@
                   body: JSON.stringify(payload)
               });
               
-              if(!r.ok) throw new Error("Błąd zapisu");
+              const d = await safeJson(r);
+
+              if(!r.ok) throw new Error(d.error || "Błąd zapisu");
               
               toast.show("ok", "Sukces", "Dodano zamówienie!");
               setCreating(false);
               setNewOrder({ name: '', phone: '', street: '', city: '', note: '', fulfillmentMethod: 'pickup', paymentMethod: 'offline_cash', items: [] });
               load();
           } catch(e) {
-              toast.show("error", "Błąd", "Nie udało się dodać zamówienia.");
+              toast.show("error", "Błąd", e.message || "Nie udało się dodać zamówienia.");
           }
       };
 
@@ -1648,179 +1659,6 @@
                     </button>
                  </div>
              </div>
-          </Drawer>
-        </div>
-      );
-    };
-
-    const LunchManager = ({ token }) => {
-      const toast = useToast();
-      const [loading, setLoading] = useState(true);
-      const [lunches, setLunches] = useState([]);
-      const [editingItem, setEditingItem] = useState(null);
-      const [saving, setSaving] = useState(false);
-      const [form, setForm] = useState({ name: "", pricePLN: "", description: "", image: "" });
-
-      const load = async () => {
-        setLoading(true);
-        try {
-          const r = await fetch("/api/admin/products/lunche", { headers: { ...authHeader(token) } });
-          const data = await safeJson(r);
-          if (r.ok) {
-             setLunches(data.lunche || []);
-          } else {
-             toast.show("info", "Menu", "Brak danych z API, pokazuję demo.");
-             setLunches([
-               { id: 'lunch-week', name: 'Lunch tygodnia', price: 5500, description: 'Schabowy, ziemniaki, mizeria, kompot.', image: 'https://i.imgur.com/sn5VMfS.jpeg' },
-               { id: 'lunch-month', name: 'Lunch miesiąca', price: 6500, description: 'Rolada śląska, kluski, modra kapusta.', image: 'https://i.imgur.com/xGCYJZQ.jpeg' },
-               { id: 'lunch-vege', name: 'Lunch VEGE', price: 5500, description: 'Pierogi ruskie, okrasa z cebulki.', image: 'https://i.imgur.com/0hvAvxJ.jpeg' }
-             ]);
-          }
-        } catch (e) {
-          toast.show("error", "Menu", "Błąd pobierania.");
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      useEffect(() => { load(); }, []);
-
-      const openEdit = (item) => {
-        setEditingItem(item);
-        setForm({
-          name: item.name,
-          pricePLN: (item.price / 100).toString(),
-          description: item.description || item.subtitle || "",
-          image: item.image
-        });
-      };
-
-      const save = async () => {
-        if(!editingItem) return;
-        setSaving(true);
-        try {
-          const priceGrosze = Math.round(parseFloat(form.pricePLN.replace(",", ".")) * 100);
-          if (isNaN(priceGrosze) || priceGrosze < 0) throw new Error("Błędna cena");
-
-          const payload = {
-            id: editingItem.id,
-            name: form.name,
-            price: priceGrosze,
-            description: form.description,
-            image: form.image
-          };
-
-          const r = await fetch(`/api/admin/products/lunche/${editingItem.id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json", ...authHeader(token) },
-            body: JSON.stringify(payload)
-          });
-
-          if (!r.ok) throw new Error("Błąd zapisu");
-
-          toast.show("ok", "Menu", "Zapisano zmiany!");
-          setEditingItem(null);
-          load();
-        } catch (e) {
-          toast.show("error", "Menu", e.message || "Nie udało się zapisać.");
-        } finally {
-          setSaving(false);
-        }
-      };
-
-      return (
-        <div className="p-4 md:p-6 pb-24">
-          <div className="mb-6">
-            <h2 className="text-xl font-extrabold text-gray-900">Zarządzanie Lunchami</h2>
-            <p className="text-sm text-gray-500">Edytuj nazwy, składniki i ceny zestawów lunchowych.</p>
-          </div>
-
-          {loading ? <Skeleton className="h-40 w-full" /> : (
-            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-              {lunches.map(lunch => (
-                <div key={lunch.id} className="group bg-white border border-gray-200 rounded-3xl overflow-hidden shadow-soft hover:shadow-md transition flex flex-col">
-                  <div className="relative h-48 w-full bg-gray-100 overflow-hidden">
-                    <img src={lunch.image} alt={lunch.name} className="w-full h-full object-cover transition duration-500 group-hover:scale-105" />
-                    <div className="absolute top-3 right-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest shadow-sm">
-                      {currency(lunch.price / 100)}
-                    </div>
-                  </div>
-
-                  <div className="p-5 flex-1 flex flex-col">
-                    <div className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1">ID: {lunch.id}</div>
-                    <h3 className="text-lg font-extrabold text-gray-900 leading-tight mb-2">{lunch.name}</h3>
-                    <p className="text-sm text-gray-600 line-clamp-3 mb-4 flex-1">{lunch.description}</p>
-
-                    <button
-                      onClick={() => openEdit(lunch)}
-                      className="mt-auto w-full flex items-center justify-center gap-2 bg-gray-50 border border-gray-200 hover:bg-brand-yellow hover:border-brand-yellow/50 hover:text-gray-900 text-gray-600 font-bold py-3 rounded-2xl transition"
-                    >
-                      <Icon name="edit" className="w-4 h-4" /> Edytuj pozycję
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <Drawer open={!!editingItem} onClose={() => setEditingItem(null)} title="Edycja Lunchu">
-            <div className="space-y-5">
-              <div>
-                <label className="block text-xs uppercase font-extrabold text-gray-500 mb-2 ml-1">Link do zdjęcia (URL)</label>
-                <div className="flex gap-3">
-                  <div className="w-20 h-20 rounded-2xl bg-gray-100 border border-gray-200 overflow-hidden shrink-0">
-                    {form.image ? <img src={form.image} className="w-full h-full object-cover" onError={(e)=>e.target.style.display='none'} /> : <div className="grid place-items-center h-full"><Icon name="image" className="text-gray-300"/></div>}
-                  </div>
-                  <textarea
-                    value={form.image}
-                    onChange={e => setForm({...form, image: e.target.value})}
-                    className="input-focus flex-1 bg-white border border-gray-200 rounded-2xl px-4 py-3 text-sm"
-                    placeholder="https://imgur.com/..."
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs uppercase font-extrabold text-gray-500 mb-2 ml-1">Nazwa wyświetlana</label>
-                <input
-                  value={form.name}
-                  onChange={e => setForm({...form, name: e.target.value})}
-                  className="input-focus w-full bg-white border border-gray-200 rounded-2xl px-4 py-3.5 font-bold text-gray-900"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs uppercase font-extrabold text-gray-500 mb-2 ml-1">Cena (PLN)</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={form.pricePLN}
-                    onChange={e => setForm({...form, pricePLN: e.target.value})}
-                    className="input-focus w-full bg-white border border-gray-200 rounded-2xl pl-4 pr-12 py-3.5 font-mono text-lg font-bold"
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">zł</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs uppercase font-extrabold text-gray-500 mb-2 ml-1">Opis / Składniki</label>
-                <textarea
-                  value={form.description}
-                  onChange={e => setForm({...form, description: e.target.value})}
-                  className="input-focus w-full bg-white border border-gray-200 rounded-2xl px-4 py-3.5 min-h-[120px]"
-                  placeholder="Opisz co wchodzi w skład zestawu..."
-                />
-              </div>
-
-              <button
-                onClick={save}
-                disabled={saving}
-                className="w-full bg-gray-900 text-white font-extrabold rounded-2xl py-4 shadow-glass hover:bg-black active:scale-[0.98] transition mt-4"
-              >
-                {saving ? "Zapisywanie..." : "Zapisz zmiany"}
-              </button>
-            </div>
           </Drawer>
         </div>
       );
