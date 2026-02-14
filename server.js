@@ -1273,6 +1273,62 @@ app.get("/api/admin/orders", requireStaff, async (req, res) => {
   }
 });
 
+app.post("/api/admin/orders", requireStaff, async (req, res) => {
+  try {
+    const { customer, items, paymentMethod, totalAmount, totalPLN, status } = req.body;
+
+    if (!customer || !customer.imieNazwisko || !customer.telefon) {
+      return res.status(400).json({ error: "Brak danych klienta" });
+    }
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: "Pusty koszyk" });
+    }
+
+    const extOrderId = `eatmi-admin-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const cleanCustomer = {
+      imieNazwisko: String(customer.imieNazwisko || "").trim(),
+      telefon: String(customer.telefon || "").trim(),
+      email: String(customer.email || "").trim(),
+      miasto: String(customer.miasto || "").trim(),
+      ulica: String(customer.ulica || "").trim(),
+      uwagi: String(customer.uwagi || "").trim(),
+      fulfillmentMethod: String(customer.fulfillmentMethod || "pickup"),
+      deliveryTime: String(customer.deliveryTime || "")
+    };
+
+    const orderData = {
+      extOrderId,
+      payuOrderId: null,
+      status: status || "Nowe",
+      paymentMethod: paymentMethod || "offline_cash",
+      isOffline: true,
+      totalAmount: Number(totalAmount) || 0,
+      totalPLN: Number(totalPLN) || 0,
+      customer: cleanCustomer,
+      cart: items,
+      promoCode: null,
+      discountAmount: 0
+    };
+
+    const saved = await Order.create(orderData);
+
+    sseBroadcast("new_order", {
+      extOrderId: saved.extOrderId,
+      payuOrderId: null,
+      totalPLN: saved.totalPLN,
+      customer: saved.customer.imieNazwisko,
+      status: saved.status,
+      paymentMethod: saved.paymentMethod
+    });
+
+    res.json({ ok: true, orderId: saved.extOrderId });
+  } catch (e) {
+    console.log("ADMIN CREATE ORDER ERROR:", e);
+    res.status(500).json({ error: e.message || "Błąd zapisu zamówienia" });
+  }
+});
+
 app.patch("/api/admin/orders/:extOrderId/status", requireStaff, async (req, res) => {
   try {
     const { extOrderId } = req.params;
