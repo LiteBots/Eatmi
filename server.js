@@ -710,7 +710,7 @@ async function seedLunche() {
         name: "Lunch tygodnia",
         price: 5500,
         description:
-          "Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Corn Flake Chicken: panierowana w płatkach kukurydzianych pierś z kurczaka z ziemniaczanym puree i coleslawem • Domowa lemoniada 250 ml",
+          "Dostępny 12:00–16:00 • Krem z buraka 200ml, z serkiem kozim • Medaliony z polędwiczki wieprzowej, sos kurkowy, pieczone ziemniaki, colesław • Domowa lemoniada 300 ml",
         image: "https://i.imgur.com/sn5VMfS.jpeg",
         category: "lunch",
         isVisible: true
@@ -1491,21 +1491,6 @@ app.get("/api/admin/products/lunche", requireStaff, async (req, res) => {
   try {
     const products = await Product.find({ category: "lunch" }).lean();
     res.json({ lunche: products });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.put("/api/admin/products/lunche/:id", requireStaff, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, price, description, image } = req.body;
-
-    const updated = await Product.findOneAndUpdate({ id }, { name, price, description, image }, { new: true });
-
-    if (!updated) return res.status(404).json({ error: "Not found" });
-
-    res.json({ ok: true, product: updated });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
