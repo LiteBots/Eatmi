@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>eatmi.pl</title>
+    
+  <meta name="theme-color" content="#FFC107">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+  <style>
+    :root {
+      /* Palette - eatmi.pl style */
+      --primary: #FFC107;
+      --primary-dark: #E0A800;
+      --primary-glow: rgba(255, 193, 7, 0.3);
+      --bg-body: #F9FAFB;
+      --bg-surface: #FFFFFF;
+      --text-main: #111827;
+      --text-sub: #6B7280;
+      --border: #E5E7EB;
+        
+      --glass-bg: rgba(255, 255, 255, 0.85);
+      --glass-border: rgba(255, 255, 255, 0.5);
+        
+      --radius-l: 24px;
+      --radius-m: 16px;
+        
+      --nav-height: 85px;
+      --fab-size: 64px;
+
+      /* Dynamic Notch / Status Bar Spacing */
+      --safe-top: env(safe-area-inset-top, 20px);
+    }
+
+    body.dark-mode {
+      --bg-body: #0F0F0F;
+      --bg-surface: #1C1C1E;
+      --text-main: #FFFFFF;
+      --text-sub: #9CA3AF;
+      --border: #2D2D30;
+      --glass-bg: rgba(28, 28, 30, 0.85);
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --primary-glow: rgba(255, 193, 7, 0.2);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+      
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      color: var(--text-main);
+      background-color: var(--bg-body);
+      overflow: hidden; 
+      overscroll-behavior-y: none;
+      transition: background 0.3s, color 0.3s;
+      padding-bottom: calc(var(--nav-height) + 30px);
+      padding-top: var(--safe-top);
+    }
+
+    /* --- LOADER / SPLASH SCREEN --- */
+    #splash-screen {
+      position: fixed;
+      inset: 0;
+      background: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.8s;
+    }
+      
+    .loader-content {
+      text-align: center;
+      animation: splashPop 0.6s ease-out;
+    }
+
+    .loader-logo-img {
+      width: 100px;
+      height: 100px;
+      background: white;
+      border-radius: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      box-shadow: 0 0 40px rgba(255, 193, 7, 0.4);
+    }
+    .loader-logo-img img {
+      width: 70px;
+      height: 70px;
+      object-fit: contain;
+    }
+
+    .loader-logo {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: white;
+      margin-bottom: 20px;
+      letter-spacing: -1px;
+    }
+    .loader-logo span { color: var(--primary); }
+
+    .loader-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top: 3px solid var(--primary);
+      border-radius: 50%;
+      margin: 0 auto;
+      animation: spin 1s linear infinite;
+    }
+
+    /* --- LAYOUT --- */
+    .app-container {
+      max-width: 480px; margin: 0 auto; min-height: 100vh;
+      position: relative; background: var(--bg-body);
+      box-shadow: 0 0 40px rgba(0,0,0,0.05);
+      opacity: 0; 
+      transition: opacity 0.5s ease;
+      overflow-y: auto; /* Zezwalamy na scroll kontenera */
+      height: 100vh;
+    }
+
+    /* --- HEADER --- */
+    .app-header {
+      padding: 15px 24px;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      position: sticky; 
+      top: 0; 
+      z-index: 90;
+      background: var(--bg-body);
+      transition: background 0.3s;
+      margin-top: 10px;
+    }
+    .brand-container {
+      display: flex; flex-direction: column;
+    }
+    .brand { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }
+    .brand span { color: var(--primary); }
+    
+    .location-selector {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-sub); margin-top: 5px;
+        background: var(--bg-surface); padding: 4px 10px; border-radius: 20px;
+        border: 1px solid var(--border); width: fit-content; cursor: pointer;
+        transition: 0.2s;
+    }
+    .location-selector:active { transform: scale(0.95); background: var(--border); }
+    .location-selector i { color: var(--primary); }
+
+    .header-actions { display: flex; gap: 10px; align-items: center; height: 40px;}
+    .icon-btn {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--bg-surface); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-main); font-size: 1rem; cursor: pointer;
+      position: relative; transition: 0.2s;
+    }
+    .icon-btn:active { transform: scale(0.9); }
+    .badge {
+      position: absolute; top: -2px; right: -2px;
+      background: var(--text-main); color: white;
+      font-size: 0.65rem; padding: 2px 5px; border-radius: 10px;
+      border: 2px solid var(--bg-surface);
+      animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    /* --- HOME / HERO --- */
+    .greeting {
+      padding: 10px 24px 20px;
+    }
+    .greeting h2 { font-size: 1.8rem; line-height: 1.2; }
+    .greeting span { color: var(--text-sub); font-size: 1.1rem; font-weight: 500; }
+
+    /* --- MAIN CATEGORY CARDS (Home) --- */
+    .cat-list { padding: 0 24px 120px 24px; display: flex; flex-direction: column; gap: 16px; }
+    .cat-card-huge {
+      position: relative;
+      width: 100%;
+      height: 30vh; /* Nieco mniejsze, żeby więcej zmieściło się na ekranie */
+      min-height: 180px;
+      border-radius: var(--radius-l);
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.2s;
+      border: 1px solid var(--border);
+    }
+    .cat-card-huge:active { transform: scale(0.97); }
+    .cat-card-huge img {
+      width: 100%; height: 100%; object-fit: cover;
+    }
+    .cat-card-huge .overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(17,24,39,0.9), transparent 70%);
+      display: flex; flex-direction: column; justify-content: flex-end;
+      padding: 24px;
+    }
+    .cat-card-huge h3 { color: white; font-size: 1.6rem; font-weight: 800; margin-bottom: 4px; }
+    .cat-card-huge p { color: rgba(255,255,255,0.8); font-size: 0.85rem; }
+    .cat-card-huge .icon-box {
+      position: absolute; top: 15px; right: 15px;
+      width: 36px; height: 36px; background: var(--primary);
+      border-radius: 12px; display: flex; align-items: center; justify-content: center;
+      color: var(--text-main); font-size: 1.1rem;
+    }
+
+    /* --- MENU GRID --- */
+    .section-title { font-size: 1.2rem; font-weight: 800; margin: 24px 0 16px; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; }
+    .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 24px 120px 24px; }
+    .menu-card {
+      background: var(--bg-surface); border-radius: var(--radius-m);
+      border: 1px solid var(--border); overflow: hidden;
+      display: flex; flex-direction: column; cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .menu-card:active { transform: scale(0.96); }
+    .menu-img-box { height: 140px; width: 100%; background: #eee; position: relative; }
+    .menu-img-box img { width: 100%; height: 100%; object-fit: cover; }
+    .menu-content { padding: 12px; display: flex; flex-direction: column; flex: 1; justify-content: space-between; }
+    .menu-title { font-weight: 700; font-size: 0.85rem; margin-bottom: 8px; line-height: 1.3; }
+    .menu-bottom { display: flex; justify-content: space-between; align-items: center; }
+    .menu-price { font-weight: 800; font-size: 0.9rem; }
+    .add-btn { width: 30px; height: 30px; border-radius: 10px; background: var(--primary); color: var(--text-main); display: flex; align-items: center; justify-content: center; font-size: 0.9rem; border: none; }
+
+    /* --- SETTINGS / PROFILE --- */
+    .settings-list { margin-top: 20px; }
+    .settings-item {
+      display: flex; align-items: center; gap: 15px; padding: 16px;
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: var(--radius-m); margin-bottom: 10px; cursor: pointer;
+      transition: 0.2s;
+    }
+    .settings-item:active { transform: scale(0.98); background: var(--bg-body); }
+    .settings-item i:not(.chevron) { width: 24px; color: var(--primary); font-size: 1.1rem; }
+    .settings-item .label { flex: 1; font-weight: 600; font-size: 0.95rem; }
+    .settings-item .chevron { font-size: 0.8rem; color: var(--text-sub); }
+
+    /* --- BOTTOM NAV & FAB --- */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 480px; height: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid var(--glass-border);
+      display: flex; justify-content: space-around; align-items: center;
+      padding: 0 10px calc(10px + env(safe-area-inset-bottom, 0px)) 10px; z-index: 1000;
+      border-radius: 24px 24px 0 0;
+    }
+    .nav-item { display: flex; flex-direction: column; align-items: center; gap: 5px; color: var(--text-sub); text-decoration: none; font-size: 0.65rem; font-weight: 600; width: 60px; transition: color 0.2s; }
+    .nav-item.active { color: var(--text-main); }
+    .nav-item i { font-size: 1.4rem; transition: transform 0.2s; }
+    .nav-item.active i { transform: translateY(-3px); color: var(--primary); }
+
+    /* Floating Cart Button (FAB) */
+    .fab-container { position: relative; top: -25px; width: var(--fab-size); height: var(--fab-size); flex-shrink: 0; margin: 0 10px; }
+    .fab-btn {
+      width: 100%; height: 100%; background: var(--primary); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; color: var(--text-main); font-size: 1.6rem;
+      box-shadow: 0 10px 25px var(--primary-glow); border: 5px solid var(--bg-body); cursor: pointer;
+    }
+    .fab-btn .fab-badge {
+        position: absolute; top: 0; right: 0; background: var(--text-main); color: white;
+        font-size: 0.7rem; font-weight: bold; width: 22px; height: 22px; border-radius: 50%;
+        display: none; align-items: center; justify-content: center; border: 2px solid var(--bg-body);
+    }
+
+    /* --- MODALS --- */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px);
+      z-index: 2000; opacity: 0; pointer-events: none; display: flex; align-items: flex-end; transition: opacity 0.3s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: auto; }
+    .modal-sheet {
+      width: 100%; max-width: 480px; margin: 0 auto; background: var(--bg-surface);
+      border-radius: 30px 30px 0 0; padding: 30px 24px calc(40px + env(safe-area-inset-bottom, 0px));
+      transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+      max-height: 85vh; overflow-y: auto;
+    }
+    .modal-overlay.open .modal-sheet { transform: translateY(0); }
+    .modal-sheet.full { 
+      height: 100vh; max-height: 100vh; border-radius: 0; 
+      padding-top: calc(20px + var(--safe-top));
+    }
+
+    /* Utils */
+    .view-section { display: none; padding-bottom: 20px; animation: fadeIn 0.3s ease; }
+    .view-section.active { display: block; }
+    .btn-main { width: 100%; padding: 16px; border-radius: var(--radius-m); background: var(--primary); color: var(--text-main); border: none; font-weight: 800; font-size: 1rem; cursor: pointer; transition: opacity 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;}
+    .btn-outline { width: 100%; padding: 14px; border-radius: var(--radius-m); background: transparent; color: var(--text-main); border: 1px solid var(--border); font-weight: 700; font-size: 0.9rem; cursor: pointer; margin-bottom: 30px;}
+
+    /* Animations & Keyframes */
+    @keyframes popIn { from{transform:scale(0);} to{transform:scale(1);} }
+    @keyframes fadeIn { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+    @keyframes spin { from{transform: rotate(0deg);} to{transform: rotate(360deg);} }
+    @keyframes splashPop { 
+        0% { opacity: 0; transform: scale(0.8); }
+        100% { opacity: 1; transform: scale(1); }
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed; top: calc(20px + var(--safe-top)); left: 50%; transform: translateX(-50%) translateY(-150px);
+      background: var(--text-main); color: white;
+      padding: 12px 20px; border-radius: 50px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+      display: flex; align-items: center; gap: 10px;
+      z-index: 3000; transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      font-weight: 600; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.1);
+    }
+    .toast i { color: var(--primary); }
+    .toast.visible { transform: translateX(-50%) translateY(0); }
+
+  </style>
+</head>
+<body>
+
+<div id="splash-screen">
+  <div class="loader-content">
+    <div class="loader-logo-img">
+        <img src="https://i.imgur.com/f9TN0Gh.png" alt="eatmi logo">
+    </div>
+    <div class="loader-logo">eatmi<span>.pl</span></div>
+    <div class="loader-spinner"></div>
+  </div>
+</div>
+
+<div class="app-container" id="main-app">
+
+  <header class="app-header">
+    <div class="brand-container">
+        <div class="brand">eatmi<span>.pl</span></div>
+        <div class="location-selector" onclick="openModal('modal-location')">
+            <i class="fas fa-map-marker-alt"></i>
+            <span id="header-loc-text">Dostawa: Słupsk</span>
+            <i class="fas fa-chevron-down" style="font-size:0.7rem; color:var(--text-sub); margin-left:2px;"></i>
+        </div>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" onclick="toggleTheme()"><i class="fas fa-moon"></i></button>
+      <button class="icon-btn" onclick="openModal('settings-modal')">
+        <i class="fas fa-user"></i>
+      </button>
+    </div>
+  </header>
+
+  <section id="view-home" class="view-section active">
+      
+    <div class="greeting">
+      <h2>Na co masz<br><span>dziś ochotę? 👋</span></h2>
+    </div>
+
+    <div class="cat-list">
+        <div class="cat-card-huge" onclick="openCategory('boxy-sniadaniowe', 'Boxy Śniadaniowe')">
+            <img src="https://i.imgur.com/qtZTWY1.jpeg" alt="Boxy">
+            <div class="overlay">
+                <div class="icon-box"><i class="fas fa-box-open"></i></div>
+                <h3>Boxy</h3>
+                <p>Małe, średnie i duże zestawy. Także VEGE.</p>
+            </div>
+        </div>
+
+        <div class="cat-card-huge" onclick="openCategory('lunche', 'Lunche')">
+            <img src="https://i.imgur.com/sn5VMfS.jpeg" alt="Lunche">
+            <div class="overlay">
+                <div class="icon-box"><i class="fas fa-utensils"></i></div>
+                <h3>Lunche</h3>
+                <p>Lunch tygodnia, miesiąca i vege (12:00–16:00).</p>
+            </div>
+        </div>
+        
+        <div class="cat-card-huge" onclick="openCategory('kanapki', 'Kanapki')">
+            <img src="https://i.imgur.com/PFoY1Oc.jpeg" alt="Kanapki">
+            <div class="overlay">
+                <div class="icon-box"><i class="fas fa-hamburger"></i></div>
+                <h3>Kanapki</h3>
+                <p>Kanapki i buritto na maślanym pieczywie.</p>
+            </div>
+        </div>
+
+        <div class="cat-card-huge" onclick="openCategory('zdrowe', 'Zdrowe')">
+            <img src="https://i.imgur.com/RmVJ6d6.jpeg" alt="Zdrowe">
+            <div class="overlay">
+                <div class="icon-box"><i class="fas fa-leaf"></i></div>
+                <h3>Zdrowe</h3>
+                <p>Granola i sałatki w wersjach fit.</p>
+            </div>
+        </div>
+
+        <div class="cat-card-huge" onclick="openCategory('slodkie', 'Słodkie')">
+            <img src="https://i.imgur.com/yKYFN0z.jpeg" alt="Słodkie">
+            <div class="overlay">
+                <div class="icon-box"><i class="fas fa-ice-cream"></i></div>
+                <h3>Słodkie</h3>
+                <p>Desery, pancakes, tost francuski i smoothie.</p>
+            </div>
+        </div>
+
+        <div class="cat-card-huge" onclick="openCategory('napoje', 'Napoje')">
+            <img src="https://i.imgur.com/QiPsFDo.jpeg" alt="Napoje">
+            <div class="overlay">
+                <div class="icon-box"><i class="fas fa-coffee"></i></div>
+                <h3>Napoje</h3>
+                <p>Kawy, herbaty, lemoniada i sok.</p>
+            </div>
+        </div>
+    </div>
+  </section>
+
+  <section id="view-category" class="view-section">
+      <div class="section-title">
+          <div style="display: flex; align-items: center; gap: 10px;">
+              <i class="fas fa-arrow-left" onclick="switchTab('home')" style="cursor: pointer; color: var(--text-main); background: var(--border); padding: 8px; border-radius: 8px;"></i>
+              <span id="cat-title">Nazwa Kategorii</span>
+          </div>
+      </div>
+      
+      <div class="menu-grid" id="menu-container">
+          </div>
+  </section>
+
+  <section id="view-orders" class="view-section">
+      <div class="section-title">Twoje Zamówienia</div>
+      <div style="text-align: center; padding: 40px 20px; color: var(--text-sub);">
+          <i class="fas fa-receipt" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i>
+          <p>Brak aktywnych zamówień.</p>
+          <button class="btn-main" style="margin-top: 20px;" onclick="switchTab('home')">Zamów coś pysznego</button>
+      </div>
+  </section>
+
+  <div class="modal-overlay" id="settings-modal" onclick="closeModal('settings-modal')">
+    <div class="modal-sheet full" onclick="event.stopPropagation()">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="font-size: 1.5rem; font-weight: 800;">Twoje Konto</h2>
+            <button class="icon-btn" onclick="closeModal('settings-modal')"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div style="text-align: center; padding: 10px 0 20px;">
+            <div style="width: 80px; height: 80px; background: var(--text-main); color: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 800; margin: 0 auto 10px;">E</div>
+            <h3 style="font-size: 1.2rem;">Gość</h3>
+            <p style="color: var(--text-sub); font-size: 0.9rem;">Zaloguj się, by zapisać adres</p>
+        </div>
+
+        <button class="btn-main" onclick="showToast('Ekran logowania...'); closeModal('settings-modal')">Zaloguj się</button>
+
+        <div class="settings-list" style="margin-top: 30px;">
+            <div class="settings-item" onclick="showToast('Otwieram FAQ...')">
+                <i class="fas fa-question-circle"></i>
+                <div class="label">Pomoc i FAQ</div>
+                <i class="fas fa-chevron-right chevron"></i>
+            </div>
+            <div class="settings-item" onclick="showToast('Otwieram Regulamin...')">
+                <i class="fas fa-file-alt"></i>
+                <div class="label">Regulamin i Polityka</div>
+                <i class="fas fa-chevron-right chevron"></i>
+            </div>
+        </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-location" onclick="closeModal('modal-location')">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <h3>Typ dostawy</h3>
+      <p style="color: var(--text-sub); margin-bottom: 15px;">Wybierz jak chcesz odebrać zamówienie:</p>
+      
+      <div class="settings-list">
+          <div class="settings-item" onclick="changeLocation('Dostawa: Słupsk')">
+              <i class="fas fa-truck"></i>
+              <div class="label">Dostawa kurierem</div>
+              <i class="fas fa-chevron-right chevron"></i>
+          </div>
+          <div class="settings-item" onclick="changeLocation('Odbiór: Lokal')">
+              <i class="fas fa-store"></i>
+              <div class="label">Odbiór osobisty w lokalu</div>
+              <i class="fas fa-chevron-right chevron"></i>
+          </div>
+      </div>
+      
+      <button class="btn-outline" style="border:none; margin-top:10px;" onclick="closeModal('modal-location')">Anuluj</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="cart-modal" onclick="closeModal('cart-modal')">
+    <div class="modal-sheet full" onclick="event.stopPropagation()">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h2 style="font-size: 1.5rem; font-weight: 800;">Twój Koszyk</h2>
+          <button class="icon-btn" onclick="closeModal('cart-modal')"><i class="fas fa-times"></i></button>
+      </div>
+
+      <div id="cart-content">
+          </div>
+    </div>
+  </div>
+
+
+  <nav class="bottom-nav">
+    <a href="#" class="nav-item active" onclick="switchTab('home', event)">
+      <i class="fas fa-home"></i> <span>Home</span>
+    </a>
+    <a href="#" class="nav-item" onclick="switchTab('orders', event)">
+      <i class="fas fa-receipt"></i> <span>Historia</span>
+    </a>
+      
+    <div class="fab-container" onclick="openCart()">
+      <div class="fab-btn">
+        <i class="fas fa-shopping-bag"></i>
+        <div class="fab-badge" id="fab-badge">0</div>
+      </div>
+    </div>
+
+    <a href="#" class="nav-item" onclick="showToast('Funkcja wkrótce', false)">
+      <i class="fas fa-heart"></i> <span>Ulubione</span>
+    </a>
+    <a href="#" class="nav-item" onclick="openModal('settings-modal')">
+      <i class="fas fa-user"></i> <span>Konto</span>
+    </a>
+  </nav>
+
+</div>
+
+<div id="toast" class="toast">
+  <i class="fas fa-check-circle"></i>
+  <span id="toast-msg">Sukces</span>
+</div>
+
+<script>
+  // --- PEŁNA BAZA DANYCH EATMI ---
+  const productsDB = {
+    'boxy-sniadaniowe': [
+      { id: 'bs1', name: 'Box śniadaniowy mały nr 1', price: 43.00, img: 'https://i.imgur.com/eom3rVn.jpeg', desc: 'Kanapka z jajecznicą i bekonem, domowa granola z jogurtem, sok pomarańczowy.' },
+      { id: 'bs2', name: 'Box śniadaniowy mały nr 2', price: 45.00, img: 'https://i.imgur.com/4O2NNaB.jpeg', desc: 'Buritto z jajecznicą i chorizo, sałatka koreańska, sok.' },
+      { id: 'bs3', name: 'Box śniadaniowy mały nr 3', price: 47.00, img: 'https://i.imgur.com/ErBUGrk.jpeg', desc: 'Kanapka z rostbefem, sałatka Cezar, sok pomarańczowy.' },
+      { id: 'bs4', name: 'Box śniadaniowy mały VEGE', price: 43.00, img: 'https://i.imgur.com/CLHRTL9.jpeg', desc: 'Jajecznica z awokado, carpaccio z buraka, sok pomarańczowy.' },
+      { id: 'bs5', name: 'Box śniadaniowy średni nr 1', price: 58.00, img: 'https://i.imgur.com/QTpLAsM.jpeg', desc: 'Większy zestaw dla głodnych. Dodatkowo tost francuski.' },
+      { id: 'bs6', name: 'Box śniadaniowy średni nr 2', price: 60.00, img: 'https://i.imgur.com/N1BOLT8.jpeg', desc: 'Buritto, sałatka koreańska, pancakes z Nutellą, sok.' },
+      { id: 'bs7', name: 'Box śniadaniowy średni nr 3', price: 62.00, img: 'https://i.imgur.com/nFAk3Mf.jpeg', desc: 'Kanapka z rostbefem, sałatka Cezar, deser czekoladowy, sok.' },
+      { id: 'bs8', name: 'Box śniadaniowy średni VEGE', price: 58.00, img: 'https://i.imgur.com/P3nuucU.jpeg', desc: 'Kanapka z awokado, carpaccio z buraka, smoothie Mango Lassi, sok.' },
+      { id: 'bs9', name: 'Box śniadaniowy duży nr 1', price: 87.00, img: 'https://i.imgur.com/fpAw7zH.jpeg', desc: 'Gigantyczny zestaw: kanapka, club sandwich, granola, sałatka, tost francuski, sok.' },
+      { id: 'bs10', name: 'Box śniadaniowy duży nr 2', price: 89.00, img: 'https://i.imgur.com/VINVw4c.jpeg', desc: 'Buritto, kanapka, sałatka, granola, pancakes, sok.' },
+      { id: 'bs11', name: 'Box śniadaniowy duży nr 3', price: 91.00, img: 'https://i.imgur.com/0fc2NHh.jpeg', desc: 'Rostbef, kanapka z jajecznicą, sałatka Cezar, granola, deser, sok.' },
+      { id: 'bs12', name: 'Box śniadaniowy duży VEGE', price: 87.00, img: 'https://i.imgur.com/Gtl4J4b.jpeg', desc: 'Wielka uczta wege. Kanapki, sałatka, granola, smoothie, sok.' }
+    ],
+    'lunche': [
+      { id: 'l1', name: 'Lunch tygodnia', price: 55.00, img: 'https://i.imgur.com/sn5VMfS.jpeg', desc: 'Zupa krem z buraka, medaliony wieprzowe w sosie, ziemniaczki, lemoniada.' },
+      { id: 'l2', name: 'Lunch miesiąca', price: 65.00, img: 'https://i.imgur.com/xGCYJZQ.jpeg', desc: 'Kurczak Supreme z puree i demi glace. Zupa i lemoniada w cenie.' },
+      { id: 'l3', name: 'Lunch VEGE', price: 55.00, img: 'https://i.imgur.com/0hvAvxJ.jpeg', desc: 'Tagliatelle z warzywami i pastą truflową, zupa krem.' }
+    ],
+    'kanapki': [
+      { id: 'k1', name: 'Pieczywo z jajecznicą i bekonem', price: 19.00, img: 'https://i.imgur.com/QZlDhsa.jpeg', desc: 'Maślane pieczywo, majonez sriracha.' },
+      { id: 'k2', name: 'Club sandwich z kurczakiem', price: 18.00, img: 'https://i.imgur.com/a0GP7lJ.jpeg', desc: 'Z grillowanym kurczakiem i bekonem.' },
+      { id: 'k3', name: 'Vege club sandwich', price: 19.00, img: 'https://i.imgur.com/a0GP7lJ.jpeg', desc: 'Z camembertem i awokado.' },
+      { id: 'k4', name: 'Pieczywo z jajecznicą i awokado', price: 18.00, img: 'https://i.imgur.com/nkLtUQG.jpeg', desc: 'Zdrowy wybór, z majonezem sriracha.' },
+      { id: 'k5', name: 'Buritto z chorizo', price: 20.00, img: 'https://i.imgur.com/Ixbu5bk.jpeg', desc: 'Jajecznica z mozzarellą, chorizo.' },
+      { id: 'k6', name: 'Pieczywo z rostbefem', price: 22.00, img: 'https://i.imgur.com/iF8vvVj.jpeg', desc: 'Jajko poche, rukola, oliwa truflowa.' }
+    ],
+    'zdrowe': [
+      { id: 'z1', name: 'Domowa granola', price: 20.00, img: 'https://i.imgur.com/qOZTV6Y.jpeg', desc: 'Z jogurtem greckim, owocami i miodem.' },
+      { id: 'z2', name: 'Sałatka Cezar', price: 20.00, img: 'https://i.imgur.com/ZBbo6rD.jpeg', desc: 'Z kurczakiem, bekonem, parmezanem i grzankami.' },
+      { id: 'z3', name: 'Sałatka koreańska', price: 20.00, img: 'https://i.imgur.com/1cE6tVB.jpeg', desc: 'Z kurczakiem w panko, warzywami, sezamem i słodkim sosem.' },
+      { id: 'z4', name: 'Sałatka z carpaccio z buraka', price: 20.00, img: 'https://i.imgur.com/VYRNIFt.jpeg', desc: 'Z serem kozim, karmelizowanymi orzechami pekan.' }
+    ],
+    'slodkie': [
+      { id: 's1', name: 'Smoothie Mango Lassi', price: 20.00, img: 'https://i.imgur.com/RHmXGlZ.jpeg', desc: 'Mango, jogurt grecki, miód.' },
+      { id: 's2', name: 'Tost francuski', price: 20.00, img: 'https://i.imgur.com/JwN4PMV.jpeg', desc: 'Z owocami i miodem.' },
+      { id: 's3', name: 'Pancakes z Nutellą', price: 20.00, img: 'https://i.imgur.com/yKYFN0z.jpeg', desc: 'Dwie sztuki, podawane z owocami.' },
+      { id: 's4', name: 'Deser czekoladowy', price: 20.00, img: 'https://i.imgur.com/mVjnusq.jpeg', desc: 'Z owocami i kruszonką.' }
+    ],
+    'napoje': [
+      { id: 'n1', name: 'Domowa lemoniada 250ml', price: 13.00, img: 'https://i.imgur.com/zKRceju.jpeg', desc: 'Orzeźwiająca, własnej roboty.' },
+      { id: 'n2', name: 'Sok pomarańczowy 250ml', price: 13.00, img: 'https://i.imgur.com/vOgARPy.jpeg', desc: 'Świeżo wyciskany.' },
+      { id: 'n3', name: 'Kawa filtrowana czarna', price: 11.00, img: 'https://i.imgur.com/AbtHMCT.jpeg', desc: '300 ml. Alternatywa dla tradycjonalistów.' },
+      { id: 'n4', name: 'Kawa filtrowana biała', price: 11.00, img: 'https://i.imgur.com/AbtHMCT.jpeg', desc: '300 ml. Z mlekiem.' },
+      { id: 'n5', name: 'Kawa czarna (podwójne espresso)', price: 12.00, img: 'https://i.imgur.com/AbtHMCT.jpeg', desc: '300 ml. Mocna i pobudzająca.' },
+      { id: 'n6', name: 'Flat White', price: 12.00, img: 'https://i.imgur.com/AbtHMCT.jpeg', desc: 'Na podwójnym espresso, 300 ml.' },
+      { id: 'n7', name: 'Latte', price: 13.00, img: 'https://i.imgur.com/AbtHMCT.jpeg', desc: 'Na podwójnym espresso, 300 ml.' },
+      { id: 'n8', name: 'Cappuccino', price: 13.00, img: 'https://i.imgur.com/AbtHMCT.jpeg', desc: 'Na podwójnym espresso, 300 ml.' },
+      { id: 'n9', name: 'Matcha', price: 19.00, img: 'https://i.imgur.com/AbtHMCT.jpeg', desc: 'Zdrowa energia, 300 ml.' },
+      { id: 'n10', name: 'Herbata czarna z cytryną', price: 10.00, img: 'https://i.imgur.com/AbtHMCT.jpeg', desc: 'Klasyczna, 300 ml.' },
+      { id: 'n11', name: 'Zimowa herbata', price: 16.00, img: 'https://i.imgur.com/AbtHMCT.jpeg', desc: 'Z miodem, cytrusami, goździkami i sokiem malinowym.' }
+    ]
+  };
+
+  let cart = [];
+
+  // --- INIT & LOADER ---
+  document.addEventListener('DOMContentLoaded', () => {
+    // Symulacja ładowania
+    setTimeout(() => {
+        const splash = document.getElementById('splash-screen');
+        const main = document.getElementById('main-app');
+          
+        splash.style.opacity = '0';
+        splash.style.visibility = 'hidden';
+        main.style.opacity = '1';
+        document.body.style.overflow = 'auto'; 
+    }, 2500);
+  });
+
+  // --- NAWIGACJA ---
+  function switchTab(tabId, event) {
+    if(event) event.preventDefault();
+      
+    document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+    document.getElementById('view-' + tabId).classList.add('active');
+      
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      
+    const navs = document.querySelectorAll('.nav-item');
+    if(tabId === 'home') navs[0].classList.add('active');
+    if(tabId === 'orders') navs[1].classList.add('active');
+      
+    window.scrollTo(0,0);
+  }
+
+  function openCategory(catId, catName) {
+      document.getElementById('cat-title').innerText = catName;
+      const container = document.getElementById('menu-container');
+      const items = productsDB[catId] || [];
+      
+      let html = '';
+      items.forEach(p => {
+          // Używamy JSON.stringify by przekazać obiekt jako parametr w HTML
+          const prodJson = JSON.stringify(p).replace(/"/g, '&quot;');
+          html += `
+            <div class="menu-card" onclick="addToCartDirect(${prodJson})">
+              <div class="menu-img-box">
+                <img src="${p.img}" alt="${p.name}">
+              </div>
+              <div class="menu-content">
+                <div class="menu-title">${p.name}</div>
+                <div class="menu-bottom">
+                    <div class="menu-price">${p.price.toFixed(2)} zł</div>
+                    <button class="add-btn"><i class="fas fa-plus"></i></button>
+                </div>
+              </div>
+            </div>
+          `;
+      });
+      container.innerHTML = html;
+      
+      switchTab('category');
+  }
+
+  // --- KOSZYK ---
+  function addToCartDirect(product) {
+      cart.push(product);
+      updateCartBadge();
+      showToast('Dodano do koszyka! 🛒');
+      // Krótka wibracja jeśli tel wspiera
+      try { if (navigator.vibrate) navigator.vibrate(50); } catch {}
+  }
+
+  function updateCartBadge() {
+      const badge = document.getElementById('fab-badge');
+      if (cart.length > 0) {
+          badge.innerText = cart.length;
+          badge.style.display = 'flex';
+      } else {
+          badge.style.display = 'none';
+      }
+  }
+
+  function openCart() {
+      const content = document.getElementById('cart-content');
+      
+      if(cart.length === 0) {
+          content.innerHTML = `
+            <div style="text-align: center; padding: 40px 0; color: var(--text-sub);">
+                <i class="fas fa-shopping-basket" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.3;"></i>
+                <p>Koszyk jest pusty.</p>
+                <button class="btn-main" style="margin-top:20px;" onclick="closeModal('cart-modal')">Wróć do menu</button>
+            </div>
+          `;
+      } else {
+          let html = '<div style="max-height: 50vh; overflow-y: auto; margin-bottom: 20px;">';
+          let sum = 0;
+          cart.forEach((item, index) => {
+              sum += item.price;
+              html += `
+                <div style="display: flex; gap: 15px; margin-bottom: 15px; background: var(--bg-body); padding: 10px; border-radius: 12px;">
+                    <img src="${item.img}" style="width: 60px; height: 60px; border-radius: 10px; object-fit: cover;">
+                    <div style="flex:1;">
+                        <div style="font-weight: 700; font-size: 0.9rem;">${item.name}</div>
+                        <div style="color: var(--primary-dark); font-weight: 800; margin-top: 5px;">${item.price.toFixed(2)} zł</div>
+                    </div>
+                    <button onclick="removeFromCart(${index})" style="background: none; border: none; color: #ef4444; font-size: 1.2rem; cursor: pointer; padding: 0 10px;">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+              `;
+          });
+          html += '</div>';
+          
+          html += `
+            <div style="border-top: 2px solid var(--border); padding-top: 15px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; font-size: 1.2rem; font-weight: 800;">
+                    <span>Razem:</span>
+                    <span>${sum.toFixed(2)} zł</span>
+                </div>
+            </div>
+            <button class="btn-main" onclick="showToast('Przejście do płatności...'); closeModal('cart-modal')">Zamów i Zapłać</button>
+          `;
+          content.innerHTML = html;
+      }
+      
+      openModal('cart-modal');
+  }
+
+  function removeFromCart(index) {
+      cart.splice(index, 1);
+      updateCartBadge();
+      openCart(); // Odśwież widok modala
+  }
+
+  // --- MODALE & UTILS ---
+  function openModal(id) {
+    document.getElementById(id).classList.add('open');
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+  }
+
+  function changeLocation(loc) {
+      document.getElementById('header-loc-text').innerText = loc;
+      closeModal('modal-location');
+      showToast('Zmieniono sposób odbioru');
+  }
+
+  function toggleTheme() {
+    document.body.classList.toggle('dark-mode');
+  }
+
+  function showToast(msg, success = true) {
+    const t = document.getElementById('toast');
+    document.getElementById('toast-msg').innerText = msg;
+    t.classList.add('visible');
+    setTimeout(() => t.classList.remove('visible'), 2500);
+  }
+
+</script>
+</body>
+</html>
