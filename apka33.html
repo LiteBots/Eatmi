@@ -38,17 +38,6 @@
       --safe-top: env(safe-area-inset-top, 20px);
     }
 
-    body.dark-mode {
-      --bg-body: #0F0F0F;
-      --bg-surface: #1C1C1E;
-      --text-main: #FFFFFF;
-      --text-sub: #9CA3AF;
-      --border: #2D2D30;
-      --glass-bg: rgba(28, 28, 30, 0.85);
-      --glass-border: rgba(255, 255, 255, 0.1);
-      --primary-glow: rgba(255, 193, 7, 0.2);
-    }
-
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
       
     body {
@@ -62,7 +51,7 @@
       padding-top: var(--safe-top);
     }
 
-    /* --- LOADER / SPLASH SCREEN --- */
+    /* --- ZAAWANSOWANY LOADING SCREEN (Uiverse.io + eatmi) --- */
     #splash-screen {
       position: fixed;
       inset: 0;
@@ -74,47 +63,147 @@
       z-index: 9999;
       transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.8s;
     }
-      
-    .loader-content {
-      text-align: center;
-      animation: splashPop 0.6s ease-out;
+
+    .loader-wrapper {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
     }
 
-    .loader-logo-img {
-      width: 100px;
-      height: 100px;
+    .loader {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+
+    .ring {
+      position: absolute;
+      width: 140px; /* Zmniejszone ze 190px dla lepszego fita na tel */
+      height: 140px;
+      border: 2px solid transparent;
+      border-radius: 50%;
+      --color: var(--primary);
+      border-bottom: 6px solid var(--color);
+      animation: rotate1 1.5s ease-in-out infinite;
+      box-shadow: 0 0 10px rgba(255, 193, 7, 0.2);
+    }
+
+    @keyframes rotate1 {
+      from { transform: rotateX(50deg) rotateZ(110deg); }
+      to { transform: rotateX(50deg) rotateZ(470deg); }
+    }
+
+    .ring:nth-child(2) {
+      --color: #ffffff;
+      animation-name: rotate2;
+    }
+
+    @keyframes rotate2 {
+      from { transform: rotateX(20deg) rotateY(50deg) rotateZ(20deg); }
+      to { transform: rotateX(20deg) rotateY(50deg) rotateZ(380deg); }
+    }
+
+    .ring:nth-child(3) {
+      --color: var(--primary-dark);
+      animation-name: rotate3;
+    }
+
+    @keyframes rotate3 {
+      from { transform: rotateX(40deg) rotateY(130deg) rotateZ(450deg); }
+      to { transform: rotateX(40deg) rotateY(130deg) rotateZ(90deg); }
+    }
+
+    .ring:nth-child(4) {
+      --color: var(--primary);
+      animation-name: rotate4;
+      width: 280px; /* Zmniejszone z 380px dla mobile */
+      height: 280px;
+      border: 2px solid transparent;
+      border-bottom: 12px solid var(--color);
+    }
+
+    @keyframes rotate4 {
+      from { transform: rotateX(50deg) rotateZ(470deg); }
+      to { transform: rotateX(50deg) rotateZ(110deg); }
+    }
+
+    .ring:nth-child(5) {
+      --color: #ffffff;
+      animation-name: rotate5;
+      width: 280px;
+      height: 280px;
+      border: 2px solid transparent;
+      border-bottom: 12px solid var(--color);
+    }
+
+    @keyframes rotate5 {
+      from { transform: rotateX(20deg) rotateY(50deg) rotateZ(380deg); }
+      to { transform: rotateX(20deg) rotateY(50deg) rotateZ(20deg); }
+    }
+
+    .ring:nth-child(6) {
+      --color: var(--primary-dark);
+      animation-name: rotate6;
+      width: 280px;
+      height: 280px;
+      border: 2px solid transparent;
+      border-bottom: 12px solid var(--color);
+    }
+
+    @keyframes rotate6 {
+      from { transform: rotateX(40deg) rotateY(130deg) rotateZ(90deg); }
+      to { transform: rotateX(40deg) rotateY(130deg) rotateZ(450deg); }
+    }
+
+    /* Pulsujące logo w środku struktury atomu */
+    .logo-nucleus {
+      width: 80px;
+      height: 80px;
       background: white;
-      border-radius: 24px;
+      border-radius: 22px;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto 20px;
-      box-shadow: 0 0 40px rgba(255, 193, 7, 0.4);
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 20px rgba(255, 193, 7, 0.4), 0 0 40px rgba(255, 193, 7, 0.2);
+      animation: logoPulse 2s ease-in-out infinite;
+      z-index: 10;
     }
-    .loader-logo-img img {
-      width: 70px;
-      height: 70px;
+    
+    .logo-nucleus img {
+      width: 55px;
+      height: 55px;
       object-fit: contain;
     }
 
-    .loader-logo {
+    @keyframes logoPulse {
+      0%, 100% {
+        box-shadow: 0 0 20px rgba(255, 193, 7, 0.4), 0 0 40px rgba(255, 193, 7, 0.2);
+        transform: translate(-50%, -50%) scale(1);
+      }
+      50% {
+        box-shadow: 0 0 30px rgba(255, 193, 7, 0.8), 0 0 60px rgba(255, 193, 7, 0.5);
+        transform: translate(-50%, -50%) scale(1.15);
+      }
+    }
+
+    .loader-logo-text {
+      position: absolute;
+      bottom: -150px;
       font-size: 2.5rem;
       font-weight: 800;
       color: white;
-      margin-bottom: 20px;
       letter-spacing: -1px;
+      animation: splashPop 0.6s ease-out;
     }
-    .loader-logo span { color: var(--primary); }
-
-    .loader-spinner {
-      width: 40px;
-      height: 40px;
-      border: 3px solid rgba(255, 255, 255, 0.1);
-      border-top: 3px solid var(--primary);
-      border-radius: 50%;
-      margin: 0 auto;
-      animation: spin 1s linear infinite;
-    }
+    .loader-logo-text span { color: var(--primary); }
 
     /* --- LAYOUT --- */
     .app-container {
@@ -123,38 +212,10 @@
       box-shadow: 0 0 40px rgba(0,0,0,0.05);
       opacity: 0; 
       transition: opacity 0.5s ease;
-      overflow-y: auto; /* Zezwalamy na scroll kontenera */
+      overflow-y: auto; 
       height: 100vh;
     }
 
-    /* --- HEADER --- */
-    .app-header {
-      padding: 15px 24px;
-      display: flex; justify-content: space-between; align-items: flex-start;
-      position: sticky; 
-      top: 0; 
-      z-index: 90;
-      background: var(--bg-body);
-      transition: background 0.3s;
-      margin-top: 10px;
-    }
-    .brand-container {
-      display: flex; flex-direction: column;
-    }
-    .brand { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }
-    .brand span { color: var(--primary); }
-    
-    .location-selector {
-        display: flex; align-items: center; gap: 6px;
-        font-size: 0.8rem; color: var(--text-sub); margin-top: 5px;
-        background: var(--bg-surface); padding: 4px 10px; border-radius: 20px;
-        border: 1px solid var(--border); width: fit-content; cursor: pointer;
-        transition: 0.2s;
-    }
-    .location-selector:active { transform: scale(0.95); background: var(--border); }
-    .location-selector i { color: var(--primary); }
-
-    .header-actions { display: flex; gap: 10px; align-items: center; height: 40px;}
     .icon-btn {
       width: 40px; height: 40px; border-radius: 50%;
       background: var(--bg-surface); border: 1px solid var(--border);
@@ -163,17 +224,10 @@
       position: relative; transition: 0.2s;
     }
     .icon-btn:active { transform: scale(0.9); }
-    .badge {
-      position: absolute; top: -2px; right: -2px;
-      background: var(--text-main); color: white;
-      font-size: 0.65rem; padding: 2px 5px; border-radius: 10px;
-      border: 2px solid var(--bg-surface);
-      animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
 
     /* --- HOME / HERO --- */
     .greeting {
-      padding: 10px 24px 20px;
+      padding: 30px 24px 20px; 
     }
     .greeting h2 { font-size: 1.8rem; line-height: 1.2; }
     .greeting span { color: var(--text-sub); font-size: 1.1rem; font-weight: 500; }
@@ -183,7 +237,7 @@
     .cat-card-huge {
       position: relative;
       width: 100%;
-      height: 30vh; /* Nieco mniejsze, żeby więcej zmieściło się na ekranie */
+      height: 30vh; 
       min-height: 180px;
       border-radius: var(--radius-l);
       overflow: hidden;
@@ -211,7 +265,7 @@
     }
 
     /* --- MENU GRID --- */
-    .section-title { font-size: 1.2rem; font-weight: 800; margin: 24px 0 16px; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; }
+    .section-title { font-size: 1.2rem; font-weight: 800; margin: 30px 0 16px; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; }
     .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 24px 120px 24px; }
     .menu-card {
       background: var(--bg-surface); border-radius: var(--radius-m);
@@ -249,16 +303,16 @@
       backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
       border-top: 1px solid var(--glass-border);
       display: flex; justify-content: space-around; align-items: center;
-      padding: 0 10px calc(10px + env(safe-area-inset-bottom, 0px)) 10px; z-index: 1000;
+      padding: 0 5px calc(10px + env(safe-area-inset-bottom, 0px)) 5px; z-index: 1000;
       border-radius: 24px 24px 0 0;
     }
-    .nav-item { display: flex; flex-direction: column; align-items: center; gap: 5px; color: var(--text-sub); text-decoration: none; font-size: 0.65rem; font-weight: 600; width: 60px; transition: color 0.2s; }
+    .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; color: var(--text-sub); text-decoration: none; font-size: 0.65rem; font-weight: 600; flex: 1; transition: color 0.2s; }
     .nav-item.active { color: var(--text-main); }
     .nav-item i { font-size: 1.4rem; transition: transform 0.2s; }
     .nav-item.active i { transform: translateY(-3px); color: var(--primary); }
 
     /* Floating Cart Button (FAB) */
-    .fab-container { position: relative; top: -25px; width: var(--fab-size); height: var(--fab-size); flex-shrink: 0; margin: 0 10px; }
+    .fab-container { position: relative; top: -25px; width: var(--fab-size); height: var(--fab-size); flex-shrink: 0; margin: 0 5px; }
     .fab-btn {
       width: 100%; height: 100%; background: var(--primary); border-radius: 50%;
       display: flex; align-items: center; justify-content: center; color: var(--text-main); font-size: 1.6rem;
@@ -297,7 +351,6 @@
     /* Animations & Keyframes */
     @keyframes popIn { from{transform:scale(0);} to{transform:scale(1);} }
     @keyframes fadeIn { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
-    @keyframes spin { from{transform: rotate(0deg);} to{transform: rotate(360deg);} }
     @keyframes splashPop { 
         0% { opacity: 0; transform: scale(0.8); }
         100% { opacity: 1; transform: scale(1); }
@@ -321,33 +374,23 @@
 <body>
 
 <div id="splash-screen">
-  <div class="loader-content">
-    <div class="loader-logo-img">
-        <img src="https://i.imgur.com/f9TN0Gh.png" alt="eatmi logo">
+  <div class="loader-wrapper">
+    <div class="loader">
+        <div class="ring"></div>
+        <div class="ring"></div>
+        <div class="ring"></div>
+        <div class="ring"></div>
+        <div class="ring"></div>
+        <div class="ring"></div>
+        <div class="logo-nucleus">
+            <img src="https://i.imgur.com/f9TN0Gh.png" alt="eatmi logo">
+        </div>
     </div>
-    <div class="loader-logo">eatmi<span>.pl</span></div>
-    <div class="loader-spinner"></div>
+    <div class="loader-logo-text">eatmi<span>.pl</span></div>
   </div>
 </div>
 
 <div class="app-container" id="main-app">
-
-  <header class="app-header">
-    <div class="brand-container">
-        <div class="brand">eatmi<span>.pl</span></div>
-        <div class="location-selector" onclick="openModal('modal-location')">
-            <i class="fas fa-map-marker-alt"></i>
-            <span id="header-loc-text">Dostawa: Słupsk</span>
-            <i class="fas fa-chevron-down" style="font-size:0.7rem; color:var(--text-sub); margin-left:2px;"></i>
-        </div>
-    </div>
-    <div class="header-actions">
-      <button class="icon-btn" onclick="toggleTheme()"><i class="fas fa-moon"></i></button>
-      <button class="icon-btn" onclick="openModal('settings-modal')">
-        <i class="fas fa-user"></i>
-      </button>
-    </div>
-  </header>
 
   <section id="view-home" class="view-section active">
       
@@ -433,6 +476,14 @@
       </div>
   </section>
 
+  <section id="view-schedule" class="view-section">
+      <div class="section-title">Harmonogram</div>
+      <div style="text-align: center; padding: 40px 20px; color: var(--text-sub);">
+          <i class="fas fa-calendar-check" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i>
+          <p>Twój harmonogram i plan dostaw pojawi się w tym miejscu.</p>
+      </div>
+  </section>
+
   <div class="modal-overlay" id="settings-modal" onclick="closeModal('settings-modal')">
     <div class="modal-sheet full" onclick="event.stopPropagation()">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -463,28 +514,6 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="modal-location" onclick="closeModal('modal-location')">
-    <div class="modal-sheet" onclick="event.stopPropagation()">
-      <h3>Typ dostawy</h3>
-      <p style="color: var(--text-sub); margin-bottom: 15px;">Wybierz jak chcesz odebrać zamówienie:</p>
-      
-      <div class="settings-list">
-          <div class="settings-item" onclick="changeLocation('Dostawa: Słupsk')">
-              <i class="fas fa-truck"></i>
-              <div class="label">Dostawa kurierem</div>
-              <i class="fas fa-chevron-right chevron"></i>
-          </div>
-          <div class="settings-item" onclick="changeLocation('Odbiór: Lokal')">
-              <i class="fas fa-store"></i>
-              <div class="label">Odbiór osobisty w lokalu</div>
-              <i class="fas fa-chevron-right chevron"></i>
-          </div>
-      </div>
-      
-      <button class="btn-outline" style="border:none; margin-top:10px;" onclick="closeModal('modal-location')">Anuluj</button>
-    </div>
-  </div>
-
   <div class="modal-overlay" id="cart-modal" onclick="closeModal('cart-modal')">
     <div class="modal-sheet full" onclick="event.stopPropagation()">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -496,7 +525,6 @@
           </div>
     </div>
   </div>
-
 
   <nav class="bottom-nav">
     <a href="#" class="nav-item active" onclick="switchTab('home', event)">
@@ -513,8 +541,8 @@
       </div>
     </div>
 
-    <a href="#" class="nav-item" onclick="showToast('Funkcja wkrótce', false)">
-      <i class="fas fa-heart"></i> <span>Ulubione</span>
+    <a href="#" class="nav-item" onclick="switchTab('schedule', event)">
+      <i class="fas fa-calendar-check"></i> <span>Harmonogram</span>
     </a>
     <a href="#" class="nav-item" onclick="openModal('settings-modal')">
       <i class="fas fa-user"></i> <span>Konto</span>
@@ -597,22 +625,24 @@
         splash.style.opacity = '0';
         splash.style.visibility = 'hidden';
         main.style.opacity = '1';
-        document.body.style.overflow = 'auto'; 
-    }, 2500);
+    }, 3500); // 3.5s by nacieszyć się animacją :)
   });
 
   // --- NAWIGACJA ---
   function switchTab(tabId, event) {
     if(event) event.preventDefault();
       
+    // Ukryj wszystkie sekcje
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
     document.getElementById('view-' + tabId).classList.add('active');
       
+    // Odznacz wszystkie przyciski dolnego menu
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
       
     const navs = document.querySelectorAll('.nav-item');
     if(tabId === 'home') navs[0].classList.add('active');
     if(tabId === 'orders') navs[1].classList.add('active');
+    if(tabId === 'schedule') navs[2].classList.add('active');
       
     window.scrollTo(0,0);
   }
@@ -624,7 +654,6 @@
       
       let html = '';
       items.forEach(p => {
-          // Używamy JSON.stringify by przekazać obiekt jako parametr w HTML
           const prodJson = JSON.stringify(p).replace(/"/g, '&quot;');
           html += `
             <div class="menu-card" onclick="addToCartDirect(${prodJson})">
@@ -651,7 +680,6 @@
       cart.push(product);
       updateCartBadge();
       showToast('Dodano do koszyka! 🛒');
-      // Krótka wibracja jeśli tel wspiera
       try { if (navigator.vibrate) navigator.vibrate(50); } catch {}
   }
 
@@ -714,7 +742,7 @@
   function removeFromCart(index) {
       cart.splice(index, 1);
       updateCartBadge();
-      openCart(); // Odśwież widok modala
+      openCart(); 
   }
 
   // --- MODALE & UTILS ---
@@ -726,17 +754,7 @@
     document.getElementById(id).classList.remove('open');
   }
 
-  function changeLocation(loc) {
-      document.getElementById('header-loc-text').innerText = loc;
-      closeModal('modal-location');
-      showToast('Zmieniono sposób odbioru');
-  }
-
-  function toggleTheme() {
-    document.body.classList.toggle('dark-mode');
-  }
-
-  function showToast(msg, success = true) {
+  function showToast(msg) {
     const t = document.getElementById('toast');
     document.getElementById('toast-msg').innerText = msg;
     t.classList.add('visible');
