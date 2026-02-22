@@ -199,116 +199,50 @@
       { id: 'napoje', name: 'Napoje', icon: 'cup-soda', description: 'Kawy, herbaty, lemoniada i sok.', image: 'https://i.imgur.com/QiPsFDo.jpeg' },
     ];
 
-    const BREAKFAST_BOXES = [
-      { id:'bs-small-1', name:'Box śniadaniowy mały nr 1', price: 43, image:'https://i.imgur.com/eom3rVn.jpeg', subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Sok pomarańczowy 250 ml' },
-      { id:'bs-small-2', name:'Box śniadaniowy mały nr 2', price: 45, image:'https://i.imgur.com/4O2NNaB.jpeg', subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Sok pomarańczowy 250 ml' },
-      { id:'bs-small-3', name:'Box śniadaniowy mały nr 3', price: 47, image:'https://i.imgur.com/ErBUGrk.jpeg', subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Sok pomarańczowy 250 ml' },
-      { id:'bs-small-vege', name:'Box śniadaniowy mały VEGE', price: 43, image:'https://i.imgur.com/CLHRTL9.jpeg', subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Sok pomarańczowy 250 ml' },
-
-      { id:'bs-med-1', name:'Box śniadaniowy średni nr 1', price: 58, image:'https://i.imgur.com/QTpLAsM.jpeg', subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml' },
-      { id:'bs-med-2', name:'Box śniadaniowy średni nr 2', price: 60, image:'https://i.imgur.com/N1BOLT8.jpeg', subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywa i sezamem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml' },
-      { id:'bs-med-3', name:'Box śniadaniowy średni nr 3', price: 62, image:'https://i.imgur.com/nFAk3Mf.jpeg', subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml' },
-      { id:'bs-med-vege', name:'Box śniadaniowy średni VEGE', price: 58, image:'https://i.imgur.com/P3nuucU.jpeg', subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
-
-      { id:'bs-big-1', name:'Box śniadaniowy duży nr 1', price: 87, image:'https://i.imgur.com/fpAw7zH.jpeg', subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Club sandwich z kurczakiem i bekonem, majonez, sałata, pomidor • Domowa granola z jogurtem greckim, owocami i miodem • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Tost francuski z owocami i miodem • Sok pomarańczowy 250 ml' },
-      { id:'bs-big-2', name:'Box śniadaniowy duży nr 2', price: 89, image:'https://i.imgur.com/VINVw4c.jpeg', subtitle:'Buritto z jajecznicą i chorizo • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka koreańska z kurczakiem w panko, warzywa i sezamem • Domowa granola z jogurtem greckim, owocami i miodem • Pancakes (2 szt.) z Nutellą i owocami • Sok pomarańczowy 250 ml' },
-      { id:'bs-big-3', name:'Box śniadaniowy duży nr 3', price: 91, image:'https://i.imgur.com/0fc2NHh.jpeg', subtitle:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Domowa granola z jogurtem greckim, owocami i miodem • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml' },
-      { id:'bs-big-vege', name:'Box śniadaniowy duży VEGE', price: 87, image:'https://i.imgur.com/Gtl4J4b.jpeg', subtitle:'Kanapka z jajecznicą i awokado, majonez sriracha • Vege club sandwich z camembert i awokado, majonez, sałata, pomidor • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Domowa granola z jogurtem greckim, owocami i miodem • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
-    ];
-
-    const DEFAULT_LUNCHES = [
-      { id:'lunch-week', name:'Lunch tygodnia', price: 55, image:'https://i.imgur.com/sn5VMfS.jpeg', subtitle:'Dostępny 12:00–16:00 • Zupa krem z buraka z serem kozim • Medaliony z polędwiczki wieprzowej, sos kurkowy, pieczone ziemniaki, colesław • Domowa lemoniada 300 ml' },
-      { id:'lunch-month', name:'Lunch miesiąca', price: 65, image:'https://i.imgur.com/xGCYJZQ.jpeg', subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Kurczak Supreme: pieczona pierś z kurczaka z ziemniaczanym puree, warzywami i sosem demi glace • Domowa lemoniada 250 ml' },
-      { id:'lunch-vege', name:'Lunch VEGE', price: 55, image:'https://i.imgur.com/0hvAvxJ.jpeg', subtitle:'Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Tagliatelle z warzywami, oliwą z oliwek i pastą truflową • Domowa lemoniada 250 ml' },
-    ];
-
-    const SANDWICHES = [
-      { id:'k-jajecznica-bekon', name:'Maślane pieczywo z jajecznicą, bekonem i majonezem sriracha', price: 19, image:'https://i.imgur.com/QZlDhsa.jpeg' },
-      { id:'k-club-kurczak', name:'Club sandwich z grillowanym kurczakiem, chrupiący bekon, majonez, sałata i pomidor', price: 18, image:'https://i.imgur.com/a0GP7lJ.jpeg' },
-      { id:'k-club-vege', name:'Vege club sandwich z camembert, palonym awokado, majonez, sałata i pomidorem', price: 19, image:'https://i.imgur.com/a0GP7lJ.jpeg' },
-      { id:'k-jajecznica-avo', name:'Maślane pieczywo z jajecznicą, awokado i majonezem sriracha', price: 18, image:'https://i.imgur.com/nkLtUQG.jpeg' },
-      { id:'k-buritto-chorizo', name:'Buritto z jajecznicą z mozzarellą, chorizo i majonezem sriracha', price: 20, image:'https://i.imgur.com/Ixbu5bk.jpeg' },
-      { id:'k-rostbef', name:'Maślane pieczywo z rostbefem, jajkiem poche, rukolą, sosem musztardowo-chrzanowym i oliwą truflową', price: 22, image:'https://i.imgur.com/iF8vvVj.jpeg' },
-    ];
-
-    const HEALTHY = [
-      { id:'z-granola', name:'Domowa granola z jogurtem greckim, owoce i miód', price: 20, image:'https://i.imgur.com/qOZTV6Y.jpeg' },
-      { id:'z-cezar', name:'Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską, parmezanem i grzankami', price: 20, image:'https://i.imgur.com/ZBbo6rD.jpeg' },
-      { id:'z-koreanska', name:'Sałatka koreańska z kurczakiem w panko, warzywa i sezam, słodki sos sojowy', price: 20, image:'https://i.imgur.com/1cE6tVB.jpeg' },
-      { id:'z-burak', name:'Sałatka z carpaccio z buraka i serem kozim, karmelizowane orzechy pekan, mix sałat i pomarańczowy dressing', price: 20, image:'https://i.imgur.com/VYRNIFt.jpeg' },
-    ];
-
-    const SWEETS = [
-      { id:'s-smoothie', name:'Smoothie Mango Lassi (mango, jogurt grecki, miód)', price: 20, image:'https://i.imgur.com/RHmXGlZ.jpeg' },
-      { id:'s-tost-fr', name:'Tost francuski z owocami i miodem', price: 20, image:'https://i.imgur.com/JwN4PMV.jpeg' },
-      { id:'s-pancakes', name:'Pancakes (2 szt.) z Nutellą i owocami', price: 20, image:'https://i.imgur.com/yKYFN0z.jpeg' },
-      { id:'s-deser-czeko', name:'Deser czekoladowy z owocami i kruszonką', price: 20, image:'https://i.imgur.com/mVjnusq.jpeg' },
-    ];
-
-    const DRINKS = [
-      { id:'n-lemoniada', name:'Domowa lemoniada 250 ml', price: 13, image:'https://i.imgur.com/zKRceju.jpeg' },
-      { id:'n-sok-pom', name:'Sok pomarańczowy 250 ml', price: 13, image:'https://i.imgur.com/vOgARPy.jpeg' },
-      { id:'n-kawa-filt-cz', name:'Kawa filtrowana czarna 300 ml', price: 11, image:'https://i.imgur.com/AbtHMCT.jpeg' },
-      { id:'n-kawa-filt-b', name:'Kawa filtrowana biała 300 ml', price: 11, image:'https://i.imgur.com/AbtHMCT.jpeg' },
-      { id:'n-espresso-double', name:'Kawa czarna (podwójne espresso) 300 ml', price: 12, image:'https://i.imgur.com/AbtHMCT.jpeg' },
-      { id:'n-flat-white', name:'Kawa Flat White (podwójne espresso) 300 ml', price: 12, image:'https://i.imgur.com/AbtHMCT.jpeg' },
-      { id:'n-latte', name:'Latte (podwójne espresso) 300 ml', price: 13, image:'https://i.imgur.com/AbtHMCT.jpeg' },
-      { id:'n-cappu', name:'Cappuccino (podwójne espresso) 300 ml', price: 13, image:'https://i.imgur.com/AbtHMCT.jpeg' },
-      { id:'n-matcha', name:'Matcha 300 ml', price: 19, image:'https://i.imgur.com/AbtHMCT.jpeg' },
-      { id:'n-herbata-cz', name:'Herbata czarna z cytryną 300 ml', price: 10, image:'https://i.imgur.com/AbtHMCT.jpeg' },
-      { id:'n-zimowa', name:'Zimowa herbata z miodem, cytrusami, goździkami i sokiem malinowym 300 ml', price: 16, image:'https://i.imgur.com/AbtHMCT.jpeg' },
-    ];
-
     const EXTRA_ITEMS = [
       { id:'extra-granola', name:'Domowa granola', price: 20, image:'https://i.imgur.com/qOZTV6Y.jpeg' },
       { id:'extra-lemoniada', name:'Domowa lemoniada', price: 13, image:'https://i.imgur.com/zKRceju.jpeg' },
       { id:'extra-deser', name:'Deser czekoladowy', price: 20, image:'https://i.imgur.com/mVjnusq.jpeg' },
     ];
 
-    const STATIC_PRODUCTS = {
-      'boxy-sniadaniowe': BREAKFAST_BOXES,
-      'kanapki': SANDWICHES,
-      'zdrowe': HEALTHY,
-      'slodkie': SWEETS,
-      'napoje': DRINKS,
-    };
-
     const MenuContext = createContext();
     const useMenu = () => useContext(MenuContext);
 
     const MenuProvider = ({ children }) => {
-      const [lunches, setLunches] = useState(DEFAULT_LUNCHES);
+      const [productsMap, setProductsMap] = useState({});
 
       useEffect(() => {
-        const fetchLunches = async () => {
+        const fetchAllProducts = async () => {
           try {
-            const res = await fetch('/api/products/lunche'); 
+            const res = await fetch('/api/products'); 
             if (res.ok) {
               const data = await res.json();
-              if (data.lunche && Array.isArray(data.lunche) && data.lunche.length > 0) {
-                const mapped = data.lunche.map(item => ({
-                  id: item.id,
-                  name: item.name,
-                  price: item.price / 100, 
-                  image: item.image,
-                  subtitle: item.description 
-                }));
+              if (data.products && Array.isArray(data.products)) {
                 
-                setLunches(mapped);
+                // Grupowanie pobranych produktów po category
+                const grouped = {};
+                data.products.forEach(item => {
+                  if (!grouped[item.category]) grouped[item.category] = [];
+                  
+                  grouped[item.category].push({
+                    id: item.id,
+                    name: item.name,
+                    price: item.price / 100, // Zmiana z groszy na PLN dla frontendu
+                    image: item.image,
+                    subtitle: item.description 
+                  });
+                });
+                
+                setProductsMap(grouped);
               }
             }
           } catch (e) {
-            console.warn("Nie udało się pobrać lunchów z bazy, używam domyślnych.", e);
+            console.warn("Nie udało się pobrać menu z bazy danych.", e);
           }
         };
 
-        fetchLunches();
+        fetchAllProducts();
       }, []);
-
-      const productsMap = useMemo(() => ({
-        ...STATIC_PRODUCTS,
-        'lunche': lunches
-      }), [lunches]);
 
       return (
         <MenuContext.Provider value={productsMap}>
@@ -2317,7 +2251,7 @@
                     <div className="flex justify-between">
                         <span>Dostawa</span>
                         <span className="font-semibold text-gray-900">
-                             {fulfillmentMethod === 'pickup' ? currency(0) : currency(deliveryCost)}
+                              {fulfillmentMethod === 'pickup' ? currency(0) : currency(deliveryCost)}
                         </span>
                     </div>
                 </div>
@@ -3076,7 +3010,7 @@
                       MARCIN CHOJNACKI MILKSHAKE BAR
                     </li>
                   </ul>
-       
+        
                   <div className="mt-4">
                     <div className="font-semibold text-gray-700">
                       Adres prowadzenia działalności:
@@ -3086,11 +3020,11 @@
                       woj. POMORSKIE, Polska
                     </div>
                   </div>
-           
+            
                   <div className="mt-6 font-semibold text-gray-700">
                     © {new Date().getFullYear()} eatmi.pl • Wszystkie prawa zastrzeżone
                   </div>
-           
+            
                   <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-sm">
                     <a
                       href="/rule.html"
