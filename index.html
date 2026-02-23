@@ -199,9 +199,6 @@
       { id: 'napoje', name: 'Napoje', icon: 'cup-soda', description: 'Kawy, herbaty, lemoniada i sok.', image: 'https://i.imgur.com/QiPsFDo.jpeg' },
     ];
 
-    // ==========================================
-    // DOMYŚLNE MENU (PRZED POBRANIEM Z MONGODB)
-    // ==========================================
     const BREAKFAST_BOXES = [
       { id:'bs-small-1', name:'Box śniadaniowy mały nr 1', price: 43, image:'https://i.imgur.com/eom3rVn.jpeg', subtitle:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Sok pomarańczowy 250 ml' },
       { id:'bs-small-2', name:'Box śniadaniowy mały nr 2', price: 45, image:'https://i.imgur.com/4O2NNaB.jpeg', subtitle:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Sok pomarańczowy 250 ml' },
@@ -281,47 +278,53 @@
     const useMenu = () => useContext(MenuContext);
 
     const MenuProvider = ({ children }) => {
-      // Inicjalizujemy od razu statycznym pełnym menu z pliku (szybkie ładowanie)
+      // Inicjalizujemy statycznym menu, zaraz zostanie nadpisane z bazy danych
       const [productsMap, setProductsMap] = useState(STATIC_PRODUCTS);
 
-      useEffect(() => {
-        const fetchAllProducts = async () => {
-          try {
-            // Dodajemy cache: 'no-store' oraz nagłówki Cache-Control aby pominąć pamięć podręczną
-            const res = await fetch('/api/products', { 
-                cache: 'no-store',
-                headers: {
-                    'Cache-Control': 'no-cache',
-                    'Pragma': 'no-cache'
-                }
-            }); 
-            if (res.ok) {
-              const data = await res.json();
-              if (data.products && Array.isArray(data.products) && data.products.length > 0) {
-                
-                // Nadpisujemy domyślne produkty tymi z MongoDB
-                const grouped = {};
-                data.products.forEach(item => {
-                  if (!grouped[item.category]) grouped[item.category] = [];
-                  
-                  grouped[item.category].push({
-                    id: item.id,
-                    name: item.name,
-                    price: item.price / 100, // Zmiana z groszy na PLN dla frontendu
-                    image: item.image,
-                    subtitle: item.description 
-                  });
-                });
-                
-                setProductsMap({ ...STATIC_PRODUCTS, ...grouped });
+      const fetchAllProducts = async () => {
+        try {
+          // Opcja atomowa: unikalny znacznik czasu '?_t=...' wymusza pominięcie cache'u z Service Workera
+          const res = await fetch(`/api/products?_t=${Date.now()}`, { 
+              cache: 'no-store',
+              headers: {
+                  'Cache-Control': 'no-cache, no-store, must-revalidate',
+                  'Pragma': 'no-cache',
+                  'Expires': '0'
               }
+          }); 
+          if (res.ok) {
+            const data = await res.json();
+            if (data.products && Array.isArray(data.products) && data.products.length > 0) {
+              const grouped = {};
+              data.products.forEach(item => {
+                if (!grouped[item.category]) grouped[item.category] = [];
+                
+                grouped[item.category].push({
+                  id: item.id,
+                  name: item.name,
+                  price: item.price / 100, // Ze groszy na PLN
+                  image: item.image,
+                  subtitle: item.description 
+                });
+              });
+              
+              // Nadpisujemy domyślne produkty najświeższymi danymi z MongoDB
+              setProductsMap({ ...STATIC_PRODUCTS, ...grouped });
             }
-          } catch (e) {
-            console.warn("Nie udało się pobrać menu z bazy danych, używam domyślnego.", e);
           }
-        };
+        } catch (e) {
+          console.warn("Nie udało się pobrać menu z bazy danych, używam domyślnego.", e);
+        }
+      };
 
+      useEffect(() => {
+        // Ładujemy dane przy starcie strony
         fetchAllProducts();
+
+        // Podpinamy nasłuchiwanie - jeśli klient wróci do karty przeglądarki (np. z innej apki), 
+        // menu odświeży się "w tle"
+        window.addEventListener('focus', fetchAllProducts);
+        return () => window.removeEventListener('focus', fetchAllProducts);
       }, []);
 
       return (
@@ -508,7 +511,7 @@
 
         const checkStatus = async () => {
           try {
-            const res = await fetch(`/api/orders/${activeOrder.extOrderId}`);
+            const res = await fetch(`/api/orders/${activeOrder.extOrderId}?_t=${Date.now()}`); // cache buster
             if (!res.ok) return;
               
             const data = await res.json();
