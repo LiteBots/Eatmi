@@ -705,12 +705,11 @@ const NAME_LIST = {
 async function seedProducts() {
   try {
     const count = await Product.countDocuments();
-    if (count > 0) return; // Jeśli są produkty w bazie, nie nadpisujemy ich
+    if (count > 0) return; 
 
     console.log("🌱 Inicjalizacja pełnego menu w bazie danych...");
 
     const ALL_PRODUCTS = [
-      // Boxy
       { id:'bs-small-1', category: 'boxy-sniadaniowe', name:'Box śniadaniowy mały nr 1', price: 4300, image:'https://i.imgur.com/eom3rVn.jpeg', description:'Kanapka z jajecznicą i bekonem, majonez sriracha • Domowa granola z jogurtem greckim, owocami i miodem • Sok pomarańczowy 250 ml' },
       { id:'bs-small-2', category: 'boxy-sniadaniowe', name:'Box śniadaniowy mały nr 2', price: 4500, image:'https://i.imgur.com/4O2NNaB.jpeg', description:'Buritto z jajecznicą i chorizo • Sałatka koreańska z kurczakiem w panko, warzywami i sezamem • Sok pomarańczowy 250 ml' },
       { id:'bs-small-3', category: 'boxy-sniadaniowe', name:'Box śniadaniowy mały nr 3', price: 4700, image:'https://i.imgur.com/ErBUGrk.jpeg', description:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Sok pomarańczowy 250 ml' },
@@ -724,12 +723,10 @@ async function seedProducts() {
       { id:'bs-big-3', category: 'boxy-sniadaniowe', name:'Box śniadaniowy duży nr 3', price: 9100, image:'https://i.imgur.com/0fc2NHh.jpeg', description:'Kanapka z rostbefem, jajkiem poche, sosem musztardowo-chrzanowym i oliwą truflową • Kanapka z jajecznicą i bekonem, majonez sriracha • Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską i grzankami • Domowa granola z jogurtem greckim, owocami i miodem • Deser czekoladowy z owocami i kruszonką • Sok pomarańczowy 250 ml' },
       { id:'bs-big-vege', category: 'boxy-sniadaniowe', name:'Box śniadaniowy duży VEGE', price: 8700, image:'https://i.imgur.com/Gtl4J4b.jpeg', description:'Kanapka z jajecznicą i awokado, majonez sriracha • Vege club sandwich z camembert i awokado, majonez, sałata, pomidor • Sałatka z carpaccio z buraka z kozim serem i orzechami pekan, mix sałat, pomarańczowy dressing z oliwą • Domowa granola z jogurtem greckim, owocami i miodem • Smoothie Mango Lassi z miodem • Sok pomarańczowy 250 ml' },
       
-      // Lunche
       { id: "lunch-week", category: "lunche", name: "Lunch tygodnia", price: 5500, description: "Dostępny 12:00–16:00 • Krem z buraka 200ml, z serkiem kozim • Medaliony z polędwiczki wieprzowej, sos kurkowy, pieczone ziemniaki, colesław • Domowa lemoniada 300 ml", image: "https://i.imgur.com/sn5VMfS.jpeg" },
       { id: "lunch-month", category: "lunche", name: "Lunch miesiąca", price: 6500, description: "Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Kurczak Supreme: pieczona pierś z kurczaka z ziemniaczanym puree, warzywami i sosem demi glace • Domowa lemoniada 250 ml", image: "https://i.imgur.com/xGCYJZQ.jpeg" },
       { id: "lunch-vege", category: "lunche", name: "Lunch VEGE", price: 5500, description: "Dostępny 12:00–16:00 • Zupa krem z pieczonych buraków 200 ml • Tagliatelle z warzywami, oliwą z oliwek i pastą truflową • Domowa lemoniada 250 ml", image: "https://i.imgur.com/0hvAvxJ.jpeg" },
       
-      // Kanapki
       { id:'k-jajecznica-bekon', category: 'kanapki', name:'Maślane pieczywo z jajecznicą, bekonem', price: 1900, description: 'Maślane pieczywo z jajecznicą, bekonem i majonezem sriracha', image:'https://i.imgur.com/QZlDhsa.jpeg' },
       { id:'k-club-kurczak', category: 'kanapki', name:'Club sandwich z grillowanym kurczakiem', price: 1800, description: 'Club sandwich z grillowanym kurczakiem, chrupiący bekon, majonez, sałata i pomidor', image:'https://i.imgur.com/a0GP7lJ.jpeg' },
       { id:'k-club-vege', category: 'kanapki', name:'Vege club sandwich', price: 1900, description: 'Vege club sandwich z camembert, palonym awokado, majonez, sałata i pomidorem', image:'https://i.imgur.com/a0GP7lJ.jpeg' },
@@ -737,19 +734,16 @@ async function seedProducts() {
       { id:'k-buritto-chorizo', category: 'kanapki', name:'Buritto z jajecznicą i chorizo', price: 2000, description: 'Buritto z jajecznicą z mozzarellą, chorizo i majonezem sriracha', image:'https://i.imgur.com/Ixbu5bk.jpeg' },
       { id:'k-rostbef', category: 'kanapki', name:'Maślane pieczywo z rostbefem', price: 2200, description: 'Maślane pieczywo z rostbefem, jajkiem poche, rukolą, sosem musztardowo-chrzanowym i oliwą truflową', image:'https://i.imgur.com/iF8vvVj.jpeg' },
       
-      // Zdrowe
       { id:'z-granola', category: 'zdrowe', name:'Domowa granola', price: 2000, description: 'Domowa granola z jogurtem greckim, owoce i miód', image:'https://i.imgur.com/qOZTV6Y.jpeg' },
       { id:'z-cezar', category: 'zdrowe', name:'Sałatka Cezar', price: 2000, description: 'Sałatka Cezar z kurczakiem, bekonem, sałatą rzymską, parmezanem i grzankami', image:'https://i.imgur.com/ZBbo6rD.jpeg' },
       { id:'z-koreanska', category: 'zdrowe', name:'Sałatka koreańska', price: 2000, description: 'Sałatka koreańska z kurczakiem w panko, warzywa i sezam, słodki sos sojowy', image:'https://i.imgur.com/1cE6tVB.jpeg' },
       { id:'z-burak', category: 'zdrowe', name:'Sałatka z carpaccio z buraka', price: 2000, description: 'Sałatka z carpaccio z buraka i serem kozim, karmelizowane orzechy pekan, mix sałat i pomarańczowy dressing', image:'https://i.imgur.com/VYRNIFt.jpeg' },
       
-      // Słodkie
       { id:'s-smoothie', category: 'slodkie', name:'Smoothie Mango Lassi', price: 2000, description: 'Smoothie Mango Lassi (mango, jogurt grecki, miód)', image:'https://i.imgur.com/RHmXGlZ.jpeg' },
       { id:'s-tost-fr', category: 'slodkie', name:'Tost francuski z owocami i miodem', price: 2000, description: 'Tost francuski z owocami i miodem', image:'https://i.imgur.com/JwN4PMV.jpeg' },
       { id:'s-pancakes', category: 'slodkie', name:'Pancakes (2 szt.) z Nutellą', price: 2000, description: 'Pancakes (2 szt.) z Nutellą i owocami', image:'https://i.imgur.com/yKYFN0z.jpeg' },
       { id:'s-deser-czeko', category: 'slodkie', name:'Deser czekoladowy', price: 2000, description: 'Deser czekoladowy z owocami i kruszonką', image:'https://i.imgur.com/mVjnusq.jpeg' },
       
-      // Napoje
       { id:'n-lemoniada', category: 'napoje', name:'Domowa lemoniada 250 ml', price: 1300, description: 'Domowa lemoniada 250 ml', image:'https://i.imgur.com/zKRceju.jpeg' },
       { id:'n-sok-pom', category: 'napoje', name:'Sok pomarańczowy 250 ml', price: 1300, description: 'Sok pomarańczowy 250 ml', image:'https://i.imgur.com/vOgARPy.jpeg' },
       { id:'n-kawa-filt-cz', category: 'napoje', name:'Kawa filtrowana czarna 300 ml', price: 1100, description: 'Kawa filtrowana czarna 300 ml', image:'https://i.imgur.com/AbtHMCT.jpeg' },
@@ -1511,7 +1505,10 @@ app.get("/api/products", async (req, res) => {
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
     
-    const products = await Product.find({ isVisible: true }).lean();
+    // FIX: Pobieraj też te produkty, u których isVisible w ogóle NIE istnieje w starych bazach
+    const products = await Product.find({ 
+      $or: [{ isVisible: true }, { isVisible: { $exists: false } }] 
+    }).lean();
     res.json({ products });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -1535,10 +1532,19 @@ app.get("/api/admin/products", requireStaff, async (req, res) => {
 app.patch("/api/admin/products/:id", requireStaff, async (req, res) => {
   try {
     const { name, price, description, image } = req.body;
-    await Product.findOneAndUpdate(
-      { id: req.params.id }, 
-      { $set: { name, price, description, image } }
+    const pid = req.params.id;
+    
+    // Upewniamy się, że szukamy po polu 'id' (String) lub '_id' (Mongo ObjectId)
+    const doc = await Product.findOneAndUpdate(
+      { $or: [{ id: pid }, { _id: mongoose.isValidObjectId(pid) ? pid : null }] }, 
+      { $set: { name, price, description, image } },
+      { new: true }
     );
+    
+    if (!doc) {
+      return res.status(404).json({ error: "Nie znaleziono produktu w bazie." });
+    }
+    
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
