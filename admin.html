@@ -659,7 +659,7 @@
               <div className="min-w-0">
                 <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold">Panel</div>
                 <div className="text-xl md:text-2xl font-extrabold leading-tight truncate">{title}</div>
-                {subtitle && <div className="hidden sm:block text-xs text-gray-600 mt-0.5">{subtitle}</div>}
+                <div className="hidden sm:block text-xs text-gray-600 mt-0.5">{subtitle}</div>
               </div>
               <div className="flex items-center gap-2">
                   <button onClick={onTestAlert} className="hidden md:block bg-red-500 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-red-600 transition">TEST ALARM</button>
@@ -1639,7 +1639,14 @@
       const load = async () => {
         setLoading(true);
         try {
-          const r = await fetch("/api/admin/products", { headers: { ...authHeader(token) } });
+          const r = await fetch("/api/admin/products", { 
+            headers: { 
+              ...authHeader(token),
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
+            },
+            cache: 'no-store'
+          });
           const d = await safeJson(r);
           if (r.ok && d.products) setProducts(d.products);
         } catch (e) {
