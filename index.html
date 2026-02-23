@@ -297,10 +297,17 @@
             if (data.products && Array.isArray(data.products) && data.products.length > 0) {
               const grouped = {};
               data.products.forEach(item => {
-                if (!grouped[item.category]) grouped[item.category] = [];
+                // --- DODANY KOD: Normalizacja nazwy kategorii ---
+                let cat = item.category;
+                if (cat === 'lunch') {
+                  cat = 'lunche'; 
+                }
+                // ------------------------------------------------
+
+                if (!grouped[cat]) grouped[cat] = [];
                 
-                grouped[item.category].push({
-                  id: item.id,
+                grouped[cat].push({
+                  id: item.id || item._id, // Zabezpieczenie dodane fallback na _id
                   name: item.name,
                   price: item.price / 100, // Ze groszy na PLN
                   image: item.image,
@@ -1703,7 +1710,7 @@
       { id: 'slot-2', label: '10:00 – 11:00', cutoff: 10 * 60 },     
       { id: 'slot-3', label: '11:30 – 12:30', cutoff: 11 * 60 + 30 },
       { id: 'slot-4', label: '13:00 – 14:00', cutoff: 13 * 60 },     
-      { id: 'slot-5', label: '15:00 – 16:00', cutoff: 15 * 60 }       
+      { id: 'slot-5', label: '15:00 – 16:00', cutoff: 15 * 60 }        
     ];
 
     const Zamowienie = () => {
