@@ -1639,7 +1639,7 @@
       const load = async () => {
         setLoading(true);
         try {
-          const r = await fetch("/api/admin/products", { 
+          const r = await fetch(`/api/admin/products?_t=${Date.now()}`, { 
             headers: { 
               ...authHeader(token),
               'Cache-Control': 'no-cache',
@@ -1663,7 +1663,7 @@
         try {
           const priceGrosze = Math.round(parseFloat(editing.pricePLN.replace(",", ".")) * 100);
           
-          const r = await fetch(`/api/admin/products/${editing.id}`, {
+          const r = await fetch(`/api/admin/products/${editing.id || editing._id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json", ...authHeader(token) },
             body: JSON.stringify({
