@@ -361,13 +361,25 @@ const ProductSchema = new mongoose.Schema(
     price: { type: Number, required: true },
     description: { type: String, default: "" },
     image: { type: String, default: "" },
-    category: { type: String, default: "lunch" },
+    category: { type: String, default: "lunche" }, // <--- ZMIANA z "lunch" na "lunche"
     isVisible: { type: Boolean, default: true }
   },
   { timestamps: true, collection: "products" }
 );
 
 const Product = mongoose.models.Product || mongoose.model("Product", ProductSchema);
+
+// --- MIGRACJA STARYCH DANYCH ---
+try {
+  await Product.updateMany(
+    { category: "lunch" },
+    { $set: { category: "lunche" } }
+  );
+  console.log("✅ Pomyślnie zaktualizowano stare kategorie 'lunch' na 'lunche'");
+} catch (e) {
+  console.error("❌ Błąd migracji kategorii:", e);
+}
+// -------------------------------
 
 const PushSubSchema = new mongoose.Schema({
   endpoint: { type: String, required: true, unique: true },
