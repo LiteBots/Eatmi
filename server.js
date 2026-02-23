@@ -1500,8 +1500,17 @@ app.delete("/api/admin/staff/:id", requireAdminOnly, async (req, res) => {
   }
 });
 
+// ==========================================
+// ZMIENIONE ENDPOINTY DLA PRODUKTÓW (WYŁĄCZONY CACHE)
+// ==========================================
+
 app.get("/api/products", async (req, res) => {
   try {
+    // Twarde wyłączenie buforowania (cache)
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    
     const products = await Product.find({ isVisible: true }).lean();
     res.json({ products });
   } catch (e) {
@@ -1511,6 +1520,11 @@ app.get("/api/products", async (req, res) => {
 
 app.get("/api/admin/products", requireStaff, async (req, res) => {
   try {
+    // Twarde wyłączenie buforowania (cache)
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    
     const products = await Product.find().lean();
     res.json({ products });
   } catch (e) {
@@ -1530,6 +1544,8 @@ app.patch("/api/admin/products/:id", requireStaff, async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// ==========================================
 
 const MGMT_SECRET_EFFECTIVE = MGMT_TOKEN_SECRET || ADMIN_TOKEN_SECRET;
 
