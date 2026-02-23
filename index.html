@@ -287,7 +287,14 @@
       useEffect(() => {
         const fetchAllProducts = async () => {
           try {
-            const res = await fetch('/api/products'); 
+            // Dodajemy cache: 'no-store' oraz nagłówki Cache-Control aby pominąć pamięć podręczną
+            const res = await fetch('/api/products', { 
+                cache: 'no-store',
+                headers: {
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                }
+            }); 
             if (res.ok) {
               const data = await res.json();
               if (data.products && Array.isArray(data.products) && data.products.length > 0) {
@@ -1689,11 +1696,11 @@
     };
 
     const TIME_SLOTS_DEF = [
-      { id: 'slot-1', label: '08:30 – 09:30', cutoff: 8 * 60 },      
-      { id: 'slot-2', label: '10:00 – 11:00', cutoff: 10 * 60 },      
+      { id: 'slot-1', label: '08:30 – 09:30', cutoff: 8 * 60 },     
+      { id: 'slot-2', label: '10:00 – 11:00', cutoff: 10 * 60 },     
       { id: 'slot-3', label: '11:30 – 12:30', cutoff: 11 * 60 + 30 },
-      { id: 'slot-4', label: '13:00 – 14:00', cutoff: 13 * 60 },      
-      { id: 'slot-5', label: '15:00 – 16:00', cutoff: 15 * 60 }        
+      { id: 'slot-4', label: '13:00 – 14:00', cutoff: 13 * 60 },     
+      { id: 'slot-5', label: '15:00 – 16:00', cutoff: 15 * 60 }       
     ];
 
     const Zamowienie = () => {
