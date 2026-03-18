@@ -726,7 +726,8 @@
                   return false;
               }
               
-              const discVal = Math.round(cartValue * (data.discountPercent / 100));
+              // POPRAWKA: Usunięcie Math.round, aby rabat poprawnie uwzględniał grosze
+              const discVal = cartValue * (data.discountPercent / 100);
               setDiscount(discVal);
               setPromoCode(data.code);
               show(`Kod ${data.code} aktywny! -${data.discountPercent}%`);
