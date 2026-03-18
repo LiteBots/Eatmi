@@ -968,7 +968,7 @@ app.post("/api/order/offline", async (req, res) => {
     const productsValueAfterDiscount = Math.max(0, productsValue - discountAmount);
     
     const isPickup = customer.fulfillmentMethod === 'pickup';
-    const deliveryCost = isPickup ? 0 : calcDeliveryCost(productsValueAfterDiscount);
+    const deliveryCost = isPickup ? 0 : calcDeliveryCost(productsValue); // ZMIENIONE: Liczymy od productsValue
     
     const totalAmount = productsValueAfterDiscount + deliveryCost;
 
@@ -1078,7 +1078,7 @@ app.post("/api/payu/order", async (req, res) => {
     
     const customerRaw = req.body?.customer || {};
     const isPickup = customerRaw.fulfillmentMethod === 'pickup';
-    const deliveryCost = isPickup ? 0 : calcDeliveryCost(valueAfterDiscount);
+    const deliveryCost = isPickup ? 0 : calcDeliveryCost(productsValue); // ZMIENIONE: Liczymy od productsValue
     
     const totalAmount = valueAfterDiscount + deliveryCost;
 
