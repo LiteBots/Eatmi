@@ -1511,12 +1511,37 @@
           setNewOrder(prev => ({ ...prev, items: prev.items.filter(x => x.id !== id) }));
       };
 
+      // --- POPRAWIONE: Wyliczanie kosztu dostawy w nowym zamówieniu ---
+      const productsValPLN = newOrder.items.reduce((sum, it) => sum + (it.price * it.qty), 0) / 100;
+      let deliveryPLN = 0;
+      if (newOrder.fulfillmentMethod === 'delivery') {
+          if (productsValPLN < 50) deliveryPLN = 10;
+          else if (productsValPLN < 80) deliveryPLN = 5;
+      }
+      const totalOrderPLN = productsValPLN + deliveryPLN;
+
       const submitOrder = async () => {
           if(!newOrder.name || !newOrder.phone) return toast.show("error", "Błąd", "Podaj imię i telefon.");
           if(newOrder.items.length === 0) return toast.show("error", "Błąd", "Dodaj produkty.");
 
           try {
-              const totalVal = newOrder.items.reduce((sum, i) => sum + (i.price * i.qty), 0);
+              const productsValGr = newOrder.items.reduce((sum, i) => sum + (i.price * i.qty), 0);
+              const totalValGr = productsValGr + (deliveryPLN * 100);
+
+              const payloadItems = newOrder.items.map(i => ({
+                  name: i.name,
+                  quantity: i.qty,
+                  price: i.price
+              }));
+
+              // Dodaj dostawę jako pozycję do koszyka w Payloadzie, by ułatwić zarządzanie na backendzie
+              if (deliveryPLN > 0) {
+                  payloadItems.push({
+                      name: "Dostawa",
+                      quantity: 1,
+                      price: deliveryPLN * 100
+                  });
+              }
 
               const payload = {
                   customer: {
@@ -1527,14 +1552,10 @@
                       uwagi: newOrder.note,
                       fulfillmentMethod: newOrder.fulfillmentMethod
                   },
-                  items: newOrder.items.map(i => ({
-                      name: i.name,
-                      quantity: i.qty,
-                      price: i.price
-                  })),
+                  items: payloadItems,
                   paymentMethod: newOrder.paymentMethod,
-                  totalAmount: totalVal, 
-                  totalPLN: totalVal / 100, 
+                  totalAmount: totalValGr, 
+                  totalPLN: totalValGr / 100, 
                   status: "Nowe" 
               };
 
@@ -1556,8 +1577,6 @@
               toast.show("error", "Błąd", e.message || "Nie udało się dodać zamówienia.");
           }
       };
-
-      const totalOrderPLN = newOrder.items.reduce((sum, it) => sum + (it.price * it.qty), 0) / 100;
 
       const rows = useMemo(() => {
         const q = query.trim().toLowerCase();
@@ -1704,7 +1723,7 @@
                  <div className="bg-white border border-gray-200 rounded-3xl p-5 shadow-sm">
                     <div className="text-[10px] uppercase tracking-[0.18em] text-gray-500 font-extrabold mb-4">Koszyk</div>
                     
-                    {/* --- DODANE: Szybki wybór z menu --- */}
+                    {/* --- Szybki wybór z menu --- */}
                     <div className="mb-5 border border-gray-100 bg-gray-50/50 rounded-2xl p-3 max-h-[35vh] overflow-y-auto drawer-scroll">
                         <div className="text-xs font-black text-gray-800 mb-3 flex items-center gap-2">
                            <Icon name="utensils" className="text-brand-yellow" /> Kliknij pozycję, aby dodać:
@@ -1758,9 +1777,21 @@
                         ))}
                     </div>
                     
-                    <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
-                        <span className="text-xs font-bold uppercase text-gray-500">Razem</span>
-                        <span className="text-xl font-black text-gray-900">{currency(totalOrderPLN)}</span>
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                        <div className="flex justify-between items-center text-sm text-gray-600 mb-1">
+                            <span>Wartość produktów</span>
+                            <span className="font-bold">{currency(productsValPLN)}</span>
+                        </div>
+                        {newOrder.fulfillmentMethod === 'delivery' && (
+                            <div className="flex justify-between items-center text-sm text-gray-600 mb-2">
+                                <span>Dostawa</span>
+                                <span className="font-bold">{currency(deliveryPLN)}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between items-center text-lg mt-2 border-t border-gray-100 pt-2">
+                            <span className="font-bold uppercase text-gray-900">Razem</span>
+                            <span className="font-black text-gray-900">{currency(totalOrderPLN)}</span>
+                        </div>
                     </div>
                  </div>
 
