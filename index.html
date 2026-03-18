@@ -745,11 +745,11 @@
       const valueAfterDiscount = Math.max(0, cartValue - discount);
         
       const deliveryCost = useMemo(() => {
-        if (valueAfterDiscount === 0 && cart.length === 0) return 0;
-        if (valueAfterDiscount < 50) return 10;
-        if (valueAfterDiscount < 80) return 5;
+        if (cartValue === 0 && cart.length === 0) return 0;
+        if (cartValue < 50) return 10;
+        if (cartValue < 80) return 5;
         return 0;
-      }, [valueAfterDiscount, cart.length]);
+      }, [cartValue, cart.length]);
 
       const total  = useMemo(() => valueAfterDiscount + deliveryCost, [valueAfterDiscount, deliveryCost]);
       const count  = useMemo(() => cart.reduce((s,i)=> s + (i.qty||1), 0), [cart]);
@@ -2219,7 +2219,7 @@
                                     <input value={form.lokal} onChange={e=>handle('lokal', e.target.value)}
                                       className="input-focus w-full border border-gray-200 rounded-xl px-4 py-3 bg-white min-h-[44px]"/>
                                   </div>
-                              </>
+                              </
                           )}
 
                           <div className="md:col-span-2">
