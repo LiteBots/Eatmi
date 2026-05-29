@@ -179,6 +179,9 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo, createContext, useContext, useRef } = React;
 
+    // FLAGA BLOKUJĄCA ZAMÓWIENIA
+    const IS_ORDERING_BLOCKED = true; // Zmień na false, aby odblokować przyjmowanie zamówień
+
     function urlBase64ToUint8Array(base64String) {
       const padding = '='.repeat((4 - base64String.length % 4) % 4);
       const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
@@ -278,12 +281,10 @@
     const useMenu = () => useContext(MenuContext);
 
     const MenuProvider = ({ children }) => {
-      // Inicjalizujemy statycznym menu, zaraz zostanie nadpisane z bazy danych
       const [productsMap, setProductsMap] = useState(STATIC_PRODUCTS);
 
       const fetchAllProducts = async () => {
         try {
-          // Opcja atomowa: unikalny znacznik czasu '?_t=...' wymusza pominięcie cache'u z Service Workera
           const res = await fetch(`/api/products?_t=${Date.now()}`, { 
               cache: 'no-store',
               headers: {
@@ -297,25 +298,22 @@
             if (data.products && Array.isArray(data.products) && data.products.length > 0) {
               const grouped = {};
               data.products.forEach(item => {
-                // --- DODANY KOD: Normalizacja nazwy kategorii ---
                 let cat = item.category;
                 if (cat === 'lunch') {
                   cat = 'lunche'; 
                 }
-                // ------------------------------------------------
 
                 if (!grouped[cat]) grouped[cat] = [];
                 
                 grouped[cat].push({
-                  id: item.id || item._id, // Zabezpieczenie dodane fallback na _id
+                  id: item.id || item._id,
                   name: item.name,
-                  price: item.price / 100, // Ze groszy na PLN
+                  price: item.price / 100,
                   image: item.image,
                   subtitle: item.description 
                 });
               });
               
-              // Nadpisujemy domyślne produkty najświeższymi danymi z MongoDB
               setProductsMap({ ...STATIC_PRODUCTS, ...grouped });
             }
           }
@@ -325,11 +323,7 @@
       };
 
       useEffect(() => {
-        // Ładujemy dane przy starcie strony
         fetchAllProducts();
-
-        // Podpinamy nasłuchiwanie - jeśli klient wróci do karty przeglądarki (np. z innej apki), 
-        // menu odświeży się "w tle"
         window.addEventListener('focus', fetchAllProducts);
         return () => window.removeEventListener('focus', fetchAllProducts);
       }, []);
@@ -726,7 +720,6 @@
                   return false;
               }
               
-              // POPRAWKA: Usunięcie Math.round, aby rabat poprawnie uwzględniał grosze
               const discVal = cartValue * (data.discountPercent / 100);
               setDiscount(discVal);
               setPromoCode(data.code);
@@ -1552,10 +1545,14 @@
                     <div className="mt-4 grid gap-2">
                       <button
                         onClick={goToCheckout}
-                        className="w-full btn-yellow font-extrabold rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/40 min-h-[44px]"
-
+                        disabled={IS_ORDERING_BLOCKED}
+                        className={`w-full font-extrabold rounded-xl px-4 py-3 min-h-[44px] transition ${
+                          IS_ORDERING_BLOCKED 
+                            ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+                            : 'btn-yellow hover:ring-2 hover:ring-brand-yellow/40'
+                        }`}
                       >
-                        Przejdź do zamówienia
+                        {IS_ORDERING_BLOCKED ? 'Zamówienia chwilowo wstrzymane' : 'Przejdź do zamówienia'}
                       </button>
                       <button onClick={clear} className="w-full bg-gray-100 text-gray-700 rounded-xl px-4 py-3 hover:ring-2 hover:ring-brand-yellow/20 min-h-[44px]">
                         Wyczyść koszyk
@@ -1711,7 +1708,7 @@
       { id: 'slot-2', label: '10:00 – 11:00', cutoff: 10 * 60 },     
       { id: 'slot-3', label: '11:30 – 12:30', cutoff: 11 * 60 + 30 },
       { id: 'slot-4', label: '13:00 – 14:00', cutoff: 13 * 60 },     
-      { id: 'slot-5', label: '15:00 – 16:00', cutoff: 15 * 60 }        
+      { id: 'slot-5', label: '15:00 – 16:00', cutoff: 15 * 60 }      
     ];
 
     const Zamowienie = () => {
@@ -1720,6 +1717,28 @@
       const { saveOrder } = useActiveOrder();
       const toast = useToast();
       const showToast = toast?.show;
+
+      if (IS_ORDERING_BLOCKED) {
+        return (
+          <section className="py-10 md:py-20">
+            <div className="max-w-2xl mx-auto px-4 text-center">
+              <div className="bg-white border border-gray-200 rounded-3xl p-8 shadow-soft">
+                <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <i data-lucide="store" className="w-8 h-8"></i>
+                </div>
+                <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Chwilowa przerwa</h2>
+                <p className="text-gray-600 mb-6">
+                  Przepraszamy, ale w tej chwili nie przyjmujemy nowych zamówień. Robimy krótką przerwę, prosimy spróbować ponownie później.
+                </p>
+                <a href="#/" className="btn-yellow inline-flex items-center justify-center gap-2 font-extrabold px-6 py-3 rounded-xl shadow-soft hover:scale-[1.02] transition">
+                  <i data-lucide="arrow-left" className="w-5 h-5"></i>
+                  Wróć do menu
+                </a>
+              </div>
+            </div>
+          </section>
+        );
+      }
 
       const [now, setNow] = useState(new Date());
       useEffect(() => {
@@ -2657,7 +2676,14 @@
 
       return (
         <>
-          {isWeekend && (
+          {IS_ORDERING_BLOCKED && (
+            <div className="bg-red-600 text-white text-center py-3 px-4 text-sm font-bold shadow-md relative z-10 flex items-center justify-center gap-2">
+              <i data-lucide="info" className="w-5 h-5"></i>
+              Przepraszamy, obecnie nie przyjmujemy zamówień. Spróbuj ponownie później.
+            </div>
+          )}
+
+          {isWeekend && !IS_ORDERING_BLOCKED && (
             <div className="bg-red-600 text-white text-center py-2 px-4 text-sm font-bold shadow-md relative z-10">
               Zamówienia realizujemy od poniedziałku do piątku
             </div>
